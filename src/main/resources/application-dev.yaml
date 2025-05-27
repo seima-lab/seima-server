@@ -1,13 +1,32 @@
+# This file is used to configure the application in development mode.
+
 app:
   name: seima-server-dev
   port: 8081
+  contact-name: Jason Nguyen
+  contact-mail: syhaoc2dh@gmail.com
+  contact-url: https://syhaoc2dh.com
 
+# Server configuration
 server:
   port: ${app.port}
 
+#Spring configuration
 spring:
   application:
     name: ${app.name}
+
+# Swagger configuration
+swagger:
+  contact-name: ${app.contact-name}
+  contact-mail: ${app.contact-mail}
+  contact-url: ${app.contact-url}
+  app-name: ${app.name}
+  app-description: "Documentation for the Spring Boot Project"
+  app-version: 3.4.0
+  app-license-url: https://www.apache.org/licenses/LICENSE-2.0.html
+  app-license: Apache 2.0
+
 
 
 
