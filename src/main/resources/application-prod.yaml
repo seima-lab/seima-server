@@ -1,0 +1,10 @@
+app:
+  name: seima-server-prod
+  port: 8082
+
+server:
+  port: ${app.port}
+
+spring:
+  application:
+    name: ${app.name}

@@ -1,0 +1,14 @@
+app:
+  name: seima-server-dev
+  port: 8081
+
+server:
+  port: ${app.port}
+
+spring:
+  application:
+    name: ${app.name}
+
+
+
+
