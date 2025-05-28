@@ -3,9 +3,20 @@
 app:
   name: seima-server-dev
   port: 8081
-  contact-name: Jason Nguyen
-  contact-mail: syhaoc2dh@gmail.com
-  contact-url: https://syhaoc2dh.com
+  swagger:
+    contact-name: Jason Nguyen
+    contact-mail: syhaoc2dh@gmail.com
+    contact-url: https://syhaoc2dh.com
+    app-description: "Documentation for the Spring Boot Project"
+    app-version: 3.4.0
+    app-license-url: https://www.apache.org/licenses/LICENSE-2.0.html
+    app-license: Apache 2.0
+  datasource:
+    username: jason
+    password: 1111
+    url: jdbc:mysql://localhost:3306/seima_database_v1?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
 
 # Server configuration
 server:
@@ -15,6 +26,20 @@ server:
 spring:
   application:
     name: ${app.name}
+  datasource:
+    url: ${app.datasource.url}
+    username:  ${app.datasource.username}
+    password: ${app.datasource.password}
+    driver-class-name: ${app.datasource.driver-class-name}
+  jpa:
+    database: mysql
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
 
 # Swagger configuration
 swagger:
@@ -22,10 +47,10 @@ swagger:
   contact-mail: ${app.contact-mail}
   contact-url: ${app.contact-url}
   app-name: ${app.name}
-  app-description: "Documentation for the Spring Boot Project"
-  app-version: 3.4.0
-  app-license-url: https://www.apache.org/licenses/LICENSE-2.0.html
-  app-license: Apache 2.0
+  app-description: ${app.swagger.app-description}
+  app-version: ${app.swagger.app-version}
+  app-license-url: ${app.swagger.app-license-url}
+  app-license: ${app.swagger.app-license}
 
 
 
