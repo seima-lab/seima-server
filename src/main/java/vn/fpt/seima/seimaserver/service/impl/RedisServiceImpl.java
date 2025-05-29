@@ -1,11 +1,12 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import vn.fpt.seima.seimaserver.service.RedisService;
-
+import lombok.RequiredArgsConstructor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -13,11 +14,15 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Service
-@AllArgsConstructor
 public class RedisServiceImpl implements RedisService {
 
     private final RedisTemplate<Object, Object> redisTemplate;
     private final HashOperations<Object, Object, Object> hashOperations;
+
+    public RedisServiceImpl(RedisTemplate<Object, Object> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+        this.hashOperations = redisTemplate.opsForHash(); // Khởi tạo HashOperations từ RedisTemplate
+    }
 
     @Override
     public void set(Object key, Object value) {
