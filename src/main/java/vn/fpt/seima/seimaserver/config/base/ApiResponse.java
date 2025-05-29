@@ -1,30 +1,23 @@
 package vn.fpt.seima.seimaserver.config.base;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @ToString
 public class ApiResponse<T> {
-    private int status;
+    private boolean success;
     private String message;
-    private T data;
-    private String errorCode;
+    private T data; // Tùy chọn, nếu bạn muốn trả về thêm dữ liệu
 
-    public ApiResponse(int status, String message, T data) {
-        this.status = status;
+    public ApiResponse(boolean success, String message) {
+        this.success = success;
         this.message = message;
-        this.data = data;
-        // errorCode sẽ là null (mặc định)
-    }
-
-    public ApiResponse(int status, String message) {
-        this.status = status;
-        this.message = message;
-        // data và errorCode sẽ là null (mặc định)
     }
 }

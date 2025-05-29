@@ -52,7 +52,15 @@ swagger:
   app-license-url: ${app.swagger.app-license-url}
   app-license: ${app.swagger.app-license}
 
+# OTP configuration
+otp:
+  expiration:
+    minutes: 5
 
+# Redis configuration
+redis:
+  host: localhost
+  port: 6379
 
 
 

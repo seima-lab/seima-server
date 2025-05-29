@@ -7,7 +7,7 @@ import vn.fpt.seima.seimaserver.service.BudgetCategoryLimitService;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("/api/v1/budget-category-limits")
+@RequestMapping("v1/api/budget-category-limits")
 public class BudgetCategoryLimitController {
     private BudgetCategoryLimitService budgetCategoryLimitService;
 } 
