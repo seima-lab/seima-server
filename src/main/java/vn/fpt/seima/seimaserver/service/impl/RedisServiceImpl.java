@@ -11,12 +11,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
 @Service
 @AllArgsConstructor
 public class RedisServiceImpl implements RedisService {
 
     private final RedisTemplate<Object, Object> redisTemplate;
     private final HashOperations<Object, Object, Object> hashOperations;
+
     @Override
     public void set(Object key, Object value) {
         redisTemplate.opsForValue().set(key, value);

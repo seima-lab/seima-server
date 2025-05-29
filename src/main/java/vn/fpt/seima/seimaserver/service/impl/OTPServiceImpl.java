@@ -4,26 +4,32 @@ import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
 import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.exception.PhoneNumberAlreadyExistsException;
 import vn.fpt.seima.seimaserver.exception.RateLimitExceededException;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.OTPService;
+import vn.fpt.seima.seimaserver.service.RedisService;
 
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class OTPServiceImpl implements OTPService {
     private static final Logger logger = LoggerFactory.getLogger(OTPServiceImpl.class);
     private final UserRepository userRepository;
     private final Map<String, Bucket> phoneNumberBuckets = new ConcurrentHashMap<>();
-    private final
+    private static final String OTP_KEY_PREFIX = "otp-:";
+    private final RedisService redisService;
+    @Value("${otp.expiration-time}") // Default to 5 minutes if not set
+    private int OTP_EXPIRATION_TIME;
+
 
     @Override
     public void generateOtpAndSendOtp(String rawPhoneNumber) {
@@ -45,7 +51,11 @@ public class OTPServiceImpl implements OTPService {
             throw new PhoneNumberAlreadyExistsException("This phone number is already registered.");
         }
         // TODO: Lưu OTP (standardizedPhoneNumber, otp, expiryTime)
-
+        String otpKey = OTP_KEY_PREFIX + standardizedPhoneNumber;
+        String otpValue = generateOtpValue();
+        redisService.set(otpKey, otpValue);
+        redisService.setTimeToLive(otpKey, OTP_EXPIRATION_TIME);
+        logger.info("Generated OTP for phone number {}: {}", standardizedPhoneNumber, otpValue);
         // TODO: Gửi OTP qua SMS Gateway
         logger.info("Logic to store and send OTP for {} would be here.", standardizedPhoneNumber);
 

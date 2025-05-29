@@ -54,8 +54,7 @@ swagger:
 
 # OTP configuration
 otp:
-  expiration:
-    minutes: 5
+  expiration-time: 300 # in seconds
 
 # Redis configuration
 redis:
