@@ -3,12 +3,12 @@ package vn.fpt.seima.seimaserver.service.impl;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import vn.fpt.seima.seimaserver.dto.auth.OtpRedisValueDto;
 import vn.fpt.seima.seimaserver.exception.PhoneNumberAlreadyExistsException;
 import vn.fpt.seima.seimaserver.exception.RateLimitExceededException;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
@@ -52,7 +52,10 @@ public class OTPServiceImpl implements OTPService {
         }
         // TODO: Lưu OTP (standardizedPhoneNumber, otp, expiryTime)
         String otpKey = OTP_KEY_PREFIX + standardizedPhoneNumber;
-        String otpValue = generateOtpValue();
+        OtpRedisValueDto otpValue = OtpRedisValueDto.builder()
+                .otp(generateOtpValue())
+                .attempts(1)
+                .build();
         redisService.set(otpKey, otpValue);
         redisService.setTimeToLive(otpKey, OTP_EXPIRATION_TIME);
         logger.info("Generated OTP for phone number {}: {}", standardizedPhoneNumber, otpValue);
