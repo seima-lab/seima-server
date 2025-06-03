@@ -1,20 +1,22 @@
 package vn.fpt.seima.seimaserver.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.Set;
 
 @Entity
-@Data
 @Table(name = "wallet_type")
+@Getter
+@Setter
 public class WalletType {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "wallet_type_id")
-    private Integer walletTypeId;
+    @Column(name = "wallet_type_id", nullable = false)
+    private Long id;
 
-    @Column(name = "type_name", length = 255, nullable = false) // ERD là varchar(255)
+    @Column(name = "type_name", nullable = false)
     private String typeName;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -1,49 +1,67 @@
 package vn.fpt.seima.seimaserver.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import org.hibernate.annotations.CreationTimestamp;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Set;
+import java.time.Instant;
 
+@Getter
+@Setter 
 @Entity
-@Data
 @Table(name = "wallet")
 public class Wallet {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "wallet_id")
-    private Integer walletId;
+    @Column(name = "wallet_id", nullable = false)
+    private Integer id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
-
-    @Column(name = "wallet_name", length = 255, nullable = false)
-    private String walletName;
+    @Size(max = 3)
+    @Column(name = "currency_code", length = 3)
+    private String currencyCode;
 
     @Column(name = "current_balance", precision = 18, scale = 2)
-    private BigDecimal currentBalance = BigDecimal.ZERO;
+    private BigDecimal currentBalance;
 
-    @Column(name = "currency_code", length = 3) // ERD là current_code varchar(3)
-    private String currencyCode; // Ví dụ: VND, USD
-
+    @Size(max = 512)
     @Column(name = "icon_url", length = 512)
     private String iconUrl;
 
-    @CreationTimestamp
-    @Column(name = "wallet_created_at", updatable = false) // ERD là wallet_created_at (timestamp)
-    private LocalDateTime walletCreatedAt;
+    @Column(name = "wallet_created_at")
+    private Instant walletCreatedAt;
 
-    @Column(name = "wallet_is_archived") // ERD là wallet_is_archived (bit)
-    private Boolean walletIsArchived = false;
+    @Column(name = "wallet_is_archived")
+    private Boolean walletIsArchived;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @Size(max = 255)
+    @NotNull
+    @Column(name = "wallet_name", nullable = false)
+    private String walletName;
+
+    @Column(name = "description")
+    private String description;
+
+    @Column(name = "is_default")
+    private Boolean isDefault = false;
+
+    @Column(name = "exclude_from_total")
+    private Boolean excludeFromTotal = false;
+
+    @Size(max = 100)
+    @Column(name = "bank_name")
+    private String bankName;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "wallet_type_id", nullable = false)
     private WalletType walletType;
 
-    @OneToMany(mappedBy = "wallet")
-    private Set<Transaction> transactions;
 }

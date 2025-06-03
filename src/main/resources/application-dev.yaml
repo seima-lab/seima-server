@@ -12,8 +12,8 @@ app:
     app-license-url: https://www.apache.org/licenses/LICENSE-2.0.html
     app-license: Apache 2.0
   datasource:
-    username: jason
-    password: 1111
+    username: root
+    password: 123456
     url: jdbc:mysql://localhost:3306/seima_database_v1?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     driver-class-name: com.mysql.cj.jdbc.Driver
 
