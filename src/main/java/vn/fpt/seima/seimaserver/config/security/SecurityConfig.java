@@ -32,9 +32,20 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable()) // Disable CSRF for stateless APIs
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/google").permitAll()
-                        .requestMatchers("/api/v1/auth/refresh").permitAll()
-
+                        .requestMatchers(
+                                "/",
+                                "/login",
+                                "/api/auth/otp/request",
+                                "/api/auth/otp/verify",
+                                "/api/auth/register",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/api/v1/wallets/**",
+                                "/error",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/google"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

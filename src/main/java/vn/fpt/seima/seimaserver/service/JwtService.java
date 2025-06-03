@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import vn.fpt.seima.seimaserver.dto.response.user.UserInGoogleReponseDto;
-import vn.fpt.seima.seimaserver.entity.User;
 
 import java.security.Key;
 import java.util.Date;
