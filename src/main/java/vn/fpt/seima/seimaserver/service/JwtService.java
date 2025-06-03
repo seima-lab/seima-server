@@ -6,8 +6,9 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-import vn.fpt.seima.seimaserver.dto.request.user.UserInGoogleReponseDto;
+import vn.fpt.seima.seimaserver.dto.response.user.UserInGoogleReponseDto;
 import vn.fpt.seima.seimaserver.entity.User;
 
 import java.security.Key;
@@ -71,14 +72,15 @@ public class JwtService {
                 .setClaims(claims)
                 .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + expirationTimeMs))
+                .setExpiration(new Date(System.currentTimeMillis() + expirationTimeMs*1000))
                 .signWith(secretKey, SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    public Boolean validateToken(String token, User userDetails) {
-        final String email = extractEmail(token);
-        return (email.equals(userDetails.getUserEmail()) && !isTokenExpired(token));
+    public Boolean validateToken(String token, UserDetails springUserDetails) { // Tham số là UserDetails của Spring
+        final String emailFromToken = extractEmail(token);
+        // springUserDetails.getUsername() sẽ trả về email (dựa trên cấu hình AppUserDetailsService của bạn)
+        return (emailFromToken.equals(springUserDetails.getUsername()) && !isTokenExpired(token));
     }
 
     public Boolean validateToken(String token) { // Simpler validation if you don't have userDetails yet

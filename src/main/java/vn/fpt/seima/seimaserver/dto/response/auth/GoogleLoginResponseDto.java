@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import vn.fpt.seima.seimaserver.dto.request.user.UserInGoogleReponseDto;
+import vn.fpt.seima.seimaserver.dto.response.user.UserInGoogleReponseDto;
 @Data
 @Builder
 @NoArgsConstructor
