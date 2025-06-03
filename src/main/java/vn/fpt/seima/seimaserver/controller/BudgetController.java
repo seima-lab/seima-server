@@ -10,4 +10,5 @@ import vn.fpt.seima.seimaserver.service.BudgetService;
 @RequestMapping("/api/v1/budgets")
 public class BudgetController {
     private BudgetService budgetService;
+
 } 
