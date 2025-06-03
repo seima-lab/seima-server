@@ -10,4 +10,5 @@ import vn.fpt.seima.seimaserver.service.UserService;
 @RequestMapping("/api/v1/users")
 public class UserController {
     private UserService userService;
+
 }

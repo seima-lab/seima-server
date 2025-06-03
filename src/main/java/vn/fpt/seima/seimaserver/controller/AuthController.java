@@ -1,60 +1,65 @@
 package vn.fpt.seima.seimaserver.controller;
 
+import com.google.api.client.auth.openidconnect.IdToken;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
-import vn.fpt.seima.seimaserver.dto.auth.OtpRequestDto;
-import vn.fpt.seima.seimaserver.exception.PhoneNumberAlreadyExistsException;
-import vn.fpt.seima.seimaserver.exception.RateLimitExceededException;
-import vn.fpt.seima.seimaserver.service.OTPService;
+import vn.fpt.seima.seimaserver.dto.request.auth.GoogleLoginRequestDto;
+import vn.fpt.seima.seimaserver.dto.response.auth.GoogleLoginResponseDto;
+import vn.fpt.seima.seimaserver.service.GoogleService;
 
-import java.util.stream.Collectors;
-
-@AllArgsConstructor
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
+@AllArgsConstructor
 public class AuthController {
-    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
-    private final OTPService otpService;
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AuthController.class);
 
-    @PostMapping("otp/request")
-    public ResponseEntity<ApiResponse<Object>> requestOtp(
+    private GoogleService googleService;
+
+    // Google Login
+    @PostMapping("/google")
+    public ApiResponse<Object> googleLogin(
             @Valid
-            @RequestBody OtpRequestDto otpRequestDto
-    ) {
+            @RequestBody GoogleLoginRequestDto googleLoginRequestDto
+            ) {
         try {
-            logger.info("Received OTP request for phone number: {}", otpRequestDto.getPhoneNumber());
-            otpService.generateOtpAndSendOtp(otpRequestDto.getPhoneNumber());
-            return ResponseEntity.ok(new ApiResponse<>(true, "OTP has been sent successfully. Please check your phone."));
-        } catch (RateLimitExceededException e) {
-            logger.warn("Rate limit exceeded. Sending OTP request again.");
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(new ApiResponse<>(false, e.getMessage()));
-        } catch (PhoneNumberAlreadyExistsException e) {
-            logger.warn("Phone number already exists: {}", otpRequestDto.getPhoneNumber());
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(new ApiResponse<>(false, e.getMessage()));
-        } catch (RuntimeException e) {
-            logger.error("An unexpected error occurred while processing OTP request for phone number: {}", otpRequestDto.getPhoneNumber(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "An unexpected error occurred. Please try again later."));
+            System.out.println("🟢 Controller: /api/v1/auth/google called");
+            String IdToken= googleLoginRequestDto.getIdToken();
+            if (IdToken == null) {
+                return ApiResponse.builder()
+                        .statusCode(HttpStatus.UNAUTHORIZED.value())
+                        .message("IdToken is null")
+                        .build();
+            }
+            GoogleLoginResponseDto data = googleService.processGoogleLogin(IdToken);
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.OK.value())
+                    .message("Google login successful")
+                    .data(data)
+                    .build();
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .message(e.getMessage())
+                    .build();
         }
     }
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ResponseEntity<ApiResponse<Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        String errorMessage = ex.getBindingResult().getFieldErrors().stream()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
-                .collect(Collectors.joining(", "));
-        logger.warn("Validation error: {}", errorMessage);
-        return ResponseEntity
-                .badRequest()
-                .body(new ApiResponse<>(false, "Validation failed: " + errorMessage));
+
+
+    //Logout
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletResponse response) {
+        logger.info("Processing logout request (dev mode - Bearer token)");
+        SecurityContextHolder.clearContext(); // Xóa context bảo mật phía server
+        return ResponseEntity.ok("Logout successful. Client should discard the JWT.");
     }
 }

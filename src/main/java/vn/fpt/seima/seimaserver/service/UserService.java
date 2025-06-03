@@ -1,8 +1,12 @@
 package vn.fpt.seima.seimaserver.service;
 
-import lombok.AllArgsConstructor;
-import org.springframework.stereotype.Service;
+import jakarta.validation.Valid;
+import vn.fpt.seima.seimaserver.dto.request.user.UserCreateDto;
+import vn.fpt.seima.seimaserver.entity.User;
 
 
 public interface UserService {
+
+    void createUser(@Valid UserCreateDto userCreateDto);
+    User getCurrentUser();
 }
