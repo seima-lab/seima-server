@@ -5,9 +5,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import vn.fpt.seima.seimaserver.dto.request.user.UserCreationRequestDto;
+import vn.fpt.seima.seimaserver.dto.request.user.UserUpdateRequestDto;
 import vn.fpt.seima.seimaserver.entity.User;
-import vn.fpt.seima.seimaserver.exception.GmailAlreadyExistException; // Bạn có thể cần lại exception này
 import vn.fpt.seima.seimaserver.exception.NotMatchCurrentGmailException;
+import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.UserService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
@@ -55,5 +56,31 @@ public class UserServiceImpl implements UserService {
         // lệnh save này sẽ tương ứng với một SQL UPDATE.
         userRepository.save(currentUser);
         logger.info("User profile updated successfully for email: {}", currentUser.getUserEmail());
+    }
+
+    @Override
+    public User updateUserProfile(Integer userId, UserUpdateRequestDto dto) {
+        User userToUpdate = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId)); // Hoặc exception phù hợp
+
+        // Cập nhật các trường nếu DTO cung cấp giá trị mới (khác null)
+        if (dto.getFullName() != null) {
+            userToUpdate.setUserFullName(dto.getFullName());
+        }
+        if (dto.getBirthDate() != null) {
+            userToUpdate.setUserDob(dto.getBirthDate());
+        }
+        if (dto.getPhoneNumber() != null) {
+            userToUpdate.setUserPhoneNumber(dto.getPhoneNumber());
+        }
+        if (dto.getAvatarUrl() != null) {
+            userToUpdate.setUserAvatarUrl(dto.getAvatarUrl());
+        }
+        if (dto.getGender() != null) {
+            userToUpdate.setUserGender(dto.getGender());
+        }
+
+
+        return userRepository.save(userToUpdate);
     }
 }

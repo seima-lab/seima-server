@@ -1,14 +1,10 @@
 package vn.fpt.seima.seimaserver.controller;
 
-import com.google.api.client.auth.openidconnect.IdToken;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,9 +17,9 @@ import vn.fpt.seima.seimaserver.dto.response.auth.GoogleLoginResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.user.UserInGoogleReponseDto;
 import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
+import vn.fpt.seima.seimaserver.service.AuthService;
 import vn.fpt.seima.seimaserver.service.GoogleService;
 import vn.fpt.seima.seimaserver.service.JwtService;
-import vn.fpt.seima.seimaserver.service.UserService;
 
 import java.util.Map;
 
@@ -37,6 +33,7 @@ public class AuthController {
     private JwtService jwtService;
     private UserRepository userRepository;
     private UserDetailsService userDetailsService;
+    private AuthService authService;
     // Google Login
     @PostMapping("/google")
     public ApiResponse<Object> googleLogin(
@@ -87,8 +84,7 @@ public class AuthController {
                     .orElseThrow(() -> new RuntimeException("User not found during refresh token validation"));
 
 
-            // Check if the refresh token belongs to this user (if you store refresh tokens per user or have other checks)
-            // For this example, extracting email and re-creating access token is sufficient if refresh token itself is valid.
+
             UserInGoogleReponseDto userInGoogleReponseDto = UserInGoogleReponseDto.
                     builder()
                     .email(appUser.getUserEmail())
@@ -103,5 +99,20 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid refresh token: " + e.getMessage()));
         }
     }
-
+   /* @PostMapping("/logout")
+    public ApiResponse<Object> logout(HttpServletRequest request) {
+        try {
+            authService.logout(request);
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.OK.value())
+                    .message("Logout successful")
+                    .build();
+        } catch (Exception e) {
+            logger.error("Error during logout: ", e);
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .message("Logout failed: " + e.getMessage())
+                    .build();
+        }
+    }*/
 }
