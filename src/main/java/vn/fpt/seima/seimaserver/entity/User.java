@@ -1,7 +1,10 @@
 package vn.fpt.seima.seimaserver.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDate;
@@ -10,6 +13,9 @@ import java.util.Set;
 
 @Entity
 @Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 @Table(name = "user")
 public class User {
     @Id
@@ -34,8 +40,6 @@ public class User {
     @Column(name = "user_phone_number", length = 25) // ERD là varchar(25)
     private String userPhoneNumber;
 
-    @Column(name = "user_password", length = 255, nullable = false)
-    private String userPassword;
 
     @Column(name = "user_avatar_url", length = 512) // ERD là varchar(255), tăng lên 512 cho URL dài
     private String userAvatarUrl;

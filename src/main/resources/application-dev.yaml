@@ -12,15 +12,20 @@ app:
     app-license-url: https://www.apache.org/licenses/LICENSE-2.0.html
     app-license: Apache 2.0
   datasource:
-    username: root
-    password: 123456
-    url: jdbc:mysql://localhost:3306/seima_database_v1?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: jason
+    password: 1111
+    url: jdbc:mysql://localhost:3306/seima_database_v3?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     driver-class-name: com.mysql.cj.jdbc.Driver
-
+  oauth2:
+    redirect-uri: seimaapp://auth/success
 
 # Server configuration
 server:
   port: ${app.port}
+  servlet:
+    session:
+      cookie:
+        secure: false
 
 #Spring configuration
 spring:
@@ -40,9 +45,21 @@ spring:
       hibernate:
         format_sql: true
         use_sql_comments: true
-    logging:
-      level:
-        org.springframework.security: DEBUG
+  logging:
+    level:
+      org:
+        springframework:
+          security: DEBUG
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${YOUR_GOOGLE_CLIENT_ID}
+            client-secret: ${YOUR_GOOGLE_CLIENT_SECRET}
+
+
+
 
 
 # Swagger configuration
@@ -64,6 +81,16 @@ otp:
 redis:
   host: localhost
   port: 6379
+
+#JWT configuration
+jwt:
+  secret: ${JWT_SECRET_KEY}
+  access:
+    token:
+      expiration: 3600 # in seconds
+  refresh:
+    token:
+      expiration: 604800 # in seconds (7 days)
 
 
 
