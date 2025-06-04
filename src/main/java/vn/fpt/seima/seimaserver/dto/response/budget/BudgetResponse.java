@@ -1,21 +1,19 @@
-package vn.fpt.seima.seimaserver.dto.budget;
+package vn.fpt.seima.seimaserver.dto.response.budget;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import vn.fpt.seima.seimaserver.entity.PeriodType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class CreateBudgetRequest {
-    private Integer userId;
+public class BudgetResponse {
+    private Integer budgetId;
     private String budgetName;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
@@ -23,6 +21,10 @@ public class CreateBudgetRequest {
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime endDate;
-    private PeriodType periodType;
+
+    private String periodType;
     private BigDecimal overallAmountLimit;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime createdAt;
 }

@@ -1,4 +1,4 @@
-package vn.fpt.seima.seimaserver.dto.wallet.response;
+package vn.fpt.seima.seimaserver.dto.response.wallet;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,4 +20,4 @@ public class WalletResponse {
     private Boolean excludeFromTotal; // Loại trừ khỏi tổng
     private String bankName;       // Tên ngân hàng
     private String iconUrl;        // Logo của ngân hàng
-} 
+}

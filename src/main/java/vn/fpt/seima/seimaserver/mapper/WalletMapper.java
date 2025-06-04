@@ -1,8 +1,8 @@
 package vn.fpt.seima.seimaserver.mapper;
 
 import org.mapstruct.*;
-import vn.fpt.seima.seimaserver.dto.wallet.request.CreateWalletRequest;
-import vn.fpt.seima.seimaserver.dto.wallet.response.WalletResponse;
+import vn.fpt.seima.seimaserver.dto.request.wallet.CreateWalletRequest;
+import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
 import vn.fpt.seima.seimaserver.entity.Wallet;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
