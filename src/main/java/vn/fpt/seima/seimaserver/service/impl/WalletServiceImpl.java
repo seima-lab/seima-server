@@ -2,8 +2,8 @@ package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import vn.fpt.seima.seimaserver.dto.wallet.request.CreateWalletRequest;
-import vn.fpt.seima.seimaserver.dto.wallet.response.WalletResponse;
+import vn.fpt.seima.seimaserver.dto.request.wallet.CreateWalletRequest;
+import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
 import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.entity.Wallet;
 import vn.fpt.seima.seimaserver.entity.WalletType;

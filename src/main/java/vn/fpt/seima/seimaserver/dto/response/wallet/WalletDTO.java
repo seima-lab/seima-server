@@ -1,4 +1,4 @@
-package vn.fpt.seima.seimaserver.dto.wallet;
+package vn.fpt.seima.seimaserver.dto.response.wallet;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

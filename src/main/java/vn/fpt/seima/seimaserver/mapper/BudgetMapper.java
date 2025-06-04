@@ -2,8 +2,8 @@ package vn.fpt.seima.seimaserver.mapper;
 
 import org.mapstruct.*;
 import org.mapstruct.factory.Mappers;
-import vn.fpt.seima.seimaserver.dto.budget.BudgetResponse;
-import vn.fpt.seima.seimaserver.dto.budget.CreateBudgetRequest;
+import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
+import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.entity.Budget;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)

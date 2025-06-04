@@ -5,8 +5,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import vn.fpt.seima.seimaserver.dto.wallet.request.CreateWalletRequest;
-import vn.fpt.seima.seimaserver.dto.wallet.response.WalletResponse;
+import vn.fpt.seima.seimaserver.dto.request.wallet.CreateWalletRequest;
+import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
 import vn.fpt.seima.seimaserver.service.WalletService;
 
 import java.util.List;
