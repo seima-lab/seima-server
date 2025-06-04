@@ -20,113 +20,68 @@ public class BudgetController {
     private BudgetService budgetService;
 
     @GetMapping()
-    public ResponseEntity<ApiResponse<Page<BudgetResponse>>> getAllBudgets(
+    public ApiResponse<Page<BudgetResponse>> getAllBudgets(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
+            @RequestParam(defaultValue = "10") int size) {
         try {
             Pageable pageable = PageRequest.of(page, size);
-
             Page<BudgetResponse> budgets = budgetService.getAllBudget(pageable);
 
-            ApiResponse<Page<BudgetResponse>> response = new ApiResponse<>();
-            response.setStatusCode(HttpStatus.OK.value());
-            response.setMessage("Budget list retrieved successfully");
-            response.setData(budgets);
-
-            return ResponseEntity.ok(response);
+            return new ApiResponse<>(HttpStatus.OK.value(), "Budget list retrieved successfully", budgets);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    new ApiResponse<>(500, "An unexpected error occurred", null));
+            return new ApiResponse<>(500, "An unexpected error occurred", null);
         }
-
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<BudgetResponse>> getBudgetById(@PathVariable int id) {
-
+    public ApiResponse<BudgetResponse> getBudgetById(@PathVariable int id) {
         try {
             BudgetResponse budget = budgetService.getBudgetById(id);
 
-            ApiResponse<BudgetResponse> response = new ApiResponse<>();
-            response.setStatusCode(HttpStatus.OK.value());
-            response.setMessage("Budget retrieved successfully");
-            response.setData(budget);
-
-            return ResponseEntity.ok(response);
+            return new ApiResponse<>(HttpStatus.OK.value(), "Budget list retrieved successfully", budget);
         } catch (ResourceNotFoundException ex) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(404, ex.getMessage(), null));
-
+            return new ApiResponse<>(404, ex.getMessage(), null);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    new ApiResponse<>(500, "An unexpected error occurred", null));
+            return new ApiResponse<>(500, "An unexpected error occurred", null);
         }
-
     }
 
     @PostMapping()
-    public ResponseEntity<ApiResponse<BudgetResponse>> createBudget(@RequestBody CreateBudgetRequest request) {
-
+    public ApiResponse<BudgetResponse> createBudget(@RequestBody CreateBudgetRequest request) {
         try {
             BudgetResponse budgetCreate = budgetService.saveBudget(request);
 
-            ApiResponse<BudgetResponse> response = new ApiResponse<>();
-            response.setStatusCode(HttpStatus.OK.value());
-            response.setMessage("Budget created successfully");
-            response.setData(budgetCreate);
-
-            return ResponseEntity.ok(response);
+            return new ApiResponse<>(HttpStatus.OK.value(), "Budget created successfully", budgetCreate);
         } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(400, ex.getMessage(), null));
-
+            return new ApiResponse<>(400, ex.getMessage(), null);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    new ApiResponse<>(500, "An unexpected error occurred", null));
+            return new ApiResponse<>(500, "An unexpected error occurred", null);
         }
-
     }
 
     @PutMapping("/update/{id}")
-    public ResponseEntity<ApiResponse<BudgetResponse>> createBudget(@RequestBody CreateBudgetRequest request, @PathVariable int id) {
-
+    public ApiResponse<BudgetResponse> createBudget(@RequestBody CreateBudgetRequest request, @PathVariable int id) {
         try {
-            BudgetResponse budgetCreate = budgetService.updateBudget(id, request);
+            BudgetResponse budgetUpdate = budgetService.updateBudget(id, request);
 
-            ApiResponse<BudgetResponse> response = new ApiResponse<>();
-            response.setStatusCode(HttpStatus.OK.value());
-            response.setMessage("Budget updated successfully");
-            response.setData(budgetCreate);
-
-            return ResponseEntity.ok(response);
+            return new ApiResponse<>(HttpStatus.OK.value(), "Budget updated successfully", budgetUpdate);
         } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(400, ex.getMessage(), null));
-
+            return new ApiResponse<>(400, ex.getMessage(), null);
         } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    new ApiResponse<>(500, "An unexpected error occurred", null));
+            return new ApiResponse<>(500, "An unexpected error occurred", null);
         }
-
     }
 
     @DeleteMapping("/delete/{id}")
-    public ResponseEntity<ApiResponse<BudgetResponse>> deleteBudget(@PathVariable("id") int id) {
+    public ApiResponse<BudgetResponse> deleteBudget(@PathVariable("id") int id) {
         try {
             budgetService.deleteBudget(id);
-            return ResponseEntity.status(HttpStatus.OK).body(
-                    new ApiResponse<>(
-                            200, "Budget deleted successfully", null
-                    )
-            );
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                    new ApiResponse<>(
-                            404, ex.getMessage(), null
-                    )
-            );
-        } catch (Exception ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    new ApiResponse<>(500, "An unexpected error occurred", null));
 
+            return new ApiResponse<>(200, "Budget deleted successfully", null);
+        } catch (IllegalArgumentException ex) {
+            return new ApiResponse<>(404, ex.getMessage(), null);
+        } catch (Exception ex) {
+            return new ApiResponse<>(500, "An unexpected error occurred", null);
         }
     }
 } 
