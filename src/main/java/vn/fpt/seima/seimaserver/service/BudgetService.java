@@ -2,16 +2,18 @@ package vn.fpt.seima.seimaserver.service;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import vn.fpt.seima.seimaserver.entity.Budget;
+import vn.fpt.seima.seimaserver.dto.budget.BudgetResponse;
+import vn.fpt.seima.seimaserver.dto.budget.CreateBudgetRequest;
+import vn.fpt.seima.seimaserver.dto.wallet.request.CreateWalletRequest;
 
 public interface BudgetService {
-    Page<Budget> getAllBudget(Pageable pageable);
+    Page<BudgetResponse> getAllBudget(Pageable pageable);
 
-    Budget getBudgetById(int id);
+    BudgetResponse getBudgetById(int id);
 
-    Budget saveBudget(Budget budget);
+    BudgetResponse saveBudget(CreateBudgetRequest request);
 
-    Budget updateBudget(Integer id,Budget budget);
+    BudgetResponse updateBudget(Integer id,CreateBudgetRequest budget);
 
     void deleteBudget(int id);
 } 

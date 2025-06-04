@@ -6,4 +6,5 @@ import vn.fpt.seima.seimaserver.entity.Budget;
 
 @Repository
 public interface BudgetRepository extends JpaRepository<Budget, Integer> {
-} 
+    boolean existsByBudgetName(String budgetName);
+}
