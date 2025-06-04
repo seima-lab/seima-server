@@ -5,11 +5,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
-import vn.fpt.seima.seimaserver.dto.budget.BudgetResponse;
-import vn.fpt.seima.seimaserver.dto.budget.CreateBudgetRequest;
+import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
+import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.service.BudgetService;
 
