@@ -17,8 +17,7 @@ import vn.fpt.seima.seimaserver.service.BudgetService;
 @Service
 @AllArgsConstructor
 public class BudgetServiceImpl implements BudgetService {
-    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BudgetServiceImpl.class);
-    private BudgetRepository budgetRepository;
+    private  BudgetRepository budgetRepository;
     private final BudgetMapper budgetMapper;
     private final UserRepository userRepository;
 
