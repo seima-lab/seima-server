@@ -44,8 +44,7 @@ public class SecurityConfig {
                                 "/api/v1/wallets/**",
                                 "/error",
                                 "/api/v1/auth/refresh",
-                                "/api/v1/auth/google",
-                                "api/v1/budgets/{id}"
+                                "/api/v1/auth/google"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
