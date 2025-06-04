@@ -12,9 +12,9 @@ app:
     app-license-url: https://www.apache.org/licenses/LICENSE-2.0.html
     app-license: Apache 2.0
   datasource:
-    username: root
-    password: 123456
-    url: jdbc:mysql://localhost:3306/seima_database_v3?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    url: jdbc:mysql://localhost:3306/seima_database_v1.4?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     driver-class-name: com.mysql.cj.jdbc.Driver
   oauth2:
     redirect-uri: seimaapp://auth/success
@@ -57,6 +57,8 @@ spring:
           google:
             client-id: ${YOUR_GOOGLE_CLIENT_ID}
             client-secret: ${YOUR_GOOGLE_CLIENT_SECRET}
+  jackson:
+    property-naming-strategy: SNAKE_CASE
 
 
 
