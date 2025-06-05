@@ -11,7 +11,7 @@ import vn.fpt.seima.seimaserver.dto.response.user.UserProfileResponseDto;
 import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.exception.GmailAlreadyExistException;
 import vn.fpt.seima.seimaserver.exception.NotMatchCurrentGmailException;
-import vn.fpt.seima.seimaserver.mapper.userMapper.UserMapper;
+import vn.fpt.seima.seimaserver.mapper.UserMapper;
 import vn.fpt.seima.seimaserver.service.UserService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 

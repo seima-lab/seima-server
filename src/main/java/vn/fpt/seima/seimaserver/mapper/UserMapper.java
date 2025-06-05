@@ -1,4 +1,4 @@
-package vn.fpt.seima.seimaserver.mapper.userMapper;
+package vn.fpt.seima.seimaserver.mapper;
 
 import vn.fpt.seima.seimaserver.dto.response.user.UserProfileResponseDto;
 import vn.fpt.seima.seimaserver.entity.User;
