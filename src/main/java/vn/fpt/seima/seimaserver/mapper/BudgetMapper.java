@@ -7,7 +7,6 @@ import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.entity.Budget;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
-
 public interface BudgetMapper {
     BudgetMapper INSTANCE = Mappers.getMapper(BudgetMapper.class);
 
