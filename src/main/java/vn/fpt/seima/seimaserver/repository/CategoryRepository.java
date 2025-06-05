@@ -6,4 +6,5 @@ import vn.fpt.seima.seimaserver.entity.Category;
 
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, Integer> {
+    boolean existsByCategoryName(String categoryName);
 } 
