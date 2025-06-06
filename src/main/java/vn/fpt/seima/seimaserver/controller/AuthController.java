@@ -15,11 +15,16 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.auth.GoogleLoginRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.NormalRegisterRequestDto;
+import vn.fpt.seima.seimaserver.dto.request.auth.VerifyOtpRequestDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.GoogleLoginResponseDto;
+import vn.fpt.seima.seimaserver.dto.response.auth.NormalRegisterResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.user.UserInGoogleReponseDto;
 import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.exception.GmailAlreadyExistException;
+import vn.fpt.seima.seimaserver.exception.InvalidOtpException;
+import vn.fpt.seima.seimaserver.exception.MaxOtpAttemptsExceededException;
 import vn.fpt.seima.seimaserver.exception.NullRequestParamException;
+import vn.fpt.seima.seimaserver.exception.OtpNotFoundException;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.AuthService;
 import vn.fpt.seima.seimaserver.service.GoogleService;
@@ -110,9 +115,8 @@ public class AuthController {
             @RequestBody NormalRegisterRequestDto normalRegisterRequestDto
     ) {
         try {
-            logger.warn("Processing registration for user: {}", normalRegisterRequestDto.getUserName());
-            logger.warn("Password: {}", normalRegisterRequestDto.getPassword());
-           String otp = authService.processRegister(normalRegisterRequestDto);
+
+           NormalRegisterResponseDto otp = authService.processRegister(normalRegisterRequestDto);
             return ApiResponse.builder()
                     .statusCode(HttpStatus.OK.value())
                     .message("Registration successful")
@@ -136,44 +140,88 @@ public class AuthController {
                     .build();
         }
     }
-    @PostMapping("/test")
-    public ApiResponse<Object> testEndpoint(
-            HttpServletRequest httpRequest,
-            @RequestBody GoogleLoginRequestDto request
+    @PostMapping("/verify-otp")
+    public ApiResponse<Object> verifyOtp(
+            @Valid
+            @RequestBody VerifyOtpRequestDto verifyOtpRequestDto
     ) {
-            logger.warn("Processing test for user: {}", request.getIdToken());
-            logger.warn("Content-Type: {}", httpRequest.getContentType());
-            logger.warn("Method: {}", httpRequest.getMethod());
-            
-            // Create a response with more debug information
+        try {
+            boolean verified = authService.verifyOtp(verifyOtpRequestDto);
             return ApiResponse.builder()
                     .statusCode(HttpStatus.OK.value())
-                    .message("Test endpoint reached successfully")
-                    .data(Map.of(
-                        "requestReceived", request != null,
-                        "contentType", httpRequest.getContentType(),
-                        "method", httpRequest.getMethod()
-                    ))
+                    .message("OTP verification successful")
+                    .data(verified)
                     .build();
+        } catch (NullRequestParamException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (OtpNotFoundException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.NOT_FOUND.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (InvalidOtpException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.UNAUTHORIZED.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (MaxOtpAttemptsExceededException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (Exception e) {
+            logger.error("Error during OTP verification: ", e);
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .message("OTP verification failed: " + e.getMessage())
+                    .build();
+        }
     }
-    
-    @org.springframework.web.bind.annotation.GetMapping("/test-get")
-    public ApiResponse<Object> testGetEndpoint(HttpServletRequest httpRequest) {
-            logger.warn("Processing GET test");
-            logger.warn("Content-Type: {}", httpRequest.getContentType());
-            logger.warn("Method: {}", httpRequest.getMethod());
+
+    @PostMapping("/resend-otp")
+    public ApiResponse<Object> resendOtp(
+            @RequestBody Map<String, String> request
+    ) {
+        try {
+            String email = request.get("email");
+            if (email == null || email.trim().isEmpty()) {
+                return ApiResponse.builder()
+                        .statusCode(HttpStatus.BAD_REQUEST.value())
+                        .message("Email is required")
+                        .build();
+            }
             
+            authService.resendOtp(email);
             return ApiResponse.builder()
                     .statusCode(HttpStatus.OK.value())
-                    .message("GET Test endpoint reached successfully")
-                    .data(Map.of(
-                        "contentType", httpRequest.getContentType() != null ? httpRequest.getContentType() : "null",
-                        "method", httpRequest.getMethod()
-                    ))
+                    .message("OTP resent successfully")
                     .build();
+        } catch (NullRequestParamException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (GmailAlreadyExistException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.CONFLICT.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (MaxOtpAttemptsExceededException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (Exception e) {
+            logger.error("Error during OTP resend: ", e);
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .message("OTP resend failed: " + e.getMessage())
+                    .build();
+        }
     }
-
-
 
    /* @PostMapping("/logout")
     public ApiResponse<Object> logout(HttpServletRequest request) {
