@@ -10,6 +10,7 @@ import vn.fpt.seima.seimaserver.entity.CategoryType;
 @Data
 public class CreateCategoryRequest {
     private Integer userId;
+    private Integer groupId;
     private String categoryName;
     private CategoryType categoryType; // INCOME, EXPENSE
     private String categoryIconUrl;

@@ -11,6 +11,7 @@ import vn.fpt.seima.seimaserver.entity.CategoryType;
 public class CategoryResponse {
     private Integer categoryId;
     private Integer userId;
+    private Integer groupId;
     private String categoryName;
     private CategoryType categoryType; // INCOME, EXPENSE
     private String categoryIconUrl;

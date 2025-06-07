@@ -27,10 +27,11 @@ public class CategoryController {
     @GetMapping
     public ApiResponse<List<CategoryResponse>> getAllCategoriesByTypeAndUser(
             @RequestParam Integer categoryType,
-            @RequestParam Integer userId
+            @RequestParam Integer userId,
+            @RequestParam Integer groupId
     ) {
         try {
-            List<CategoryResponse> categories = categoryService.getAllCategoryByTypeAndUser(categoryType, userId);
+            List<CategoryResponse> categories = categoryService.getAllCategoryByTypeAndUser(categoryType, userId, groupId);
             return new ApiResponse<>(HttpStatus.OK.value(), "Category list retrieved successfully", categories);
         } catch (Exception ex) {
             return new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "An unexpected error occurred", null);
@@ -65,6 +66,7 @@ public class CategoryController {
         } catch (IllegalArgumentException ex) {
             return new ApiResponse<>(400, ex.getMessage(), null);
         } catch (Exception ex) {
+            ex.printStackTrace();
             return new ApiResponse<>(500, "An unexpected error occurred", null);
         }
     }
