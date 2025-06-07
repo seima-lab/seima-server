@@ -54,6 +54,12 @@ public class Wallet {
     @Column(name = "bank_name")
     private String bankName;
 
+    @Column(name = "is_deleted")
+    private Boolean isDeleted = false;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
