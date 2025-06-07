@@ -1,5 +1,10 @@
 package vn.fpt.seima.seimaserver.dto.request.wallet;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,14 +16,25 @@ import java.math.BigDecimal;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class CreateWalletRequest {
+    @NotBlank(message = "Wallet name is required")
     private String walletName;
+
+    @NotNull(message = "Balance is required")
+    @Min(value = 0, message = "Balance cannot be negative")
     private BigDecimal balance;
+
     private String description;
-    private Long walletTypeId;  // ID của loại ví/ngân hàng
-    private Boolean isDefault;  // Đặt làm ví mặc định
-    private Boolean excludeFromTotal; // Loại trừ khỏi tổng
-    private Integer userId;
-    private String bankName;  // Tên ngân hàng
-    private String iconUrl;  // Logo của ngân hàng
+
+    @NotNull(message = "Wallet type is required")
+    private Integer walletTypeId;
+
+    private Boolean isDefault = false;
+
+    private Boolean excludeFromTotal = false;
+
+    private String bankName;
+
+    private String iconUrl;
 } 

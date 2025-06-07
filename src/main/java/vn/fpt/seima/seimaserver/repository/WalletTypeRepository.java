@@ -5,5 +5,5 @@ import org.springframework.stereotype.Repository;
 import vn.fpt.seima.seimaserver.entity.WalletType;
 
 @Repository
-public interface WalletTypeRepository extends JpaRepository<WalletType, Long> {
+public interface WalletTypeRepository extends JpaRepository<WalletType, Integer> {
 } 

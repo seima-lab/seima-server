@@ -27,52 +27,52 @@ public class WalletServiceImpl implements WalletService {
     private final WalletMapper walletMapper;
 
     @Override
-    public WalletResponse createWallet(CreateWalletRequest request) {
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + request.getUserId()));
+    public WalletResponse createWallet(Integer userId, CreateWalletRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
         
         WalletType walletType = walletTypeRepository.findById(request.getWalletTypeId())
                 .orElseThrow(() -> new RuntimeException("Wallet type not found with id: " + request.getWalletTypeId()));
 
-        // Nếu đây là ví mặc định, cập nhật các ví khác
         if (Boolean.TRUE.equals(request.getIsDefault())) {
-            updateOtherWalletsDefaultStatus(user.getUserId(), false);
+            updateOtherWalletsDefaultStatus(userId, false);
         }
 
         Wallet wallet = walletMapper.toEntity(request);
         wallet.setWalletCreatedAt(Instant.now());
         wallet.setUser(user);
         wallet.setWalletType(walletType);
+        wallet.setIsDeleted(false);
 
         wallet = walletRepository.save(wallet);
         return walletMapper.toResponse(wallet);
     }
 
     @Override
-    public WalletResponse getWallet(Integer id) {
-        Wallet wallet = walletRepository.findById(id)
+    public WalletResponse getWallet(Integer userId, Integer id) {
+        Wallet wallet = walletRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new RuntimeException("Wallet not found with id: " + id));
+        validateUserOwnership(userId, wallet);
         return walletMapper.toResponse(wallet);
     }
 
     @Override
-    public List<WalletResponse> getAllWallets() {
-        return walletRepository.findAll().stream()
+    public List<WalletResponse> getAllWallets(Integer userId) {
+        return walletRepository.findAllActiveByUserId(userId).stream()
                 .map(walletMapper::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public WalletResponse updateWallet(Integer id, CreateWalletRequest request) {
-        Wallet existingWallet = walletRepository.findById(id)
+    public WalletResponse updateWallet(Integer userId, Integer id, CreateWalletRequest request) {
+        Wallet existingWallet = walletRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new RuntimeException("Wallet not found with id: " + id));
+        validateUserOwnership(userId, existingWallet);
         
-        // Xử lý cập nhật ví mặc định trước khi update
         if (Boolean.TRUE.equals(request.getIsDefault())) {
-            updateOtherWalletsDefaultStatus(existingWallet.getUser().getUserId(), false);
+            updateOtherWalletsDefaultStatus(userId, false);
         }
 
-        // Update WalletType nếu có thay đổi
         if (request.getWalletTypeId() != null) {
             WalletType walletType = walletTypeRepository.findById(request.getWalletTypeId())
                     .orElseThrow(() -> new RuntimeException("Wallet type not found with id: " + request.getWalletTypeId()));
@@ -85,19 +85,27 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
-    public void deleteWallet(Integer id) {
-        if (!walletRepository.existsById(id)) {
-            throw new RuntimeException("Wallet not found with id: " + id);
-        }
-        walletRepository.deleteById(id);
+    public void deleteWallet(Integer userId, Integer id) {
+        Wallet wallet = walletRepository.findByIdAndNotDeleted(id)
+                .orElseThrow(() -> new RuntimeException("Wallet not found with id: " + id));
+        validateUserOwnership(userId, wallet);
+        
+        wallet.setIsDeleted(true);
+        wallet.setDeletedAt(Instant.now());
+        walletRepository.save(wallet);
     }
 
     private void updateOtherWalletsDefaultStatus(Integer userId, boolean isDefault) {
-        walletRepository.findAll().stream()
-            .filter(w -> w.getUser().getUserId().equals(userId))
+        walletRepository.findAllActiveByUserId(userId).stream()
             .forEach(w -> {
                 w.setIsDefault(isDefault);
                 walletRepository.save(w);
             });
+    }
+
+    private void validateUserOwnership(Integer userId, Wallet wallet) {
+        if (!wallet.getUser().getUserId().equals(userId)) {
+            throw new RuntimeException("User does not own this wallet");
+        }
     }
 } 
