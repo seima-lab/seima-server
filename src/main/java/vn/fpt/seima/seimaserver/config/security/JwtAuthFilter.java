@@ -40,7 +40,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (path.equals("/api/v1/auth/google") ||
                 path.equals("/api/v1/auth/refresh") ||
                 path.equals("/api/v1/auth/logout") ||
-                path.equals("/api/v1/auth/register")
+                path.equals("/api/v1/auth/register")||
+                path.equals("/api/v1/auth/verify-otp")||
+                path.equals("/api/v1/auth/resend-otp")
         ) {
             System.out.println("✅ Bypass JWT Filter for: " + path);
             filterChain.doFilter(request, response);

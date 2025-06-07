@@ -3,7 +3,6 @@ package vn.fpt.seima.seimaserver.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
-import org.checkerframework.checker.units.qual.A;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -132,7 +131,18 @@ public class AuthController {
                     .statusCode(HttpStatus.CONFLICT.value())
                     .message(e.getMessage())
                     .build();
-        } catch (Exception e) {
+        }catch(InvalidOtpException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.UNAUTHORIZED.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (MaxOtpAttemptsExceededException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                    .message(e.getMessage())
+                    .build();
+        }
+        catch (Exception e) {
             logger.error("Error during registration: ", e);
             return ApiResponse.builder()
                     .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())

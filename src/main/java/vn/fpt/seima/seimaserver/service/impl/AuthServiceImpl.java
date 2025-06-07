@@ -24,6 +24,7 @@ import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.AuthService;
 import vn.fpt.seima.seimaserver.service.EmailService;
+import vn.fpt.seima.seimaserver.service.RedisService;
 import vn.fpt.seima.seimaserver.util.OtpUtils;
 
 import java.time.Duration;
@@ -45,7 +46,7 @@ public class AuthServiceImpl implements AuthService {
     private EmailService emailService;
 
     @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private RedisService redisService;
 
     @Value("${app.lab-name}")
     private String labName;
@@ -75,9 +76,11 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public NormalRegisterResponseDto processRegister(NormalRegisterRequestDto normalRegisterRequestDto) {
 
+
+
         // 0. Rate Limiting check can be added here if needed
         Bucket registerBucket = rateLimitBuckets.computeIfAbsent(
-            normalRegisterRequestDto.getUserName(),
+            normalRegisterRequestDto.getEmail(),
             key -> newBucketForRegister()
         );
         
@@ -85,32 +88,39 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Rate limit exceeded. Please try again later.");
         }
 
-        if(normalRegisterRequestDto.getUserName() == null || normalRegisterRequestDto.getPassword() == null) {
+        // 0.1 Validate confirm password
+        if (normalRegisterRequestDto.getConfirmPassword() == null ||
+            !normalRegisterRequestDto.getConfirmPassword().equals(normalRegisterRequestDto.getPassword())) {
+            throw new InvalidOtpException("Confirm password does not match the password");
+        }
+
+        if(normalRegisterRequestDto.getEmail() == null || normalRegisterRequestDto.getPassword() == null) {
             throw new NullRequestParamException("Username and password must not be null");
          }
          // 1.Here to check email exist in system
-        if(userRepository.findByUserEmail(normalRegisterRequestDto.getUserName()).isPresent()) {
+        if(userRepository.findByUserEmail(normalRegisterRequestDto.getEmail()).isPresent()) {
             throw new GmailAlreadyExistException("Email already exists in the system");
         }
 
         // 2. Generate OTP
         String otp = OtpUtils.generateOTP(6);
         // 3.Process send OTP to mail
+        logger.warn("is sending mail to: " + normalRegisterRequestDto.getEmail());
         Context context = new Context();
         HashMap<String, Object> variables = new HashMap<>();
-        variables.put("userName", normalRegisterRequestDto.getUserName());
+        variables.put("userName", normalRegisterRequestDto.getEmail());
         variables.put("otpRegister", otp);
         variables.put("appName",labName);
         context.setVariables(variables);
-        String emailCurrentUser = normalRegisterRequestDto.getUserName();
+        String emailCurrentUser = normalRegisterRequestDto.getEmail();
         String emailSubject ="Xác thực tài khoản Seima";
         String templateName = otpRegisterHtmlTemplate;
         emailService.sendEmailWithHtmlTemplate(emailCurrentUser, emailSubject, templateName, context);
         // 4. Save OTP to Redis
         String otpKey = OTP_KEY_PREFIX + emailCurrentUser;
-        
+        logger.info("sending OTP to email success: " + emailCurrentUser);
         // Check if the OTP already exists for this email
-        OtpValueDto existingOtp = (OtpValueDto) redisTemplate.opsForValue().get(otpKey);
+        OtpValueDto existingOtp = redisService.getObject(otpKey, OtpValueDto.class);
         
         if (existingOtp != null) {
             // If the user has reached max attempts, throw exception
@@ -125,8 +135,8 @@ public class AuthServiceImpl implements AuthService {
                     .build();
             
             // Save to Redis with expiration
-            redisTemplate.opsForValue().set(otpKey, otpValueDto);
-            redisTemplate.expire(otpKey, Duration.ofMinutes(OTP_EXPIRATION_TIME));
+            redisService.set(otpKey,otpValueDto);
+            redisService.setTimeToLiveInMinutes(otpKey, OTP_EXPIRATION_TIME);
         } else {
             // Create new OTP entry
             OtpValueDto otpValueDto = OtpValueDto.builder()
@@ -135,12 +145,17 @@ public class AuthServiceImpl implements AuthService {
                     .build();
             
             // Save to Redis with expiration
-            redisTemplate.opsForValue().set(otpKey, otpValueDto);
-            redisTemplate.expire(otpKey, Duration.ofMinutes(OTP_EXPIRATION_TIME));
+            redisService.set(otpKey,otpValueDto);
+            redisService.setTimeToLiveInMinutes(otpKey, OTP_EXPIRATION_TIME);
         }
 
         return NormalRegisterResponseDto.builder()
                 .email(emailCurrentUser)
+                .phoneNumber(normalRegisterRequestDto.getPhoneNumber())
+                .fullName(normalRegisterRequestDto.getFullName())
+                .dob(normalRegisterRequestDto.getDob())
+                .gender(normalRegisterRequestDto.isGender())
+                .password(normalRegisterRequestDto.getPassword())
                 .otpCode(otp)
                 .build();
     }
@@ -158,7 +173,7 @@ public class AuthServiceImpl implements AuthService {
         
         // Get OTP from Redis
         String otpKey = OTP_KEY_PREFIX + email;
-        OtpValueDto otpValueDto = (OtpValueDto) redisTemplate.opsForValue().get(otpKey);
+        OtpValueDto otpValueDto = redisService.getObject(otpKey, OtpValueDto.class);
         
         // Check if OTP exists
         if (otpValueDto == null) {
@@ -174,25 +189,30 @@ public class AuthServiceImpl implements AuthService {
             // Check if max incorrect attempts reached
             if (incorrectAttempts >= MAX_INCORRECT_OTP_ATTEMPTS) {
                 // Delete OTP from Redis
-                redisTemplate.delete(otpKey);
+                redisService.delete(otpKey);
                 throw new MaxOtpAttemptsExceededException("Maximum incorrect OTP attempts reached. Please request a new OTP.");
             }
             
             // Update incorrect attempts in Redis
             otpValueDto.setIncorrectAttempts(incorrectAttempts);
-            redisTemplate.opsForValue().set(otpKey, otpValueDto);
-            redisTemplate.expire(otpKey, Duration.ofMinutes(OTP_EXPIRATION_TIME));
+            redisService.set(otpKey, otpValueDto);
+            redisService.setTimeToLiveInMinutes(otpKey, OTP_EXPIRATION_TIME);
+            redisService.setTimeToLiveInMinutes(otpKey, OTP_EXPIRATION_TIME);
             
             throw new InvalidOtpException("Invalid OTP. Attempts remaining: " + (MAX_INCORRECT_OTP_ATTEMPTS - incorrectAttempts));
         }
         
         // OTP verification successful
         // Delete OTP from Redis
-        redisTemplate.delete(otpKey);
+        redisService.delete(otpKey);
         
         // Create and save user
         User user = User.builder()
                 .userEmail(email)
+                .userFullName(verifyOtpRequestDto.getFullName())
+                .userDob(verifyOtpRequestDto.getDob())
+                .userPhoneNumber(verifyOtpRequestDto.getPhoneNumber())
+                .userGender(verifyOtpRequestDto.isGender())
                 .userIsActive(true)
                 .userCreatedDate(LocalDateTime.now())
                 .build();
@@ -225,8 +245,7 @@ public class AuthServiceImpl implements AuthService {
         
         // Check if previous OTP exists and update attempt count
         String otpKey = OTP_KEY_PREFIX + email;
-        OtpValueDto existingOtp = (OtpValueDto) redisTemplate.opsForValue().get(otpKey);
-        
+        OtpValueDto existingOtp = redisService.getObject(otpKey, OtpValueDto.class);
         // Generate new OTP
         String otp = OtpUtils.generateOTP(6);
         
@@ -254,9 +273,8 @@ public class AuthServiceImpl implements AuthService {
                 .attemptCount(attemptCount)
                 .incorrectAttempts(0)
                 .build();
-        
-        redisTemplate.opsForValue().set(otpKey, otpValueDto);
-        redisTemplate.expire(otpKey, Duration.ofMinutes(OTP_EXPIRATION_TIME));
+        redisService.set(otpKey, otpValueDto);
+        redisService.setTimeToLiveInMinutes(otpKey, OTP_EXPIRATION_TIME);
     }
     
     private Bucket newBucketForRegister() {

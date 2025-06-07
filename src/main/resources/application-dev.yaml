@@ -65,7 +65,7 @@ spring:
   jackson:
     property-naming-strategy: SNAKE_CASE
   mail:
-    host: seinma.app.com
+    host: smtp.gmail.com
     port: 587
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
@@ -75,6 +75,23 @@ spring:
           auth: true
           starttls:
             enable: true
+          ssl:
+            trust: smtp.gmail.com
+    
+    # Alternative configurations:
+    # For Outlook/Hotmail:
+    # host: smtp-mail.outlook.com
+    # port: 587
+    
+    # For Yahoo:
+    # host: smtp.mail.yahoo.com  
+    # port: 587
+    
+    # For SendGrid:
+    # host: smtp.sendgrid.net
+    # port: 587
+    # username: apikey
+    # password: ${SENDGRID_API_KEY}
 
 # Swagger configuration
 swagger:
@@ -93,8 +110,10 @@ otp:
 
 # Redis configuration
 redis:
-  host: localhost
-  port: 6379
+  host: ${REDIS_HOST}
+  port: ${REDIS_PORT}
+  username: ${REDIS_USERNAME}
+  password: ${REDIS_PASSWORD}
 
 #JWT configuration
 jwt:

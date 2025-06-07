@@ -22,7 +22,7 @@ public class UserController {
     private UserService userService;
 
 
-    @PostMapping("create")
+    @PostMapping("/create")
     public ApiResponse<Object> addNewUser(
             @Valid
             @RequestBody UserCreationRequestDto userCreationRequestDto
