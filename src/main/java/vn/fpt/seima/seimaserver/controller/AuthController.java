@@ -13,9 +13,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.auth.GoogleLoginRequestDto;
+import vn.fpt.seima.seimaserver.dto.request.auth.ForgotPasswordRequestDto;
+import vn.fpt.seima.seimaserver.dto.request.auth.LoginRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.NormalRegisterRequestDto;
+import vn.fpt.seima.seimaserver.dto.request.auth.ResetPasswordRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.VerifyOtpRequestDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.GoogleLoginResponseDto;
+import vn.fpt.seima.seimaserver.dto.response.auth.LoginResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.NormalRegisterResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.user.UserInGoogleReponseDto;
 import vn.fpt.seima.seimaserver.entity.User;
@@ -28,7 +32,10 @@ import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.AuthService;
 import vn.fpt.seima.seimaserver.service.GoogleService;
 import vn.fpt.seima.seimaserver.service.JwtService;
+import vn.fpt.seima.seimaserver.service.TokenBlacklistService;
+import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.Date;
 import java.util.Map;
 
 @RestController
@@ -40,8 +47,13 @@ public class AuthController {
     private GoogleService googleService;
     private JwtService jwtService;
     private UserRepository userRepository;
+    @Autowired
     private UserDetailsService userDetailsService;
+    @Autowired
     private AuthService authService;
+    @Autowired
+    private TokenBlacklistService tokenBlacklistService;
+
     // Google Login
     @PostMapping("/google")
     public ApiResponse<Object> googleLogin(
@@ -233,20 +245,129 @@ public class AuthController {
         }
     }
 
-   /* @PostMapping("/logout")
-    public ApiResponse<Object> logout(HttpServletRequest request) {
+    @PostMapping("/login")
+    public ApiResponse<Object> login(
+            @Valid
+            @RequestBody LoginRequestDto loginRequestDto
+    ) {
         try {
-            authService.logout(request);
+            LoginResponseDto loginResponse = authService.login(loginRequestDto);
             return ApiResponse.builder()
                     .statusCode(HttpStatus.OK.value())
-                    .message("Logout successful")
+                    .message("Login successful")
+                    .data(loginResponse)
+                    .build();
+        } catch (InvalidOtpException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.UNAUTHORIZED.value())
+                    .message(e.getMessage())
                     .build();
         } catch (Exception e) {
-            logger.error("Error during logout: ", e);
+            logger.error("Error during login: ", e);
             return ApiResponse.builder()
                     .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                    .message("Logout failed: " + e.getMessage())
+                    .message("Login failed: " + e.getMessage())
                     .build();
         }
-    }*/
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<String>> logout(HttpServletRequest request) {
+        try {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                String jwt = authHeader.substring(7);
+                
+                // Get token expiration time
+                Date expiration = jwtService.extractExpiration(jwt);
+                long expirationTime = expiration.getTime();
+                
+                // Blacklist the token
+                tokenBlacklistService.blacklistToken(jwt, expirationTime);
+                
+                return ResponseEntity.ok(ApiResponse.<String>builder()
+                        .statusCode(HttpStatus.OK.value())
+                        .message("Logout successful")
+                        .data("User logged out successfully")
+                        .build());
+            } else {
+                return ResponseEntity.badRequest().body(ApiResponse.<String>builder()
+                        .statusCode(HttpStatus.BAD_REQUEST.value())
+                        .message("No valid token found")
+                        .build());
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.<String>builder()
+                            .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                            .message("Logout failed: " + e.getMessage())
+                            .build());
+        }
+    }
+
+    @PostMapping("/forgot-password")
+    public ApiResponse<Object> forgotPassword(
+            @Valid
+            @RequestBody ForgotPasswordRequestDto forgotPasswordRequestDto
+    ) {
+        try {
+            authService.forgotPassword(forgotPasswordRequestDto);
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.OK.value())
+                    .message("Password reset OTP sent successfully")
+                    .build();
+        } catch (NullRequestParamException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (Exception e) {
+            logger.error("Error during forgot password: ", e);
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .message("Failed to send password reset OTP: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ApiResponse<Object> resetPassword(
+            @Valid
+            @RequestBody ResetPasswordRequestDto resetPasswordRequestDto
+    ) {
+        try {
+            boolean reset = authService.resetPassword(resetPasswordRequestDto);
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.OK.value())
+                    .message("Password reset successful")
+                    .data(reset)
+                    .build();
+        } catch (NullRequestParamException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (OtpNotFoundException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.NOT_FOUND.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (InvalidOtpException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.UNAUTHORIZED.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (MaxOtpAttemptsExceededException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (Exception e) {
+            logger.error("Error during password reset: ", e);
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .message("Password reset failed: " + e.getMessage())
+                    .build();
+        }
+    }
 }

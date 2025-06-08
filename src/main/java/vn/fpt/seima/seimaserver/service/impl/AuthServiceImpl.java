@@ -8,13 +8,23 @@ import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.thymeleaf.context.Context;
+import vn.fpt.seima.seimaserver.dto.request.auth.GoogleLoginRequestDto;
+import vn.fpt.seima.seimaserver.dto.request.auth.ForgotPasswordRequestDto;
+import vn.fpt.seima.seimaserver.dto.request.auth.LoginRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.NormalRegisterRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.OtpValueDto;
+import vn.fpt.seima.seimaserver.dto.request.auth.ResetPasswordRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.VerifyOtpRequestDto;
+import vn.fpt.seima.seimaserver.dto.response.auth.LoginResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.NormalRegisterResponseDto;
+import vn.fpt.seima.seimaserver.dto.response.user.UserInGoogleReponseDto;
 import vn.fpt.seima.seimaserver.exception.GmailAlreadyExistException;
 import vn.fpt.seima.seimaserver.exception.InvalidOtpException;
 import vn.fpt.seima.seimaserver.exception.MaxOtpAttemptsExceededException;
@@ -24,6 +34,7 @@ import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.AuthService;
 import vn.fpt.seima.seimaserver.service.EmailService;
+import vn.fpt.seima.seimaserver.service.JwtService;
 import vn.fpt.seima.seimaserver.service.RedisService;
 import vn.fpt.seima.seimaserver.util.OtpUtils;
 
@@ -47,6 +58,15 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private RedisService redisService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    @Autowired
+    private JwtService jwtService;
 
     @Value("${app.lab-name}")
     private String labName;
@@ -84,9 +104,7 @@ public class AuthServiceImpl implements AuthService {
             key -> newBucketForRegister()
         );
         
-        if (!registerBucket.tryConsume(1)) {
-            throw new RuntimeException("Rate limit exceeded. Please try again later.");
-        }
+
 
         // 0.1 Validate confirm password
         if (normalRegisterRequestDto.getConfirmPassword() == null ||
@@ -94,8 +112,15 @@ public class AuthServiceImpl implements AuthService {
             throw new InvalidOtpException("Confirm password does not match the password");
         }
 
-        if(normalRegisterRequestDto.getEmail() == null || normalRegisterRequestDto.getPassword() == null) {
-            throw new NullRequestParamException("Username and password must not be null");
+        if(normalRegisterRequestDto.getEmail().isEmpty()
+                || normalRegisterRequestDto.getPassword().isEmpty()
+                || normalRegisterRequestDto.getFullName().isEmpty()
+                || normalRegisterRequestDto.getPhoneNumber().isEmpty()
+                || normalRegisterRequestDto.getConfirmPassword().isEmpty()
+                || normalRegisterRequestDto.getConfirmPassword().isEmpty()
+                || normalRegisterRequestDto.getPassword().isEmpty()
+        ) {
+            throw new NullRequestParamException("Fields must not be null");
          }
          // 1.Here to check email exist in system
         if(userRepository.findByUserEmail(normalRegisterRequestDto.getEmail()).isPresent()) {
@@ -125,6 +150,7 @@ public class AuthServiceImpl implements AuthService {
         if (existingOtp != null) {
             // If the user has reached max attempts, throw exception
             if (existingOtp.getAttemptCount() >= MAX_OTP_ATTEMPTS) {
+
                 throw new MaxOtpAttemptsExceededException("Maximum OTP attempts exceeded. Please try again later.");
             }
             
@@ -163,7 +189,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public boolean verifyOtp(VerifyOtpRequestDto verifyOtpRequestDto) {
-        if (verifyOtpRequestDto.getEmail() == null || verifyOtpRequestDto.getOtp() == null) {
+        if (verifyOtpRequestDto.getEmail() == null || verifyOtpRequestDto.getOtp().isEmpty()) {
             throw new NullRequestParamException("Email and OTP must not be null");
         }
         
@@ -197,7 +223,7 @@ public class AuthServiceImpl implements AuthService {
             otpValueDto.setIncorrectAttempts(incorrectAttempts);
             redisService.set(otpKey, otpValueDto);
             redisService.setTimeToLiveInMinutes(otpKey, OTP_EXPIRATION_TIME);
-            redisService.setTimeToLiveInMinutes(otpKey, OTP_EXPIRATION_TIME);
+
             
             throw new InvalidOtpException("Invalid OTP. Attempts remaining: " + (MAX_INCORRECT_OTP_ATTEMPTS - incorrectAttempts));
         }
@@ -210,9 +236,11 @@ public class AuthServiceImpl implements AuthService {
         User user = User.builder()
                 .userEmail(email)
                 .userFullName(verifyOtpRequestDto.getFullName())
+                .isLogByGoogle(false)
                 .userDob(verifyOtpRequestDto.getDob())
                 .userPhoneNumber(verifyOtpRequestDto.getPhoneNumber())
                 .userGender(verifyOtpRequestDto.isGender())
+                .userPassword(passwordEncoder.encode(password))
                 .userIsActive(true)
                 .userCreatedDate(LocalDateTime.now())
                 .build();
@@ -224,50 +252,39 @@ public class AuthServiceImpl implements AuthService {
     
     @Override
     public void resendOtp(String email) {
-        if (email == null) {
-            throw new NullRequestParamException("Email must not be null");
-        }
-        
-        // Rate limiting check
-        Bucket resendBucket = rateLimitBuckets.computeIfAbsent(
-            email + ":resend",
-            key -> newBucketForResend()
-        );
-        
-        if (!resendBucket.tryConsume(1)) {
-            throw new RuntimeException("Rate limit exceeded for OTP resend. Please try again later.");
-        }
-        
         // Check if user exists
         if (userRepository.findByUserEmail(email).isPresent()) {
             throw new GmailAlreadyExistException("Email already exists in the system");
         }
-        
-        // Check if previous OTP exists and update attempt count
+
         String otpKey = OTP_KEY_PREFIX + email;
-        OtpValueDto existingOtp = redisService.getObject(otpKey, OtpValueDto.class);
+
+        // Check if OTP already exists in Redis
+        OtpValueDto existingOtpValueDto = redisService.getObject(otpKey, OtpValueDto.class);
+
+        int attemptCount = 1;
+        if (existingOtpValueDto != null) {
+            attemptCount = existingOtpValueDto.getAttemptCount() + 1;
+        }
+
+        // Check if max attempts exceeded
+        if (attemptCount > MAX_OTP_ATTEMPTS) {
+            throw new MaxOtpAttemptsExceededException("Maximum OTP attempts exceeded. Please try again later.");
+        }
+
         // Generate new OTP
         String otp = OtpUtils.generateOTP(6);
-        
-        // Send OTP email
+
+        // Send email
         Context context = new Context();
         HashMap<String, Object> variables = new HashMap<>();
         variables.put("userName", email);
         variables.put("otpRegister", otp);
         variables.put("appName", labName);
         context.setVariables(variables);
-        
-        String emailSubject = "Xác thực tài khoản Seima - Gửi lại mã OTP";
-        String templateName = otpRegisterHtmlTemplate;
-        emailService.sendEmailWithHtmlTemplate(email, emailSubject, templateName, context);
-        
-        // Save new OTP to Redis with incremented attempt count if applicable
-        int attemptCount = existingOtp != null ? existingOtp.getAttemptCount() + 1 : 1;
-        
-        if (attemptCount > MAX_OTP_ATTEMPTS) {
-            throw new MaxOtpAttemptsExceededException("Maximum OTP attempts exceeded. Please try again later.");
-        }
-        
+        emailService.sendEmailWithHtmlTemplate(email, "Seima - OTP Resend", otpRegisterHtmlTemplate, context);
+
+        // Save new OTP to Redis
         OtpValueDto otpValueDto = OtpValueDto.builder()
                 .otpCode(otp)
                 .attemptCount(attemptCount)
@@ -289,5 +306,132 @@ public class AuthServiceImpl implements AuthService {
         return Bucket.builder()
                 .addLimit(limit)
                 .build();
+    }
+
+    @Override
+    public LoginResponseDto login(LoginRequestDto loginRequestDto) {
+        String email = loginRequestDto.getEmail();
+        String password = loginRequestDto.getPassword();
+
+        // Find user by email
+        User user = userRepository.findByUserEmail(email)
+                .orElseThrow(() -> new InvalidOtpException("Invalid email or password"));
+
+        // Check if user is active
+        if (!user.getUserIsActive()) {
+            throw new InvalidOtpException("Account is not active");
+        }
+
+        // Check if user has password (not Google account)
+        if (user.getUserPassword() == null) {
+            throw new InvalidOtpException("This account was created with Google login. Please use Google login.");
+        }
+
+        // Verify password
+        if (!passwordEncoder.matches(password, user.getUserPassword())) {
+            throw new InvalidOtpException("Invalid email or password");
+        }
+
+        // Create user DTO for JWT
+        UserInGoogleReponseDto userDto = UserInGoogleReponseDto.builder()
+                .email(user.getUserEmail())
+                .fullName(user.getUserFullName())
+                .avatarUrl(user.getUserAvatarUrl())
+                .build();
+
+        // Generate tokens
+        String accessToken = jwtService.generateAccessToken(userDto);
+        String refreshToken = jwtService.generateRefreshToken(userDto);
+
+        return LoginResponseDto.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .userInformation(userDto)
+                .message("Login successful")
+                .build();
+    }
+
+    @Override
+    public void forgotPassword(ForgotPasswordRequestDto forgotPasswordRequestDto) {
+        String email = forgotPasswordRequestDto.getEmail();
+        
+        // Check if user exists
+        User user = userRepository.findByUserEmail(email)
+                .orElseThrow(() -> new NullRequestParamException("User with email " + email + " not found"));
+        
+        // Generate OTP
+        String otp = OtpUtils.generateOTP(6);
+        
+        // Save OTP to Redis with forgot password prefix
+        String otpKey = "forgot-password-otp:" + email;
+        OtpValueDto otpValueDto = OtpValueDto.builder()
+                .otpCode(otp)
+                .attemptCount(1)
+                .build();
+        
+        redisService.set(otpKey, otpValueDto);
+        redisService.setTimeToLive(otpKey, OTP_EXPIRATION_TIME * 60); // Convert to seconds
+        
+        // Send OTP email
+        try {
+            Context context = new Context();
+            context.setVariable("otp", otp);
+            context.setVariable("labName", labName);
+            context.setVariable("userName", user.getUserFullName());
+            
+            emailService.sendEmailWithHtmlTemplate(
+                    email,
+                    "Password Reset OTP - " + labName,
+                    otpRegisterHtmlTemplate,
+                    context
+            );
+            
+            logger.info("Forgot password OTP sent successfully to: {}", email);
+        } catch (Exception e) {
+            logger.error("Failed to send forgot password OTP email to: {}", email, e);
+            throw new RuntimeException("Failed to send OTP email");
+        }
+    }
+    
+    @Override
+    @Transactional
+    public boolean resetPassword(ResetPasswordRequestDto resetPasswordRequestDto) {
+        String email = resetPasswordRequestDto.getEmail();
+        String otp = resetPasswordRequestDto.getOtp();
+        String newPassword = resetPasswordRequestDto.getNewPassword();
+        
+        // Verify OTP
+        String otpKey = "forgot-password-otp:" + email;
+        OtpValueDto otpValueDto = (OtpValueDto) redisService.get(otpKey);
+        
+        if (otpValueDto == null) {
+            throw new OtpNotFoundException("OTP not found or expired");
+        }
+        
+        if (!otpValueDto.getOtpCode().equals(otp)) {
+            // Increment attempt count
+            otpValueDto.setAttemptCount(otpValueDto.getAttemptCount() + 1);
+            
+            if (otpValueDto.getAttemptCount() >= MAX_INCORRECT_OTP_ATTEMPTS) {
+                redisService.delete(otpKey);
+                throw new MaxOtpAttemptsExceededException("Maximum OTP verification attempts exceeded");
+            }
+            
+            redisService.set(otpKey, otpValueDto);
+            throw new InvalidOtpException("Invalid OTP");
+        }
+        
+        // Update user password
+        User user = userRepository.findByUserEmail(email)
+                .orElseThrow(() -> new NullRequestParamException("User not found"));
+        
+        user.setUserPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        
+        // Clean up OTP from Redis
+        redisService.delete(otpKey);
+        
+        logger.info("Password reset successful for user: {}", email);
+        return true;
     }
 }
