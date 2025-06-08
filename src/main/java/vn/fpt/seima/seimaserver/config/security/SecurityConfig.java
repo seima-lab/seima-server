@@ -41,10 +41,10 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
-                                "/api/v1/wallets/**",
                                 "/error",
                                 "/api/v1/auth/refresh",
-                                "/api/v1/auth/google"
+                                "/api/v1/auth/google",
+                                "/api/v1/transactions/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

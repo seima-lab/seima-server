@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
@@ -17,7 +18,11 @@ import vn.fpt.seima.seimaserver.service.TransactionService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
-import java.util.Optional;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -36,7 +41,10 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     public TransactionResponse getTransactionById(int id) {
-        return null;
+        Transaction transaction = transactionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Transaction not found with ID: " + id));
+
+        return transactionMapper.toResponse(transaction);
     }
 
     public TransactionResponse saveTransaction(CreateTransactionRequest request, TransactionType type) {
@@ -147,5 +155,48 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     public TransactionResponse transferTransaction(CreateTransactionRequest request) {
         return saveTransaction(request, TransactionType.TRANSFER);
+    }
+
+    public TransactionOverviewResponse getTransactionOverview(YearMonth month) {
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+
+        LocalDateTime start = month.atDay(1).atStartOfDay();
+        LocalDateTime end = month.atEndOfMonth().atTime(23, 59, 59);
+
+        List<Transaction> transactions = transactionRepository
+                .findAllByUserAndTransactionDateBetween(currentUser, start, end);
+
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        BigDecimal totalExpense = BigDecimal.ZERO;
+
+        Map<LocalDate, List<TransactionOverviewResponse.TransactionItem>> grouped =
+                new TreeMap<>(Comparator.reverseOrder());
+
+        for (Transaction transaction : transactions) {
+            if (transaction.getTransactionType() == TransactionType.INCOME) {
+                totalIncome = totalIncome.add(transaction.getAmount());
+            } else if (transaction.getTransactionType() == TransactionType.EXPENSE) {
+                totalExpense = totalExpense.add(transaction.getAmount());
+            }
+
+            LocalDate date = transaction.getTransactionDate().toLocalDate();
+            grouped.computeIfAbsent(date, k -> new ArrayList<>())
+                    .add(transactionMapper.toTransactionItem(transaction));
+        }
+
+        List<TransactionOverviewResponse.DailyTransactions> byDate = grouped.entrySet().stream()
+                .map(entry -> new TransactionOverviewResponse.DailyTransactions(
+                        entry.getKey(), entry.getValue()
+                ))
+                .collect(Collectors.toList());
+
+        return TransactionOverviewResponse.builder()
+                .totalIncome(totalIncome)
+                .totalExpense(totalExpense)
+                .byDate(byDate)
+                .build();
     }
 }

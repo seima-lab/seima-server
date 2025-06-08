@@ -5,7 +5,10 @@ import org.springframework.data.domain.Pageable;
 import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
+
+import java.time.YearMonth;
 
 public interface TransactionService {
 
@@ -24,4 +27,6 @@ public interface TransactionService {
     TransactionResponse recordIncome(CreateTransactionRequest request);
 
     TransactionResponse transferTransaction(CreateTransactionRequest request);
-} 
+
+    TransactionOverviewResponse getTransactionOverview(YearMonth month);
+}
