@@ -35,9 +35,12 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/",
                                 "/login",
-                                "/api/auth/otp/request",
-                                "/api/auth/otp/verify",
-                                "/api/auth/register",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/verify-otp",
+                                "/api/v1/auth/resend-otp",
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/test",
+                                "/api/v1/auth/test-get",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
@@ -45,7 +48,10 @@ public class SecurityConfig {
                                 "/api/v1/categories/**",
                                 "/error",
                                 "/api/v1/auth/refresh",
-                                "/api/v1/auth/google"
+                                "/api/v1/auth/google",
+                                "/api/v1/auth/logout",
+                                "/api/v1/auth/forgot-password",
+                                "/api/v1/auth/reset-password"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

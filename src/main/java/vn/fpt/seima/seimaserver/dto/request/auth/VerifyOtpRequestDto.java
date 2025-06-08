@@ -1,10 +1,5 @@
 package vn.fpt.seima.seimaserver.dto.request.auth;
 
-
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,12 +11,12 @@ import java.time.LocalDate;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class NormalRegisterRequestDto {
-    private String fullName;
+public class VerifyOtpRequestDto {
     private String email;
+    private String fullName;
     private LocalDate dob;
     private String phoneNumber;
     private boolean gender;
     private String password;
-    private String confirmPassword;
-}
+    private String otp;
+} 

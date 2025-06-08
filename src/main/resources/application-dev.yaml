@@ -1,6 +1,7 @@
 # This file is used to configure the application in development mode.
 
 app:
+  lab-name: Seima Lab
   name: seima-server-dev
   port: 8081
   swagger:
@@ -18,6 +19,10 @@ app:
     driver-class-name: com.mysql.cj.jdbc.Driver
   oauth2:
     redirect-uri: seimaapp://auth/success
+  email:
+    otp-register:
+      html-template: "user-otp-verify"
+      subject: "Seima - OTP Registration"
 
 # Server configuration
 server:
@@ -59,10 +64,34 @@ spring:
             client-secret: ${YOUR_GOOGLE_CLIENT_SECRET}
   jackson:
     property-naming-strategy: SNAKE_CASE
-
-
-
-
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          ssl:
+            trust: smtp.gmail.com
+    
+    # Alternative configurations:
+    # For Outlook/Hotmail:
+    # host: smtp-mail.outlook.com
+    # port: 587
+    
+    # For Yahoo:
+    # host: smtp.mail.yahoo.com  
+    # port: 587
+    
+    # For SendGrid:
+    # host: smtp.sendgrid.net
+    # port: 587
+    # username: apikey
+    # password: ${SENDGRID_API_KEY}
 
 # Swagger configuration
 swagger:
@@ -81,8 +110,10 @@ otp:
 
 # Redis configuration
 redis:
-  host: localhost
-  port: 6379
+  host: ${REDIS_HOST}
+  port: ${REDIS_PORT}
+  username: ${REDIS_USERNAME}
+  password: ${REDIS_PASSWORD}
 
 #JWT configuration
 jwt:

@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
@@ -20,10 +21,26 @@ public class RedisConfig {
     @Value("${redis.port}")
     private int redisPort;
 
+    @Value ("${redis.username}")
+    private String redisUsername;
+    @Value ("${redis.password}")
+    private String redisPassword;
+
+    // Cấu hình LettuceConnectionFactory với thông tin kết nối Redis
     @Bean
     public LettuceConnectionFactory redisConnectionFactory() {
-        return new LettuceConnectionFactory(redisHost, redisPort);
+        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
+        config.setHostName(redisHost);
+        config.setPort(redisPort);
+        config.setUsername(redisUsername);
+        config.setPassword(redisPassword);
+        return new LettuceConnectionFactory(config);
     }
+
+  /*  @Bean
+    public LettuceConnectionFactory redisConnectionFactory() {
+        return new LettuceConnectionFactory(redisHost, redisPort);
+    }*/
 
     @Bean
     @Primary
