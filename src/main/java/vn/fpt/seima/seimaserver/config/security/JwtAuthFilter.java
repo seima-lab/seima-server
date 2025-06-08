@@ -14,6 +14,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import vn.fpt.seima.seimaserver.service.JwtService;
+import vn.fpt.seima.seimaserver.service.TokenBlacklistService;
 
 import java.io.IOException;
 
@@ -25,6 +26,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     @Autowired
     private UserDetailsService userDetailsService; // Inject Spring Security's UserDetailsService
+
+    @Autowired
+    private TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(
@@ -39,7 +43,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // ✅ Bỏ qua những API không cần JWT
         if (path.equals("/api/v1/auth/google") ||
                 path.equals("/api/v1/auth/refresh") ||
-                path.equals("/api/v1/auth/logout")) {
+                path.equals("/api/v1/auth/logout") ||
+                path.equals("/api/v1/auth/register")||
+                path.equals("/api/v1/auth/verify-otp")||
+                path.equals("/api/v1/auth/resend-otp")||
+                path.equals("/api/v1/auth/login")||
+                path.equals("/api/v1/auth/forgot-password")||
+                path.equals("/api/v1/auth/reset-password")
+        ) {
             System.out.println("✅ Bypass JWT Filter for: " + path);
             filterChain.doFilter(request, response);
             return;
@@ -56,6 +67,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         jwt = authHeader.substring(7);
         try {
+            // Check if token is blacklisted
+            if (tokenBlacklistService.isTokenBlacklisted(jwt)) {
+                // Token is blacklisted, don't process authentication
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             userEmail = jwtService.extractEmail(jwt);
 
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {

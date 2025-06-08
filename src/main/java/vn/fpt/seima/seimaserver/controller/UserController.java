@@ -64,7 +64,7 @@ public class UserController {
                 .build();
     }
 
-    @PutMapping("/update-me")
+    @PutMapping("/update")
     public ApiResponse<UserProfileResponseDto> updateCurrentUserProfile(
             @Valid @RequestBody UserUpdateRequestDto userUpdateRequestDto
     ) {

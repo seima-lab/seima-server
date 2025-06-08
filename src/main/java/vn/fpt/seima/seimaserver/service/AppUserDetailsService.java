@@ -21,7 +21,7 @@ public class AppUserDetailsService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
         // Convert AppUser to Spring Security UserDetails
-        // For simplicity, no roles/authorities are added here. Add them as needed.
+        // No roles/authorities needed for this application
         return new User(appUser.getUserEmail(), "", new ArrayList<>()); // Password field is not used for JWT auth here
     }
 }

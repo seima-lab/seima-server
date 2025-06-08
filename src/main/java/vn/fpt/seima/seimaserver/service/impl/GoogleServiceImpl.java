@@ -47,6 +47,7 @@ public class GoogleServiceImpl implements GoogleService {
                     .userFullName(fullName)
                     .userAvatarUrl(avatarUrl)
                     .userIsActive(false)
+                    .isLogByGoogle(true)
                     .userGender(true)
                     .build();
             userEntity = userRepository.save(userEntity); // Lưu người dùng mới
