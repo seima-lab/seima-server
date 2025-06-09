@@ -2,11 +2,13 @@ package vn.fpt.seima.seimaserver.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 
 @Data
 @Entity
+@ToString
 @Table(name = "budget_category_limit")
 public class BudgetCategoryLimit {
     @Id
