@@ -1,4 +1,4 @@
-package vn.fpt.seima.seimaserver.dto.budgetCategoryLimit;
+package vn.fpt.seima.seimaserver.dto.response.budgetCategoryLimit;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,6 +11,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @Builder
 public class BudgetCategoryLimitResponse {
-    private Integer budgetId;
+    private Integer budgetCategoryLimitId;
     private BigDecimal amountLimit;
 }
