@@ -1,6 +1,8 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.AllArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -14,6 +16,7 @@ import vn.fpt.seima.seimaserver.repository.BudgetRepository;
 import vn.fpt.seima.seimaserver.repository.CategoryRepository;
 import vn.fpt.seima.seimaserver.repository.TransactionRepository;
 import vn.fpt.seima.seimaserver.repository.WalletRepository;
+import vn.fpt.seima.seimaserver.service.CloudinaryService;
 import vn.fpt.seima.seimaserver.service.TransactionService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
@@ -31,6 +34,7 @@ public class TransactionServiceImpl implements TransactionService {
     private final CategoryRepository categoryRepository;
     private final WalletRepository walletRepository;
     private final TransactionMapper transactionMapper;
+    private final CloudinaryService cloudinaryService;
 
     @Override
     public Page<TransactionResponse> getAllTransaction(Pageable pageable) {
@@ -52,7 +56,8 @@ public class TransactionServiceImpl implements TransactionService {
             if (request == null) {
                 throw new IllegalArgumentException("Request must not be null");
             }
-
+            System.out.println("haha" + request.getWalletId());
+            System.out.println("haha" + request.getTransactionType());
             User user = UserUtils.getCurrentUser();
             if (user == null) {
                 throw new IllegalArgumentException("User must not be null");
@@ -64,6 +69,7 @@ public class TransactionServiceImpl implements TransactionService {
             if (request.getCategoryId() == null) {
                 throw new IllegalArgumentException("WalletId must not be null");
             }
+
             Wallet wallet = walletRepository.findById(request.getWalletId())
                     .orElseThrow(() -> new IllegalArgumentException("Wallet not found"));
 
@@ -75,6 +81,13 @@ public class TransactionServiceImpl implements TransactionService {
             }
 
             Transaction transaction = transactionMapper.toEntity(request);
+            if (request.getReceiptImageUrl() != null && !request.getReceiptImageUrl().isEmpty()) {
+                Map uploadResult = cloudinaryService.uploadImage(
+                        request.getReceiptImageUrl(), "transaction/receipt"
+                );
+                transaction.setReceiptImageUrl((String) uploadResult.get("secure_url"));
+            }
+
             transaction.setUser(user);
             transaction.setCategory(category);
             transaction.setWallet(wallet);
@@ -90,6 +103,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    @CacheEvict(value = "overview", key = "#request.transactionDate.toLocalDate().withDayOfMonth(1).toString()")
     public TransactionResponse updateTransaction(Integer id, CreateTransactionRequest request) {
         try {
             if (request == null) {
@@ -134,6 +148,7 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
+    @CacheEvict(value = "overview", key = "#request.transactionDate.toLocalDate().withDayOfMonth(1).toString()")
     public void deleteTransaction(int id) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found with ID: " + id));
@@ -143,11 +158,13 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    @CacheEvict(value = "overview", key = "#request.transactionDate.toLocalDate().withDayOfMonth(1).toString()")
     public TransactionResponse recordExpense(CreateTransactionRequest request) {
         return saveTransaction(request, TransactionType.EXPENSE);
     }
 
     @Override
+    @CacheEvict(value = "overview", key = "#request.transactionDate.toLocalDate().withDayOfMonth(1).toString()")
     public TransactionResponse recordIncome(CreateTransactionRequest request) {
         return saveTransaction(request, TransactionType.INCOME);
     }
@@ -157,6 +174,7 @@ public class TransactionServiceImpl implements TransactionService {
         return saveTransaction(request, TransactionType.TRANSFER);
     }
 
+    @Cacheable(value = "transactionOverview", key = "#userId + '-' + #month.toString()")
     public TransactionOverviewResponse getTransactionOverview(YearMonth month) {
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {

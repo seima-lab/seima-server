@@ -17,6 +17,7 @@ import java.util.List;
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface TransactionMapper {
 
+    @Mapping(target = "receiptImageUrl", ignore = true)
     Transaction toEntity(CreateTransactionRequest request);
 
     @Mapping(target = "walletId", source = "wallet.id")
@@ -26,6 +27,7 @@ public interface TransactionMapper {
     TransactionResponse toResponse(Transaction transaction);
 
     @Mapping(target = "transactionId", ignore = true)
+    @Mapping(target = "receiptImageUrl", ignore = true)
     void updateTransactionFromDto(CreateTransactionRequest dto, @MappingTarget Transaction budget);
 
 

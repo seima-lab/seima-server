@@ -3,6 +3,7 @@ package vn.fpt.seima.seimaserver.controller;
 import lombok.AllArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
@@ -30,8 +31,8 @@ public class TransactionController {
         }
     }
 
-    @PostMapping("/income")
-    public ApiResponse<TransactionResponse> recordInCome(@RequestBody CreateTransactionRequest request) {
+    @PostMapping(value = "/income", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<TransactionResponse> recordInCome(@ModelAttribute  CreateTransactionRequest request) {
         try {
             TransactionResponse transactionCreated = transactionService.recordIncome(request);
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction created successfully", transactionCreated);

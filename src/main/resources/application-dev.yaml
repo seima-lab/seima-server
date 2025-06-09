@@ -63,7 +63,6 @@ spring:
 
 
 
-
 # Swagger configuration
 swagger:
   contact-name: ${app.contact-name}
@@ -94,5 +93,7 @@ jwt:
     token:
       expiration: 604800 # in seconds (7 days)
 
-
-
+cloudinary:
+  cloud_name: ${CLOUDINARY_CLOUD_NAME}
+  api_key: ${CLOUDINARY_API_KEY}
+  api_secret: ${CLOUDINARY_API_SECRET}
