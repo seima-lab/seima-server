@@ -14,7 +14,6 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-
 public class TransactionOverviewResponse {
 
     private Summary summary;

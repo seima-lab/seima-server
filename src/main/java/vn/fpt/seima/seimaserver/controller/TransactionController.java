@@ -1,12 +1,16 @@
 package vn.fpt.seima.seimaserver.controller;
 
 import lombok.AllArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 import vn.fpt.seima.seimaserver.service.TransactionService;
+
+import java.time.YearMonth;
 
 @RestController
 @AllArgsConstructor
@@ -65,4 +69,18 @@ public class TransactionController {
         }
     }
 
+    @GetMapping("/overview")
+    public ApiResponse<TransactionOverviewResponse> overviewTransaction(@RequestParam("month")
+                                                                        @DateTimeFormat(pattern = "yyyy-MM") YearMonth month) {
+        try {
+
+            TransactionOverviewResponse response = transactionService.getTransactionOverview(month);
+
+            return new ApiResponse<>(HttpStatus.OK.value(), "Transaction get successfully", response);
+        } catch (IllegalArgumentException ex) {
+            return new ApiResponse<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage(), null);
+        } catch (Exception ex) {
+            return new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), ex.getMessage(), null);
+        }
+    }
 } 

@@ -162,7 +162,12 @@ public class TransactionServiceImpl implements TransactionService {
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
         }
-
+        if (month == null) {
+            month = YearMonth.now();
+        }
+        if ((month.getMonthValue() < 0 || month.getMonthValue() > 12)) {
+            throw new IllegalArgumentException("Month is not in range [0, 12]");
+        }
         LocalDateTime start = month.atDay(1).atStartOfDay();
         LocalDateTime end = month.atEndOfMonth().atTime(23, 59, 59);
 
@@ -193,9 +198,14 @@ public class TransactionServiceImpl implements TransactionService {
                 ))
                 .collect(Collectors.toList());
 
-        return TransactionOverviewResponse.builder()
+        TransactionOverviewResponse.Summary summary = TransactionOverviewResponse.Summary.builder()
                 .totalIncome(totalIncome)
                 .totalExpense(totalExpense)
+                .balance(totalIncome.subtract(totalExpense))
+                .build();
+
+       return TransactionOverviewResponse.builder()
+                .summary(summary)
                 .byDate(byDate)
                 .build();
     }
