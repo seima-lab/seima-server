@@ -1,10 +1,81 @@
-app:
-  name: seima-server-prod
-  port: 8082
-
+# Simple Production Configuration for SEIMA Server
 server:
-  port: ${app.port}
+  port: 8080
 
 spring:
   application:
-    name: ${app.name}
+    name: seima-server
+  
+  # Database Configuration
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/seima_db}
+    username: ${SPRING_DATASOURCE_USERNAME:seima_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:seima_password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  # JPA Configuration - Simple settings
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+  
+  # Redis Configuration
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      password: ${SPRING_REDIS_PASSWORD:}
+  
+  # Security OAuth2 - Google Login
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:your-google-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:your-google-client-secret}
+            scope: openid,profile,email
+  
+  # Mail Configuration
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:your-email@gmail.com}
+    password: ${MAIL_PASSWORD:your-app-password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# Logging - Simple but effective
+logging:
+  level:
+    root: INFO
+    vn.fpt.seima: INFO
+  file:
+    name: logs/seima-server.log
+
+# Health Check Endpoint
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+# Application JWT Configuration
+seima:
+  jwt:
+    secret: ${JWT_SECRET:your-very-long-and-secure-jwt-secret-key-here-at-least-256-bits}
+    expiration: 86400000 # 24 hours
+  
+  # CORS - Allow frontend access
+  cors:
+    allowed-origins: ${FRONTEND_URL:http://localhost:3000}
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    allow-credentials: true

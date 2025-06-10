@@ -1,0 +1,49 @@
+# Ignore Git files
+.git
+.gitignore
+.gitattributes
+
+# Ignore IDE files
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Ignore build artifacts
+target/
+build/
+*.jar
+*.war
+
+# Ignore Maven wrapper jar (we copy it specifically)
+.mvn/wrapper/maven-wrapper.jar
+
+# Ignore logs
+*.log
+logs/
+
+# Ignore temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore Docker files (except the ones we need)
+Dockerfile*
+docker-compose*.yml
+*.dockerfile
+
+# Ignore documentation
+README.md
+HELP.md
+*.md
+
+# Ignore test reports
+test-results/
+coverage/ 

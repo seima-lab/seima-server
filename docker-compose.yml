@@ -1,11 +1,62 @@
 version: '3.8' # Hoặc một phiên bản phù hợp khác
 
 services:
-
-  redis:
-    image: redis:alpine # Sử dụng image Redis Alpine
-    container_name: my_redis_container # Tên container (tùy chọn)
+  # Application service
+  seima-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: seima-server
     ports:
-      - "6379:6379" # Ánh xạ cổng 6379 của host tới cổng 6379 của container
-    command: redis-server --appendonly yes # Bật chế độ AOF để persistence
-    restart: unless-stopped # Tự động khởi động lại container trừ khi bạn chủ động dừng nó
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/seima_db
+      - SPRING_DATASOURCE_USERNAME=seima_user
+      - SPRING_DATASOURCE_PASSWORD=seima_password
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      - mysql
+      - redis
+    restart: unless-stopped
+    networks:
+      - seima-network
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: seima_mysql
+    environment:
+      MYSQL_DATABASE: seima_db
+      MYSQL_USER: seima_user
+      MYSQL_PASSWORD: seima_password
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - seima-network
+
+  # Redis service
+  redis:
+    image: redis:alpine
+    container_name: seima_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - seima-network
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  seima-network:
+    driver: bridge
