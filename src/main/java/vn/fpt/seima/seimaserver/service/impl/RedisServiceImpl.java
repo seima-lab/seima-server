@@ -1,5 +1,6 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.HashOperations;
@@ -18,10 +19,12 @@ public class RedisServiceImpl implements RedisService {
 
     private final RedisTemplate<Object, Object> redisTemplate;
     private final HashOperations<Object, Object, Object> hashOperations;
+    private final ObjectMapper objectMapper;
 
-    public RedisServiceImpl(RedisTemplate<Object, Object> redisTemplate) {
+    public RedisServiceImpl(RedisTemplate<Object, Object> redisTemplate, ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;
         this.hashOperations = redisTemplate.opsForHash(); // Khởi tạo HashOperations từ RedisTemplate
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -47,6 +50,31 @@ public class RedisServiceImpl implements RedisService {
     @Override
     public Object get(Object key) {
         return redisTemplate.opsForValue().get(key);
+    }
+
+    @Override
+    public <T> T getObject(Object key, Class<T> clazz) {
+        Object value = redisTemplate.opsForValue().get(key);
+        if (value == null) {
+            return null;
+        }
+        
+        try {
+            // If the value is already of the expected type, return it directly
+            if (clazz.isInstance(value)) {
+                return clazz.cast(value);
+            }
+            
+            // If it's a LinkedHashMap or other Map type, convert it using ObjectMapper
+            if (value instanceof Map) {
+                return objectMapper.convertValue(value, clazz);
+            }
+            
+            // For other types, try to convert using ObjectMapper
+            return objectMapper.convertValue(value, clazz);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to convert Redis value to " + clazz.getSimpleName(), e);
+        }
     }
 
     @Override

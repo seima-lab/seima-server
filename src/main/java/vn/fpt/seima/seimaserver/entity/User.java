@@ -29,9 +29,14 @@ public class User {
     @Column(name = "user_email", length = 255, nullable = false, unique = true)
     private String userEmail;
 
+    @Column(name = "user_password", length = 255)
+    private String userPassword;
+
     @Column(name = "user_dob")
     private LocalDate userDob;
 
+    @Column(name = "is_log_by_google", nullable = false)
+    private Boolean isLogByGoogle = false;
 
     @Column(name = "user_gender", nullable = false)
     private Boolean userGender;

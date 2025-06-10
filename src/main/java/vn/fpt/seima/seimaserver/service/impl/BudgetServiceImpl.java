@@ -13,12 +13,14 @@ import vn.fpt.seima.seimaserver.mapper.BudgetMapper;
 import vn.fpt.seima.seimaserver.repository.BudgetRepository;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.BudgetService;
+import vn.fpt.seima.seimaserver.util.UserUtils;
+
+import java.math.BigDecimal;
 
 @Service
 @AllArgsConstructor
 public class BudgetServiceImpl implements BudgetService {
-    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BudgetServiceImpl.class);
-    private BudgetRepository budgetRepository;
+    private  BudgetRepository budgetRepository;
     private final BudgetMapper budgetMapper;
     private final UserRepository userRepository;
 
@@ -45,8 +47,14 @@ public class BudgetServiceImpl implements BudgetService {
         if (budgetRepository.existsByBudgetName(request.getBudgetName())) {
             throw new IllegalArgumentException("Budget name already exists");
         }
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + request.getUserId()));
+        if(request.getOverallAmountLimit().compareTo(BigDecimal.ZERO) <= 0){
+            throw new IllegalArgumentException("Overall amount limit must be greater than zero");
+        }
+
+        User user = UserUtils.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
 
         Budget budget = budgetMapper.toEntity(request);
         budget.setUser(user);
@@ -64,8 +72,14 @@ public class BudgetServiceImpl implements BudgetService {
             throw new IllegalArgumentException("Budget name already exists");
         }
 
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + request.getUserId()));
+        if(request.getOverallAmountLimit().compareTo(BigDecimal.ZERO) < 0){
+            throw new IllegalArgumentException("Overall amount limit must be greater than zero");
+        }
+
+        User user = UserUtils.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
 
         budgetMapper.updateBudgetFromDto(request, existingBudget);
         existingBudget.setUser(user);

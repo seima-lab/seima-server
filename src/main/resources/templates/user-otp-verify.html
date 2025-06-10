@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:remove="all">Welcome Email</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }
+        .container { background-color: #ffffff; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        p { color: #555; }
+        .button { display: inline-block; padding: 10px 20px; background-color: #007bff; color: #ffffff; text-decoration: none; border-radius: 3px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Chào mừng bạn, <span th:text="${userName}">User</span>!</h1>
+    <p>Cảm ơn bạn đã đăng ký với dịch vụ của chúng tôi.</p>
+    <p>Để bắt đầu, bạn có thể truy cập vào link sau:</p>
+    <p>Mã OTP xác nhận của bạn là : <span th:text="${otpRegister}">Otp của bạn</span></p>
+    <p>Nếu bạn có bất kỳ câu hỏi nào, đừng ngần ngại liên hệ với chúng tôi.</p>
+    <p>Trân trọng,<br/>Đội ngũ <span th:text="${appName}">Ứng dụng của bạn</span></p>
+</div>
+</body>
+</html>

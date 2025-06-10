@@ -17,6 +17,8 @@ public interface RedisService {
 
     Object get(Object key);
 
+    <T> T getObject(Object key, Class<T> clazz);
+
     Map<Object, Object> getField(Object key);
 
     Object hashGet(Object key, String field);
