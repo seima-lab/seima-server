@@ -15,7 +15,7 @@ app:
   datasource:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-    url: jdbc:mysql://localhost:3306/seima_database_v1.4?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: ${DB_URL}
     driver-class-name: com.mysql.cj.jdbc.Driver
   oauth2:
     redirect-uri: seimaapp://auth/success
@@ -103,7 +103,7 @@ redis:
 
 #JWT configuration
 jwt:
-  secret: ${JWT_SECRET_KEY}
+  secret: aVeryLongAndRandomStringForHS512IsNeededHerePleaseMakeItSecure1234567890!@#$%^&*()_+
   access:
     token:
       expiration: 3600 # in seconds
