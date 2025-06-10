@@ -1,11 +1,13 @@
 package vn.fpt.seima.seimaserver.entity;
 
 import jakarta.persistence.*;
+import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
 @Entity
+@Data
 @Table(name = "group_member")
 public class GroupMember {
     @Id

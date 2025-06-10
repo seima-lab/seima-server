@@ -1,10 +1,89 @@
+# Production Configuration for SEIMA Server
+# Based on application-dev.yaml structure
+
 app:
+  lab-name: Seima Lab
   name: seima-server-prod
   port: 8082
+  datasource:
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  oauth2:
+    redirect-uri: ${OAUTH2_REDIRECT_URI:seimaapp://auth/success}
+  email:
+    otp-register:
+      html-template: "user-otp-verify"
+      subject: "Seima - OTP Registration"
 
+# Server configuration
 server:
   port: ${app.port}
+  servlet:
+    session:
+      cookie:
+        secure: true
 
+# Spring configuration
 spring:
   application:
     name: ${app.name}
+  datasource:
+    url: ${app.datasource.url}
+    username: ${app.datasource.username}
+    password: ${app.datasource.password}
+    driver-class-name: ${app.datasource.driver-class-name}
+  jpa:
+    database: mysql
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: false
+        use_sql_comments: false
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${YOUR_GOOGLE_CLIENT_ID}
+            client-secret: ${YOUR_GOOGLE_CLIENT_SECRET}
+            scope: openid,profile,email
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          ssl:
+            trust: smtp.gmail.com
+
+# OTP configuration
+otp:
+  expiration-time: 300
+
+# Redis configuration
+redis:
+  host: ${REDIS_HOST}
+  port: ${REDIS_PORT}
+  username: ${REDIS_USERNAME}
+  password: ${REDIS_PASSWORD}
+
+#JWT configuration
+jwt:
+  secret: ${JWT_SECRET_KEY}
+  access:
+    token:
+      expiration: 3600 # in seconds
+  refresh:
+    token:
+      expiration: 604800 # in seconds (7 days)
