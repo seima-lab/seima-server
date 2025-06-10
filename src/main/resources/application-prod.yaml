@@ -95,3 +95,19 @@ jwt:
   refresh:
     token:
       expiration: 604800 # in seconds (7 days)
+#cloudinary configuration
+cloudinary:
+  cloud_name: ${CLOUDINARY_CLOUD_NAME}
+  api_key: ${CLOUDINARY_API_KEY}
+  api_secret: ${CLOUDINARY_API_SECRET}
+# Swagger configuration
+swagger:
+  contact-name: ${app.contact-name}
+  contact-mail: ${app.contact-mail}
+  contact-url: ${app.contact-url}
+  app-name: ${app.name}
+  app-description: ${app.swagger.app-description}
+  app-version: ${app.swagger.app-version}
+  app-license-url: ${app.swagger.app-license-url}
+  app-license: ${app.swagger.app-license}
+
