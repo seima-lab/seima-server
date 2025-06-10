@@ -7,9 +7,9 @@ on:
     branches: [ main ]
 
 env:
-  AZURE_WEBAPP_NAME: seima-server    # Tên Azure App Service của bạn
-  JAVA_VERSION: '21'                 # Java version
-  DISTRIBUTION: 'temurin'            # Java distribution
+  AZURE_WEBAPP_NAME: seima-server
+  JAVA_VERSION: '21'
+  DISTRIBUTION: 'temurin'
 
 jobs:
   build-and-deploy:
@@ -33,13 +33,13 @@ jobs:
         restore-keys: ${{ runner.os }}-m2
         
     - name: Run tests
-      run: cd seima-server && ./mvnw clean test
+      run: ./mvnw clean test
       
     - name: Build with Maven
-      run: cd seima-server && ./mvnw clean package -DskipTests
+      run: ./mvnw clean package -DskipTests
       
     - name: List built files
-      run: ls -lh ./seima-server/target
+      run: ls -lh ./target
       
     - name: Deploy to Azure Web App
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -47,7 +47,7 @@ jobs:
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: './seima-server/target/*.jar'
+        package: './target/*.jar'
         
     - name: Notify deployment success
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
