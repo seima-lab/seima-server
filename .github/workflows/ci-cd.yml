@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  AZURE_WEBAPP_NAME: seima-server    # Thay đổi tên này theo tên Azure App Service của bạn
+  AZURE_WEBAPP_NAME: seima-server    # Tên Azure App Service của bạn
   JAVA_VERSION: '21'                 # Java version
   DISTRIBUTION: 'temurin'            # Java distribution
 
@@ -33,10 +33,13 @@ jobs:
         restore-keys: ${{ runner.os }}-m2
         
     - name: Run tests
-      run: ./mvnw clean test
+      run: cd seima-server && ./mvnw clean test
       
     - name: Build with Maven
-      run: ./mvnw clean package -DskipTests
+      run: cd seima-server && ./mvnw clean package -DskipTests
+      
+    - name: List built files
+      run: ls -lh ./seima-server/target
       
     - name: Deploy to Azure Web App
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -44,11 +47,11 @@ jobs:
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: './target/*.jar'
+        package: './seima-server/target/*.jar'
         
     - name: Notify deployment success
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
         echo "🚀 Deployment completed successfully!"
         echo "📦 Spring Boot JAR deployed to Azure App Service"
-        echo "🔗 App URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net" 
+        echo "🔗 App URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
