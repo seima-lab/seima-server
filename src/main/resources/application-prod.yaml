@@ -3,15 +3,23 @@
 
 app:
   lab-name: Seima Lab
-  name: seima-server-prod
-  port: 8082
+  name: seima-server-dev
+  port: 8081
+  swagger:
+    contact-name: Jason Nguyen
+    contact-mail: syhaoc2dh@gmail.com
+    contact-url: https://syhaoc2dh.com
+    app-description: "Documentation for the Spring Boot Project"
+    app-version: 3.4.0
+    app-license-url: https://www.apache.org/licenses/LICENSE-2.0.html
+    app-license: Apache 2.0
   datasource:
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
-    url: ${SPRING_DATASOURCE_URL}
+    username:
+    password:
+    url: jdbc:mysql://seima-db-official.mysql.database.azure.com:3306/seima_database_official?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     driver-class-name: com.mysql.cj.jdbc.Driver
   oauth2:
-    redirect-uri: ${OAUTH2_REDIRECT_URI:seimaapp://auth/success}
+    redirect-uri: seimaapp://auth/success
   email:
     otp-register:
       html-template: "user-otp-verify"
