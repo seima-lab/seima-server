@@ -64,6 +64,7 @@ spring:
             client-secret: ${YOUR_GOOGLE_CLIENT_SECRET}
   jackson:
     property-naming-strategy: SNAKE_CASE
+    
   mail:
     host: smtp.gmail.com
     port: 587
@@ -77,21 +78,6 @@ spring:
             enable: true
           ssl:
             trust: smtp.gmail.com
-    
-    # Alternative configurations:
-    # For Outlook/Hotmail:
-    # host: smtp-mail.outlook.com
-    # port: 587
-    
-    # For Yahoo:
-    # host: smtp.mail.yahoo.com  
-    # port: 587
-    
-    # For SendGrid:
-    # host: smtp.sendgrid.net
-    # port: 587
-    # username: apikey
-    # password: ${SENDGRID_API_KEY}
 
 # Swagger configuration
 swagger:
@@ -125,5 +111,7 @@ jwt:
     token:
       expiration: 604800 # in seconds (7 days)
 
-
-
+cloudinary:
+  cloud_name: ${CLOUDINARY_CLOUD_NAME}
+  api_key: ${CLOUDINARY_API_KEY}
+  api_secret: ${CLOUDINARY_API_SECRET}
