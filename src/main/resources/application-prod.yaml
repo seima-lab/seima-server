@@ -4,7 +4,7 @@
 app:
   lab-name: Seima Lab
   name: seima-server-dev
-  port: 8081
+  port: 8082
   swagger:
     contact-name: Jason Nguyen
     contact-mail: syhaoc2dh@gmail.com
