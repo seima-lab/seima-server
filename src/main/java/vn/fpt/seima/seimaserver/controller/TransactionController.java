@@ -20,7 +20,7 @@ public class TransactionController {
     private final TransactionService transactionService;
 
     @PostMapping("/expense")
-    public ApiResponse<TransactionResponse> recordExpense(@RequestBody CreateTransactionRequest request) {
+    public ApiResponse<TransactionResponse> recordExpense(@ModelAttribute  CreateTransactionRequest request) {
         try {
             TransactionResponse transactionCreated = transactionService.recordExpense(request);
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction created successfully", transactionCreated);
@@ -44,7 +44,7 @@ public class TransactionController {
     }
 
     @PutMapping("/update/{id}")
-    public ApiResponse<TransactionResponse> updateTransaction(@RequestBody CreateTransactionRequest request,
+    public ApiResponse<TransactionResponse> updateTransaction(@ModelAttribute  CreateTransactionRequest request,
                                                               @PathVariable Integer id) {
         try {
             TransactionResponse updatedTransaction = transactionService.updateTransaction(id, request);

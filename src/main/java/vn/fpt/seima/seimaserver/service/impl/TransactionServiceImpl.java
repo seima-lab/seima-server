@@ -135,6 +135,13 @@ public class TransactionServiceImpl implements TransactionService {
                 throw new IllegalArgumentException("Amount must not be zero");
             }
 
+            if (request.getReceiptImageUrl() != null && !request.getReceiptImageUrl().isEmpty()) {
+                Map uploadResult = cloudinaryService.uploadImage(
+                        request.getReceiptImageUrl(), "transaction/receipt"
+                );
+                transaction.setReceiptImageUrl((String) uploadResult.get("secure_url"));
+            }
+
             transactionMapper.updateTransactionFromDto(request, transaction);
 
             Transaction updatedTransaction = transactionRepository.save(transaction);
