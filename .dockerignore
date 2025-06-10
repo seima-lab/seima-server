@@ -35,7 +35,6 @@ logs/
 Thumbs.db
 
 # Ignore Docker files (except the ones we need)
-Dockerfile*
 docker-compose*.yml
 *.dockerfile
 
@@ -46,4 +45,17 @@ HELP.md
 
 # Ignore test reports
 test-results/
-coverage/ 
+coverage/
+
+# Ignore Node.js files (nếu có frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore development configs
+.env.local
+.env.development
+.env.test
+application-local.yml
+application-dev.yml 
