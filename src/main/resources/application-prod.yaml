@@ -80,7 +80,7 @@ redis:
 
 #JWT configuration
 jwt:
-  secret: ${JWT_SECRET_KEY}
+  secret: aVeryLongAndRandomStringForHS512IsNeededHerePleaseMakeItSecure1234567890!@#$%^&*()_+
   access:
     token:
       expiration: 3600 # in seconds
