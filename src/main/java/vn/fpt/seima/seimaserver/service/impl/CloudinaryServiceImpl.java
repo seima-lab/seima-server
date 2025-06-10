@@ -20,6 +20,11 @@ public class CloudinaryServiceImpl implements CloudinaryService {
     @Override
     public Map uploadImage(MultipartFile file, String subFolder) {
         try {
+
+            if (file.getSize() > 20 * 1024 * 1024) {
+                throw new IllegalArgumentException("File size must be less than 20MB");
+            }
+
             String fullFolderPath = "seima-server/" + (subFolder != null ? subFolder.trim() : "");
 
             Map<String, Object> options = ObjectUtils.asMap(
