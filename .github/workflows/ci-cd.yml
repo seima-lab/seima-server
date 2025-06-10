@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  AZURE_WEBAPP_NAME: seima-back    # Thay đổi tên này theo tên Azure App Service của bạn
+  AZURE_WEBAPP_NAME: seima-server    # Thay đổi tên này theo tên Azure App Service của bạn
   JAVA_VERSION: '21'                 # Java version
   DISTRIBUTION: 'temurin'            # Java distribution
 
