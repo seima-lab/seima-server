@@ -370,4 +370,12 @@ public class AuthController {
                     .build();
         }
     }
+    @PostMapping("/hehe")
+    public ResponseEntity<ApiResponse<String>> hehe() {
+        return ResponseEntity.ok(ApiResponse.<String>builder()
+                .statusCode(HttpStatus.OK.value())
+                .message("Hehe endpoint called successfully")
+                .data("This is a test response from the hehe endpoint")
+                .build());
+    }
 }

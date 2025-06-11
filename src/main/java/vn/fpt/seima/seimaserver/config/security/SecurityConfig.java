@@ -51,7 +51,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/google",
                                 "/api/v1/auth/logout",
                                 "/api/v1/auth/forgot-password",
-                                "/api/v1/auth/reset-password"
+                                "/api/v1/auth/reset-password",
+                                "/api/v1/auth/hehe" // Example endpoint that does not require authentication
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
