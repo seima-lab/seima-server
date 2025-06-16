@@ -15,11 +15,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import vn.fpt.seima.seimaserver.service.JwtService;
 import vn.fpt.seima.seimaserver.service.TokenBlacklistService;
+import vn.fpt.seima.seimaserver.exception.UserAccountNotActiveException;
+import vn.fpt.seima.seimaserver.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtAuthFilter.class);
 
     @Autowired
     private JwtService jwtService;
@@ -29,6 +35,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     @Autowired
     private TokenBlacklistService tokenBlacklistService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(
@@ -78,21 +87,43 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             userEmail = jwtService.extractEmail(jwt);
 
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+                try {
+                    UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-                if (jwtService.validateToken(jwt, userDetails)) {
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userDetails,
-                            null,
-                            userDetails.getAuthorities());
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                } else {
-                    logger.warn("JWT token validation failed for user: " + userEmail);
+                    if (jwtService.validateToken(jwt, userDetails)) {
+                        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                                userDetails,
+                                null,
+                                userDetails.getAuthorities());
+                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    } else {
+                        logger.warn("JWT token validation failed for user: {}", userEmail);
+                    }
+                } catch (UserAccountNotActiveException e) {
+                    // Xử lý đặc biệt cho trường hợp user chưa active
+                    // Chỉ cho phép truy cập API create user để hoàn thành profile
+                    if (path.equals("/api/v1/users/create")) {
+                        // Tạo authentication tạm thời với user chưa active để cho phép truy cập API create
+                        vn.fpt.seima.seimaserver.entity.User inactiveUser = userRepository.findByUserEmail(userEmail).orElse(null);
+                        if (inactiveUser != null && jwtService.validateToken(jwt)) {
+                            // Tạo authentication với minimal authorities
+                            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                                    userEmail, // Chỉ dùng email làm principal
+                                    null,
+                                    java.util.Collections.emptyList()); // Empty authorities
+                            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                            SecurityContextHolder.getContext().setAuthentication(authToken);
+                            logger.info("Granted temporary access to inactive user {} for profile completion", userEmail);
+                        }
+                    } else {
+                        logger.warn("Inactive user {} attempted to access restricted endpoint: {}", userEmail, path);
+                        // Không set authentication, request sẽ bị từ chối
+                    }
                 }
             }
         } catch (Exception e) {
-            logger.warn("JWT token processing error: " + e.getMessage());
+            logger.warn("JWT token processing error: {}", e.getMessage());
         }
         System.out.println("➡️ JWT filter passed, moving on");
         filterChain.doFilter(request, response);

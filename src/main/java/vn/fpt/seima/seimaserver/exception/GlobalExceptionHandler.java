@@ -33,6 +33,24 @@ public class GlobalExceptionHandler {
                 .build();
     }
 
+    @ExceptionHandler(UserAccountNotActiveException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> handleUserAccountNotActiveException(UserAccountNotActiveException ex) {
+        return ApiResponse.<Void>builder()
+                .statusCode(HttpStatus.FORBIDDEN.value())
+                .message("Account not active. Please complete your profile setup first.")
+                .build();
+    }
+
+    @ExceptionHandler(GoogleAccountConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiResponse<Void> handleGoogleAccountConflictException(GoogleAccountConflictException ex) {
+        return ApiResponse.<Void>builder()
+                .statusCode(HttpStatus.CONFLICT.value())
+                .message(ex.getMessage())
+                .build();
+    }
+
     @ExceptionHandler(WalletNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiResponse<Void> handleWalletNotFoundException(WalletNotFoundException ex) {
