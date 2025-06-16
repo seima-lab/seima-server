@@ -36,25 +36,41 @@ public class GoogleServiceImpl implements GoogleService {
         String fullName = (String) payload.get("name");
         String avatarUrl = (String) payload.get("picture");
         boolean isFirstLoginToApp;
+        boolean isUserActive;
 
+        // Tìm user theo email (không phân biệt trạng thái active để tránh tạo duplicate)
         Optional<User> existingUserOpt = userRepository.findByUserEmail(email);
         User userEntity;
 
         if (existingUserOpt.isEmpty()) {
+            // User chưa từng login, tạo mới
             isFirstLoginToApp = true;
+            isUserActive = false;
             userEntity = User.builder()
                     .userEmail(email)
                     .userFullName(fullName)
                     .userAvatarUrl(avatarUrl)
-                    .userIsActive(false)
+                    .userIsActive(isUserActive)
                     .isLogByGoogle(true)
                     .userGender(true)
                     .build();
-            userEntity = userRepository.save(userEntity); // Lưu người dùng mới
+            userEntity = userRepository.save(userEntity);
         } else {
-            isFirstLoginToApp = false;
             userEntity = existingUserOpt.get();
-            // Người dùng đã tồn tại, có thể cập nhật thông tin nếu cần
+            
+            // Kiểm tra trạng thái user để xác định logic xử lý
+            if (userEntity.getUserIsActive()) {
+                // User đã active - đây là login bình thường
+                isFirstLoginToApp = false;
+                isUserActive = true;
+            } else {
+                // User đã tồn tại nhưng chưa active (chưa hoàn thành setup)
+                // Đây vẫn được coi là first login để user có thể tiếp tục setup
+                isFirstLoginToApp = true;
+                isUserActive = false;
+            }
+            
+            // Cập nhật thông tin từ Google nếu có thay đổi
             boolean needsUpdate = false;
             if (fullName != null && !fullName.equals(userEntity.getUserFullName())) {
                 userEntity.setUserFullName(fullName);
@@ -84,6 +100,7 @@ public class GoogleServiceImpl implements GoogleService {
                 .refreshToken(refreshToken)
                 .userInfomation(userDtoForResponseAndJwt)
                 .isFirstLogin(isFirstLoginToApp)
+                .isUserActive(isUserActive)
                 .build();
     }
 }

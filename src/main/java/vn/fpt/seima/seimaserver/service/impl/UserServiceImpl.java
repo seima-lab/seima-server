@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.user.UserCreationRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.user.UserUpdateRequestDto;
 import vn.fpt.seima.seimaserver.entity.User;
@@ -24,16 +25,16 @@ public class UserServiceImpl implements UserService {
 
 
     @Override
+    @Transactional
     public void processAddNewUser(UserCreationRequestDto userCreationRequestDto) {
-
-
-        User currentUser = UserUtils.getCurrentUser();
-
-        if (currentUser == null) {
-
-            throw new IllegalStateException("Authenticated user not found. Cannot process user creation/update.");
+        if (userCreationRequestDto == null) {
+            throw new IllegalArgumentException("User creation request cannot be null");
         }
 
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalStateException("Authenticated user not found. Cannot process user creation/update.");
+        }
 
         if (!currentUser.getUserEmail().equals(userCreationRequestDto.getEmail())) {
             logger.warn("Attempt to update profile for email {} with data for email {}. Denied.",
@@ -41,14 +42,20 @@ public class UserServiceImpl implements UserService {
             throw new NotMatchCurrentGmailException("Email in request does not match the authenticated user's email.");
         }
 
-
-        currentUser.setUserFullName(userCreationRequestDto.getFullName());
+        // Update user information
+        if (userCreationRequestDto.getFullName() != null && !userCreationRequestDto.getFullName().trim().isEmpty()) {
+            currentUser.setUserFullName(userCreationRequestDto.getFullName().trim());
+        }
         currentUser.setUserGender(userCreationRequestDto.isGender());
         currentUser.setUserDob(userCreationRequestDto.getBirthDate());
-        currentUser.setUserPhoneNumber(userCreationRequestDto.getPhoneNumber());
+        
+        if (userCreationRequestDto.getPhoneNumber() != null && !userCreationRequestDto.getPhoneNumber().trim().isEmpty()) {
+            currentUser.setUserPhoneNumber(userCreationRequestDto.getPhoneNumber().trim());
+        }
+        
         // Chỉ cập nhật avatar nếu có giá trị mới, tránh ghi đè null/empty string nếu không muốn
-        if (userCreationRequestDto.getAvatarUrl() != null && !userCreationRequestDto.getAvatarUrl().isEmpty()) {
-            currentUser.setUserAvatarUrl(userCreationRequestDto.getAvatarUrl());
+        if (userCreationRequestDto.getAvatarUrl() != null && !userCreationRequestDto.getAvatarUrl().trim().isEmpty()) {
+            currentUser.setUserAvatarUrl(userCreationRequestDto.getAvatarUrl().trim());
         }
         currentUser.setUserIsActive(true); // Đảm bảo người dùng được active
 
@@ -59,28 +66,37 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public User updateUserProfile(Integer userId, UserUpdateRequestDto dto) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
+        
         User userToUpdate = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId)); // Hoặc exception phù hợp
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         // Cập nhật các trường nếu DTO cung cấp giá trị mới (khác null)
-        if (dto.getFullName() != null) {
-            userToUpdate.setUserFullName(dto.getFullName());
+        if (dto.getFullName() != null && !dto.getFullName().trim().isEmpty()) {
+            userToUpdate.setUserFullName(dto.getFullName().trim());
         }
         if (dto.getBirthDate() != null) {
             userToUpdate.setUserDob(dto.getBirthDate());
         }
-        if (dto.getPhoneNumber() != null) {
-            userToUpdate.setUserPhoneNumber(dto.getPhoneNumber());
+        if (dto.getPhoneNumber() != null && !dto.getPhoneNumber().trim().isEmpty()) {
+            userToUpdate.setUserPhoneNumber(dto.getPhoneNumber().trim());
         }
-        if (dto.getAvatarUrl() != null) {
-            userToUpdate.setUserAvatarUrl(dto.getAvatarUrl());
+        if (dto.getAvatarUrl() != null && !dto.getAvatarUrl().trim().isEmpty()) {
+            userToUpdate.setUserAvatarUrl(dto.getAvatarUrl().trim());
         }
         if (dto.getGender() != null) {
             userToUpdate.setUserGender(dto.getGender());
         }
 
+        // Đảm bảo user được active sau khi cập nhật profile (đặc biệt quan trọng cho Google login users)
+        userToUpdate.setUserIsActive(true);
 
-        return userRepository.save(userToUpdate);
+        User savedUser = userRepository.save(userToUpdate);
+        logger.info("User profile updated successfully and activated for userId: {}", userId);
+        return savedUser;
     }
 }

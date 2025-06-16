@@ -24,6 +24,7 @@ import vn.fpt.seima.seimaserver.dto.response.auth.NormalRegisterResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.user.UserInGoogleReponseDto;
 import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.exception.GmailAlreadyExistException;
+import vn.fpt.seima.seimaserver.exception.GoogleAccountConflictException;
 import vn.fpt.seima.seimaserver.exception.InvalidOtpException;
 import vn.fpt.seima.seimaserver.exception.MaxOtpAttemptsExceededException;
 import vn.fpt.seima.seimaserver.exception.NullRequestParamException;
@@ -369,5 +370,13 @@ public class AuthController {
                     .message("Password reset failed: " + e.getMessage())
                     .build();
         }
+    }
+    @PostMapping("/hehe")
+    public ResponseEntity<ApiResponse<String>> hehe() {
+        return ResponseEntity.ok(ApiResponse.<String>builder()
+                .statusCode(HttpStatus.OK.value())
+                .message("Hehe endpoint called successfully")
+                .data("This is a test response from the hehe endpoint")
+                .build());
     }
 }
