@@ -24,6 +24,7 @@ import vn.fpt.seima.seimaserver.dto.response.auth.NormalRegisterResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.user.UserInGoogleReponseDto;
 import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.exception.GmailAlreadyExistException;
+import vn.fpt.seima.seimaserver.exception.GoogleAccountConflictException;
 import vn.fpt.seima.seimaserver.exception.InvalidOtpException;
 import vn.fpt.seima.seimaserver.exception.MaxOtpAttemptsExceededException;
 import vn.fpt.seima.seimaserver.exception.NullRequestParamException;

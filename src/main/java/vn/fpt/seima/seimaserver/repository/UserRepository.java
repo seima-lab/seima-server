@@ -16,6 +16,9 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     Optional<User> findByUserEmail(String currentEmail);
 
+    // This method will find a user by email and check if the user is active
+    Optional<User> findByUserEmailAndUserIsActiveTrue(@Email @NotBlank String email);
+
     // I want write query to find user by email and isActive is false
     Optional<User> findByUserEmailAndUserIsActiveFalse(@Email @NotBlank String email);
 

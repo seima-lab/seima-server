@@ -26,6 +26,7 @@ import vn.fpt.seima.seimaserver.dto.response.auth.LoginResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.NormalRegisterResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.user.UserInGoogleReponseDto;
 import vn.fpt.seima.seimaserver.exception.GmailAlreadyExistException;
+import vn.fpt.seima.seimaserver.exception.GoogleAccountConflictException;
 import vn.fpt.seima.seimaserver.exception.InvalidOtpException;
 import vn.fpt.seima.seimaserver.exception.MaxOtpAttemptsExceededException;
 import vn.fpt.seima.seimaserver.exception.NullRequestParamException;
@@ -43,6 +44,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Optional;
 
 import org.springframework.data.redis.core.RedisTemplate;
 
@@ -96,15 +98,12 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public NormalRegisterResponseDto processRegister(NormalRegisterRequestDto normalRegisterRequestDto) {
 
-
-
         // 0. Rate Limiting check can be added here if needed
         Bucket registerBucket = rateLimitBuckets.computeIfAbsent(
             normalRegisterRequestDto.getEmail(),
             key -> newBucketForRegister()
         );
         
-
 
         // 0.1 Validate confirm password
         if (normalRegisterRequestDto.getConfirmPassword() == null ||
@@ -122,9 +121,17 @@ public class AuthServiceImpl implements AuthService {
         ) {
             throw new NullRequestParamException("Fields must not be null");
          }
-         // 1.Here to check email exist in system
-        if(userRepository.findByUserEmail(normalRegisterRequestDto.getEmail()).isPresent()) {
-            throw new GmailAlreadyExistException("Email already exists in the system");
+         
+         // 1. Check email exist in system
+        Optional<User> existingUser = userRepository.findByUserEmail(normalRegisterRequestDto.getEmail());
+        if(existingUser.isPresent()) {
+            User user = existingUser.get();
+            // Check if this is a Google account
+            if (user.getIsLogByGoogle()) {
+                throw new GmailAlreadyExistException("This email is already registered with Google login. Please use Google login instead.");
+            } else {
+                throw new GmailAlreadyExistException("Email already exists in the system");
+            }
         }
 
         // 2. Generate OTP
@@ -324,7 +331,7 @@ public class AuthServiceImpl implements AuthService {
 
         // Check if user has password (not Google account)
         if (user.getUserPassword() == null) {
-            throw new InvalidOtpException("This account was created with Google login. Please use Google login.");
+            throw new GoogleAccountConflictException("This account was created with Google login. Please use Google login.");
         }
 
         // Verify password
@@ -358,6 +365,16 @@ public class AuthServiceImpl implements AuthService {
         // Check if user exists
         User user = userRepository.findByUserEmail(email)
                 .orElseThrow(() -> new NullRequestParamException("User with email " + email + " not found"));
+        
+        // Check if this is a Google account
+        if (user.getIsLogByGoogle()) {
+            throw new GoogleAccountConflictException("This account was created with Google login. Password reset is not available for Google accounts. Please use Google login.");
+        }
+        
+        // Check if user has password (additional validation)
+        if (user.getUserPassword() == null) {
+            throw new GoogleAccountConflictException("This account does not have a password set. Please use Google login.");
+        }
         
         // Generate OTP
         String otp = OtpUtils.generateOTP(6);
@@ -400,6 +417,15 @@ public class AuthServiceImpl implements AuthService {
         String otp = resetPasswordRequestDto.getOtp();
         String newPassword = resetPasswordRequestDto.getNewPassword();
         
+        // Check if user exists and validate account type
+        User user = userRepository.findByUserEmail(email)
+                .orElseThrow(() -> new NullRequestParamException("User not found"));
+        
+        // Check if this is a Google account
+        if (user.getIsLogByGoogle()) {
+            throw new GoogleAccountConflictException("This account was created with Google login. Password reset is not available for Google accounts.");
+        }
+        
         // Verify OTP
         String otpKey = "forgot-password-otp:" + email;
         OtpValueDto otpValueDto = (OtpValueDto) redisService.get(otpKey);
@@ -422,9 +448,6 @@ public class AuthServiceImpl implements AuthService {
         }
         
         // Update user password
-        User user = userRepository.findByUserEmail(email)
-                .orElseThrow(() -> new NullRequestParamException("User not found"));
-        
         user.setUserPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
         
