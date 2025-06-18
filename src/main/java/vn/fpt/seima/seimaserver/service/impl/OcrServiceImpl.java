@@ -7,16 +7,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import vn.fpt.seima.seimaserver.config.ocr.AzureFormRecognizerConfig;
+import vn.fpt.seima.seimaserver.service.GeminiService;
 import vn.fpt.seima.seimaserver.service.OcrService;
 
 @Service
 @AllArgsConstructor
 public class OcrServiceImpl implements OcrService {
 
+    private final GeminiService geminiService;
     private final AzureFormRecognizerConfig config;
     private final RestTemplate restTemplate = new RestTemplate();
     private final HttpHeaders headers = new HttpHeaders();
-    private final static String endPointUrl = "/formrecognizer/documentModels/prebuilt-invoice:analyze?api-version=2024-11-30";
+    private final static String endPointUrl = "formrecognizer/documentModels/prebuilt-invoice:analyze?api-version=2023-07-31";
     @Override
     public String extractTextFromFile(MultipartFile file) throws Exception {
 
@@ -43,8 +45,8 @@ public class OcrServiceImpl implements OcrService {
                 resultRequest,
                 String.class
         );
+      return   geminiService.analyzeInvoiceFromOcrText(resultResponse.getBody());
 
-        return resultResponse.getBody();
     }
 
 }
