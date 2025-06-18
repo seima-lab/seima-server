@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.web.multipart.MultipartFile;
 
 @Data
 @AllArgsConstructor
@@ -16,4 +17,7 @@ public class CreateGroupRequest {
     
     @Size(max = 512, message = "Group avatar URL cannot exceed 512 characters")
     private String groupAvatarUrl;
+    
+    // Image file for upload (optional)
+    private MultipartFile image;
 } 
