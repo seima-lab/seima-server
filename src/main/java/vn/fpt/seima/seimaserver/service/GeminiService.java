@@ -1,7 +1,7 @@
 package vn.fpt.seima.seimaserver.service;
 
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -12,7 +12,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GeminiService {
 
-    private final static String apiKey = "AIzaSyDptBVNzr3FXFy85t5cyGx9F9w3EFh6gjw";
+    @Value("${gemini.api-key}")
+    private String apiKey;
 
     private final RestTemplate restTemplate = new RestTemplate();
 

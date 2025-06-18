@@ -120,3 +120,6 @@ azure:
   form:
     endpoint: ${AZURE_FORM_END_POINT}
     api-key: ${AZURE_FORM_API_KEY}
+
+gemini:
+  api-key: ${GEMINI_API_KEY}
