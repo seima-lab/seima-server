@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ResetPasswordRequestDto {
+public class VerifyForgotPasswordOtpRequestDto {
     @Email(message = "Email should be valid")
     @NotBlank(message = "Email is required")
     private String email;
@@ -22,12 +22,4 @@ public class ResetPasswordRequestDto {
     @Size(min = 6, max = 6, message = "OTP must be 6 digits")
     @Pattern(regexp = "^[0-9]{6}$", message = "OTP must contain only digits")
     private String otp;
-
-    @NotBlank(message = "New password is required")
-    @Size(min = 8, max = 128, message = "Password must be between 8 and 128 characters")
-    @Pattern(
-        regexp = "^(?=.*[a-zA-Z])(?=.*\\d)[a-zA-Z\\d]{8,}$",
-        message = "Password must be at least 8 characters long and contain at least one letter and one number"
-    )
-    private String newPassword;
 } 
