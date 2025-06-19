@@ -27,7 +27,7 @@ jobs:
         distribution: ${{ env.DISTRIBUTION }}
         
     - name: Cache Maven packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
@@ -53,7 +53,7 @@ jobs:
         fail-on-error: true
         
     - name: Upload Test Coverage Reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-coverage-reports
@@ -95,7 +95,7 @@ jobs:
         distribution: ${{ env.DISTRIBUTION }}
         
     - name: Cache Maven packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
@@ -130,7 +130,7 @@ jobs:
         distribution: ${{ env.DISTRIBUTION }}
         
     - name: Cache Maven packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
@@ -177,7 +177,7 @@ jobs:
         distribution: ${{ env.DISTRIBUTION }}
         
     - name: Cache Maven packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
