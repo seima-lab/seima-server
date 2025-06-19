@@ -23,6 +23,9 @@ app:
     otp-register:
       html-template: "user-otp-verify"
       subject: "Seima - OTP Registration"
+    password-reset:
+      html-template: "password-reset-otp"
+      subject: "Seima - Đặt Lại Mật Khẩu"
 
 # Server configuration
 server:

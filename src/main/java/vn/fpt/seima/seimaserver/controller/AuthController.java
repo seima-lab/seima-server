@@ -18,6 +18,7 @@ import vn.fpt.seima.seimaserver.dto.request.auth.LoginRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.NormalRegisterRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.ResetPasswordRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.VerifyOtpRequestDto;
+import vn.fpt.seima.seimaserver.dto.request.auth.ChangePasswordRequestDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.GoogleLoginResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.LoginResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.NormalRegisterResponseDto;
@@ -29,6 +30,8 @@ import vn.fpt.seima.seimaserver.exception.InvalidOtpException;
 import vn.fpt.seima.seimaserver.exception.MaxOtpAttemptsExceededException;
 import vn.fpt.seima.seimaserver.exception.NullRequestParamException;
 import vn.fpt.seima.seimaserver.exception.OtpNotFoundException;
+import vn.fpt.seima.seimaserver.exception.PasswordMismatchException;
+import vn.fpt.seima.seimaserver.exception.InvalidPasswordException;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.AuthService;
 import vn.fpt.seima.seimaserver.service.GoogleService;
@@ -371,6 +374,108 @@ public class AuthController {
                     .build();
         }
     }
+
+    @PostMapping("/resend-forgot-password-otp")
+    public ApiResponse<Object> resendForgotPasswordOtp(
+            @RequestBody Map<String, String> request
+    ) {
+        try {
+            String email = request.get("email");
+            if (email == null || email.trim().isEmpty()) {
+                return ApiResponse.builder()
+                        .statusCode(HttpStatus.BAD_REQUEST.value())
+                        .message("Email is required")
+                        .build();
+            }
+            
+            authService.resendForgotPasswordOtp(email);
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.OK.value())
+                    .message("Password reset OTP resent successfully")
+                    .build();
+        } catch (NullRequestParamException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (GoogleAccountConflictException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.CONFLICT.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (MaxOtpAttemptsExceededException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.TOO_MANY_REQUESTS.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (Exception e) {
+            logger.error("Error during forgot password OTP resend: ", e);
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .message("Failed to resend password reset OTP: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    @PostMapping("/change-password")
+    public ApiResponse<Object> changePassword(
+            @Valid @RequestBody ChangePasswordRequestDto changePasswordRequestDto,
+            HttpServletRequest request
+    ) {
+        try {
+            // Get current user email from JWT token
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ApiResponse.builder()
+                        .statusCode(HttpStatus.UNAUTHORIZED.value())
+                        .message("Authorization token is required")
+                        .build();
+            }
+            
+            String token = authHeader.substring(7);
+            String userEmail = jwtService.extractEmail(token);
+            
+            boolean result = authService.changePassword(userEmail, changePasswordRequestDto);
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.OK.value())
+                    .message("Password changed successfully")
+                    .data(result)
+                    .build();
+                    
+        } catch (NullRequestParamException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (PasswordMismatchException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (InvalidPasswordException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.UNAUTHORIZED.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (GoogleAccountConflictException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.CONFLICT.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .message(e.getMessage())
+                    .build();
+        } catch (Exception e) {
+            logger.error("Error during password change: ", e);
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .message("Password change failed: " + e.getMessage())
+                    .build();
+        }
+    }
+
     @PostMapping("/hehe")
     public ResponseEntity<ApiResponse<String>> hehe() {
         return ResponseEntity.ok(ApiResponse.<String>builder()

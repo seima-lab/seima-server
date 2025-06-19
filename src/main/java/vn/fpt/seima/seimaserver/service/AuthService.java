@@ -2,6 +2,7 @@ package vn.fpt.seima.seimaserver.service;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import vn.fpt.seima.seimaserver.dto.request.auth.ChangePasswordRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.ForgotPasswordRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.LoginRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.NormalRegisterRequestDto;
@@ -24,4 +25,8 @@ public interface AuthService {
     void forgotPassword(ForgotPasswordRequestDto forgotPasswordRequestDto);
     
     boolean resetPassword(ResetPasswordRequestDto resetPasswordRequestDto);
+    
+    void resendForgotPasswordOtp(String email);
+    
+    boolean changePassword(String userEmail, ChangePasswordRequestDto changePasswordRequestDto);
 }
