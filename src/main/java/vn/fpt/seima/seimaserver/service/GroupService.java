@@ -3,7 +3,7 @@ package vn.fpt.seima.seimaserver.service;
 import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
-
+// import vn.fpt.seima.seimaserver.entity.Group;
 public interface GroupService {
     /**
      * Creates a new group with optional image upload.
