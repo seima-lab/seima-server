@@ -24,6 +24,7 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -153,7 +154,19 @@ public class GroupServiceImpl implements GroupService {
         if (group.getGroupIsActive() == null) {
             group.setGroupIsActive(true);
         }
+        // Generate unique invite code
+        group.setGroupInviteCode(generateInviteCode());
         return group;
+    }
+    
+    /**
+     * Generates a unique invite code for the group.
+     * Uses UUID to ensure uniqueness and removes hyphens for cleaner code.
+     * 
+     * @return a unique 32-character invite code
+     */
+    private String generateInviteCode() {
+        return UUID.randomUUID().toString().replace("-", "");
     }
     
     private void createAdminMembership(Group group, User user) {

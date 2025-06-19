@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 public class GroupResponse {
     private Integer groupId;
     private String groupName;
+    private String groupInviteCode;
     
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime groupCreatedDate;
