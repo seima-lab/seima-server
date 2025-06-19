@@ -7,9 +7,12 @@ import vn.fpt.seima.seimaserver.dto.request.auth.ForgotPasswordRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.LoginRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.NormalRegisterRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.ResetPasswordRequestDto;
+import vn.fpt.seima.seimaserver.dto.request.auth.SetNewPasswordRequestDto;
+import vn.fpt.seima.seimaserver.dto.request.auth.VerifyForgotPasswordOtpRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.VerifyOtpRequestDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.LoginResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.NormalRegisterResponseDto;
+import vn.fpt.seima.seimaserver.dto.response.auth.VerifyForgotPasswordOtpResponseDto;
 
 public interface AuthService {
     void logout(HttpServletRequest request);
@@ -23,6 +26,10 @@ public interface AuthService {
     LoginResponseDto login(LoginRequestDto loginRequestDto);
     
     void forgotPassword(ForgotPasswordRequestDto forgotPasswordRequestDto);
+    
+    VerifyForgotPasswordOtpResponseDto verifyForgotPasswordOtp(VerifyForgotPasswordOtpRequestDto verifyForgotPasswordOtpRequestDto);
+    
+    boolean setNewPasswordAfterVerification(SetNewPasswordRequestDto setNewPasswordRequestDto, String verificationToken);
     
     boolean resetPassword(ResetPasswordRequestDto resetPasswordRequestDto);
     
