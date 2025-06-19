@@ -37,7 +37,9 @@ import vn.fpt.seima.seimaserver.service.AuthService;
 import vn.fpt.seima.seimaserver.service.EmailService;
 import vn.fpt.seima.seimaserver.service.JwtService;
 import vn.fpt.seima.seimaserver.service.RedisService;
+import vn.fpt.seima.seimaserver.service.PasswordValidationService;
 import vn.fpt.seima.seimaserver.util.OtpUtils;
+import vn.fpt.seima.seimaserver.dto.request.auth.ChangePasswordRequestDto;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -70,11 +72,20 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private PasswordValidationService passwordValidationService;
+
     @Value("${app.lab-name}")
     private String labName;
 
     @Value("${app.email.otp-register.html-template}")
     private String otpRegisterHtmlTemplate;
+
+    @Value("${app.email.password-reset.html-template}")
+    private String passwordResetHtmlTemplate;
+
+    @Value("${app.email.password-reset.subject}")
+    private String passwordResetSubject;
 
     @Value("${redis.host}")
     private String redisHost;
@@ -381,31 +392,50 @@ public class AuthServiceImpl implements AuthService {
         
         // Save OTP to Redis with forgot password prefix
         String otpKey = "forgot-password-otp:" + email;
+        
+        // Check if there's an existing OTP attempt
+        OtpValueDto existingOtp = redisService.getObject(otpKey, OtpValueDto.class);
+        int attemptCount = 1;
+        
+        if (existingOtp != null) {
+            attemptCount = existingOtp.getAttemptCount() + 1;
+            
+            // Check if max attempts exceeded
+            if (attemptCount > MAX_OTP_ATTEMPTS) {
+                throw new MaxOtpAttemptsExceededException("Maximum OTP attempts exceeded. Please try again later.");
+            }
+        }
+        
         OtpValueDto otpValueDto = OtpValueDto.builder()
                 .otpCode(otp)
-                .attemptCount(1)
+                .attemptCount(attemptCount)
+                .incorrectAttempts(0)
                 .build();
         
         redisService.set(otpKey, otpValueDto);
-        redisService.setTimeToLive(otpKey, OTP_EXPIRATION_TIME * 60); // Convert to seconds
+        redisService.setTimeToLiveInMinutes(otpKey, OTP_EXPIRATION_TIME);
         
         // Send OTP email
         try {
             Context context = new Context();
-            context.setVariable("otp", otp);
-            context.setVariable("labName", labName);
-            context.setVariable("userName", user.getUserFullName());
+            HashMap<String, Object> variables = new HashMap<>();
+            variables.put("otp", otp);
+            variables.put("labName", labName);
+            variables.put("userName", user.getUserFullName());
+            context.setVariables(variables);
             
             emailService.sendEmailWithHtmlTemplate(
                     email,
-                    "Password Reset OTP - " + labName,
-                    otpRegisterHtmlTemplate,
+                    passwordResetSubject,
+                    passwordResetHtmlTemplate,
                     context
             );
             
             logger.info("Forgot password OTP sent successfully to: {}", email);
         } catch (Exception e) {
             logger.error("Failed to send forgot password OTP email to: {}", email, e);
+            // Delete the OTP from Redis if email sending fails
+            redisService.delete(otpKey);
             throw new RuntimeException("Failed to send OTP email");
         }
     }
@@ -416,6 +446,11 @@ public class AuthServiceImpl implements AuthService {
         String email = resetPasswordRequestDto.getEmail();
         String otp = resetPasswordRequestDto.getOtp();
         String newPassword = resetPasswordRequestDto.getNewPassword();
+        
+        // Validate input
+        if (email == null || otp == null || newPassword == null) {
+            throw new NullRequestParamException("Email, OTP, and new password are required");
+        }
         
         // Check if user exists and validate account type
         User user = userRepository.findByUserEmail(email)
@@ -428,23 +463,28 @@ public class AuthServiceImpl implements AuthService {
         
         // Verify OTP
         String otpKey = "forgot-password-otp:" + email;
-        OtpValueDto otpValueDto = (OtpValueDto) redisService.get(otpKey);
+        OtpValueDto otpValueDto = redisService.getObject(otpKey, OtpValueDto.class);
         
         if (otpValueDto == null) {
             throw new OtpNotFoundException("OTP not found or expired");
         }
         
         if (!otpValueDto.getOtpCode().equals(otp)) {
-            // Increment attempt count
-            otpValueDto.setAttemptCount(otpValueDto.getAttemptCount() + 1);
+            // Increment incorrect attempts
+            int incorrectAttempts = otpValueDto.getIncorrectAttempts() != null ? 
+                    otpValueDto.getIncorrectAttempts() + 1 : 1;
             
-            if (otpValueDto.getAttemptCount() >= MAX_INCORRECT_OTP_ATTEMPTS) {
+            if (incorrectAttempts >= MAX_INCORRECT_OTP_ATTEMPTS) {
                 redisService.delete(otpKey);
-                throw new MaxOtpAttemptsExceededException("Maximum OTP verification attempts exceeded");
+                throw new MaxOtpAttemptsExceededException("Maximum OTP verification attempts exceeded. Please request a new OTP.");
             }
             
+            // Update incorrect attempts in Redis
+            otpValueDto.setIncorrectAttempts(incorrectAttempts);
             redisService.set(otpKey, otpValueDto);
-            throw new InvalidOtpException("Invalid OTP");
+            redisService.setTimeToLiveInMinutes(otpKey, OTP_EXPIRATION_TIME);
+            
+            throw new InvalidOtpException("Invalid OTP. Attempts remaining: " + (MAX_INCORRECT_OTP_ATTEMPTS - incorrectAttempts));
         }
         
         // Update user password
@@ -455,6 +495,106 @@ public class AuthServiceImpl implements AuthService {
         redisService.delete(otpKey);
         
         logger.info("Password reset successful for user: {}", email);
+        return true;
+    }
+
+    @Override
+    public void resendForgotPasswordOtp(String email) {
+        // Check if user exists
+        User user = userRepository.findByUserEmail(email)
+                .orElseThrow(() -> new NullRequestParamException("User with email " + email + " not found"));
+        
+        // Check if this is a Google account
+        if (user.getIsLogByGoogle()) {
+            throw new GoogleAccountConflictException("This account was created with Google login. Password reset is not available for Google accounts. Please use Google login.");
+        }
+        
+        // Check if user has password (additional validation)
+        if (user.getUserPassword() == null) {
+            throw new GoogleAccountConflictException("This account does not have a password set. Please use Google login.");
+        }
+        
+        String otpKey = "forgot-password-otp:" + email;
+        
+        // Check if OTP already exists in Redis
+        OtpValueDto existingOtpValueDto = redisService.getObject(otpKey, OtpValueDto.class);
+        
+        int attemptCount = 1;
+        if (existingOtpValueDto != null) {
+            attemptCount = existingOtpValueDto.getAttemptCount() + 1;
+        }
+        
+        // Check if max attempts exceeded
+        if (attemptCount > MAX_OTP_ATTEMPTS) {
+            throw new MaxOtpAttemptsExceededException("Maximum OTP attempts exceeded. Please try again later.");
+        }
+        
+        // Generate new OTP
+        String otp = OtpUtils.generateOTP(6);
+        
+        // Create new OTP entry
+        OtpValueDto otpValueDto = OtpValueDto.builder()
+                .otpCode(otp)
+                .attemptCount(attemptCount)
+                .incorrectAttempts(0)
+                .build();
+        
+        // Save to Redis with expiration
+        redisService.set(otpKey, otpValueDto);
+        redisService.setTimeToLiveInMinutes(otpKey, OTP_EXPIRATION_TIME);
+        
+        // Send email
+        try {
+            Context context = new Context();
+            HashMap<String, Object> variables = new HashMap<>();
+            variables.put("otp", otp);
+            variables.put("labName", labName);
+            variables.put("userName", user.getUserFullName());
+            context.setVariables(variables);
+            
+            emailService.sendEmailWithHtmlTemplate(
+                    email, 
+                    passwordResetSubject + " - Resend", 
+                    passwordResetHtmlTemplate, 
+                    context
+            );
+            
+            logger.info("Forgot password OTP resent successfully to: {}", email);
+        } catch (Exception e) {
+            logger.error("Failed to resend forgot password OTP email to: {}", email, e);
+            // Delete the OTP from Redis if email sending fails
+            redisService.delete(otpKey);
+            throw new RuntimeException("Failed to resend OTP email");
+        }
+    }
+
+    @Override
+    @Transactional
+    public boolean changePassword(String userEmail, ChangePasswordRequestDto changePasswordRequestDto) {
+        logger.info("Starting password change process for user: {}", userEmail);
+        
+        // 1. Validate request
+        passwordValidationService.validateChangePasswordRequest(changePasswordRequestDto);
+        
+        // 2. Find user
+        User user = userRepository.findByUserEmail(userEmail)
+                .orElseThrow(() -> new NullRequestParamException("User not found with email: " + userEmail));
+        
+        // 3. Validate user can change password
+        passwordValidationService.validateUserCanChangePassword(user);
+        
+        // 4. Validate old password
+        passwordValidationService.validateOldPassword(user, changePasswordRequestDto.getOldPassword());
+        
+        // 5. Validate new password is different
+        passwordValidationService.validateNewPasswordDifferent(user, changePasswordRequestDto.getNewPassword());
+        
+        // 6. Update password
+        String encodedNewPassword = passwordEncoder.encode(changePasswordRequestDto.getNewPassword());
+        user.setUserPassword(encodedNewPassword);
+        userRepository.save(user);
+        
+        logger.info("Password changed successfully for user: {}", userEmail);
         return true;
     }
 }
