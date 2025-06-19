@@ -15,6 +15,7 @@ public interface GroupMapper {
     @Mapping(target = "groupId", ignore = true)
     @Mapping(target = "groupCreatedDate", ignore = true)
     @Mapping(target = "groupIsActive", constant = "true")
+    @Mapping(target = "groupInviteCode", ignore = true)
     @Mapping(target = "members", ignore = true)
     @Mapping(target = "transactions", ignore = true)
     Group toEntity(CreateGroupRequest request);

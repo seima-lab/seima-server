@@ -7,6 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
+import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
 import vn.fpt.seima.seimaserver.entity.Group;
 import vn.fpt.seima.seimaserver.entity.GroupMember;
@@ -24,6 +26,9 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -76,6 +81,77 @@ public class GroupServiceImpl implements GroupService {
         
         GroupResponse response = groupMapper.toResponse(savedGroup);
         log.info("Group creation completed successfully");
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GroupDetailResponse getGroupDetail(Integer groupId) {
+        log.info("Getting group detail for group ID: {}", groupId);
+        
+        // Validate input
+        if (groupId == null) {
+            throw new GroupException("Group ID cannot be null");
+        }
+        
+        // Find group
+        Group group = groupRepository.findById(groupId)
+            .orElseThrow(() -> new GroupException("Group not found with ID: " + groupId));
+        
+        // Check if group is active
+        if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+            throw new GroupException("Group is not active");
+        }
+        
+        // Get group leader
+        Optional<GroupMember> leaderOptional = groupMemberRepository.findGroupLeader(
+            groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+        
+        if (leaderOptional.isEmpty()) {
+            throw new GroupException("Group leader not found for group ID: " + groupId);
+        }
+        
+        GroupMember leader = leaderOptional.get();
+        GroupMemberResponse leaderResponse = mapToGroupMemberResponse(leader);
+        
+        // Get all active members (including leader)
+        List<GroupMember> allMembers = groupMemberRepository.findActiveGroupMembers(
+            groupId, GroupMemberStatus.ACTIVE);
+        
+        // Convert to response objects and exclude leader from members list
+        List<GroupMemberResponse> memberResponses = allMembers.stream()
+            .filter(member -> !member.getUser().getUserId().equals(leader.getUser().getUserId()))
+            .map(this::mapToGroupMemberResponse)
+            .collect(Collectors.toList());
+        
+        // Get total member count
+        Long totalCount = groupMemberRepository.countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE);
+        
+        // Build response
+        GroupDetailResponse response = new GroupDetailResponse();
+        response.setGroupId(group.getGroupId());
+        response.setGroupName(group.getGroupName());
+        response.setGroupInviteCode(group.getGroupInviteCode());
+        response.setGroupAvatarUrl(group.getGroupAvatarUrl());
+        response.setGroupCreatedDate(group.getGroupCreatedDate());
+        response.setGroupIsActive(group.getGroupIsActive());
+        response.setGroupLeader(leaderResponse);
+        response.setMembers(memberResponses);
+        response.setTotalMembersCount(totalCount.intValue());
+        
+        log.info("Successfully retrieved group detail for group ID: {} with {} total members", 
+            groupId, totalCount);
+        
+        return response;
+    }
+    
+    private GroupMemberResponse mapToGroupMemberResponse(GroupMember groupMember) {
+        User user = groupMember.getUser();
+        GroupMemberResponse response = new GroupMemberResponse();
+        response.setUserId(user.getUserId());
+        response.setUserFullName(user.getUserFullName());
+        response.setUserAvatarUrl(user.getUserAvatarUrl());
+        response.setRole(groupMember.getRole());
         return response;
     }
     
@@ -153,7 +229,19 @@ public class GroupServiceImpl implements GroupService {
         if (group.getGroupIsActive() == null) {
             group.setGroupIsActive(true);
         }
+        // Generate unique invite code
+        group.setGroupInviteCode(generateInviteCode());
         return group;
+    }
+    
+    /**
+     * Generates a unique invite code for the group.
+     * Uses UUID to ensure uniqueness and removes hyphens for cleaner code.
+     * 
+     * @return a unique 32-character invite code
+     */
+    private String generateInviteCode() {
+        return UUID.randomUUID().toString().replace("-", "");
     }
     
     private void createAdminMembership(Group group, User user) {
