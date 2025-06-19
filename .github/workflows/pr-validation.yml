@@ -1,4 +1,4 @@
-name: 'CI Quality Gate'
+name: 'PR Validation Gate'
 
 on:
   pull_request:
@@ -7,32 +7,51 @@ on:
       - dev
 
 jobs:
-  # Job này chạy cho mọi PR để đảm bảo code có thể build và pass test cơ bản
   build-and-test:
     name: 'Build & Unit Tests'
     runs-on: ubuntu-latest
     steps:
       - name: 'Checkout code'
         uses: actions/checkout@v4
+
       - name: 'Set up JDK 21'
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
-      - name: 'Build and run tests'
-        run: ./mvnw -B clean package # Chạy cả build và test trong một lệnh
 
-  # Job này chỉ chạy cho các PR quan trọng vào DEV, không cần chạy lại khi từ DEV -> MAIN
-  deep-security-scan:
+      - name: 'Build and run tests'
+        run: ./mvnw -B clean package
+
+  security-scan:
     name: 'Security Scan'
     runs-on: ubuntu-latest
-    # Chỉ chạy khi PR nhắm vào nhánh `dev`
+    # Vẫn giữ logic chỉ scan sâu khi PR vào `dev` để tiết kiệm thời gian
     if: github.base_ref == 'dev'
+    
+    # Cần cấp quyền để CodeQL có thể ghi kết quả bảo mật
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    
     steps:
       - name: 'Checkout code'
         uses: actions/checkout@v4
-      - name: 'Run CodeQL Analysis'
-        uses: github/codeql-action/analyze@v3
+
+      # BƯỚC 1: KHỞI TẠO CODEQL (Bước bị thiếu)
+      - name: 'Initialize CodeQL'
+        uses: github/codeql-action/init@v3
         with:
-          category: "/language:java"
+          languages: java
+          # (Khuyến khích) Sử dụng file config để quản lý
+          # config-file: ./.github/codeql/codeql-config.yml
+
+      # BƯỚC 2: TỰ ĐỘNG BUILD ĐỂ TẠO CSDL (Bước bị thiếu)
+      - name: 'Autobuild'
+        uses: github/codeql-action/autobuild@v3
+
+      # BƯỚC 3: PHÂN TÍCH (Bước đã có nhưng chạy sai thời điểm)
+      - name: 'Perform CodeQL Analysis'
+        uses: github/codeql-action/analyze@v3
