@@ -50,18 +50,20 @@ public class GroupServiceImpl implements GroupService {
         // Get current user
         User currentUser = getCurrentUser();
         
-        // Handle image upload if provided
+        // Handle avatar upload (optional)
         String avatarUrl = null;
         if (request.getImage() != null && !request.getImage().isEmpty()) {
             log.info("Processing image upload for group");
             validateImageFile(request.getImage());
             avatarUrl = uploadImageToCloudinary(request.getImage());
             log.info("Group avatar uploaded successfully: {}", avatarUrl);
+        } else {
+            log.info("No image provided, group will use default avatar");
         }
         
         // Create group entity
         Group group = createGroupEntity(request);
-        // Set the uploaded image URL if available
+        // Set the avatar URL if available
         if (avatarUrl != null) {
             group.setGroupAvatarUrl(avatarUrl);
         }

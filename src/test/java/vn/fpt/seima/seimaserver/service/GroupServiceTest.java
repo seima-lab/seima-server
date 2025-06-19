@@ -55,7 +55,6 @@ class GroupServiceTest {
         // Setup test data
         validRequest = new CreateGroupRequest();
         validRequest.setGroupName("Test Group");
-        validRequest.setGroupAvatarUrl("http://example.com/avatar.jpg");
 
         mockUser = new User();
         mockUser.setUserId(1);
@@ -296,4 +295,4 @@ class GroupServiceTest {
             }
         }
     }
-} 
+}
