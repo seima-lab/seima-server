@@ -27,10 +27,8 @@ jobs:
   security-scan:
     name: 'Security Scan'
     runs-on: ubuntu-latest
-    # Vẫn giữ logic chỉ scan sâu khi PR vào `dev` để tiết kiệm thời gian
     if: github.base_ref == 'dev'
     
-    # Cần cấp quyền để CodeQL có thể ghi kết quả bảo mật
     permissions:
       security-events: write
       actions: read
@@ -40,18 +38,18 @@ jobs:
       - name: 'Checkout code'
         uses: actions/checkout@v4
 
-      # BƯỚC 1: KHỞI TẠO CODEQL (Bước bị thiếu)
       - name: 'Initialize CodeQL'
         uses: github/codeql-action/init@v3
         with:
           languages: java
-          # (Khuyến khích) Sử dụng file config để quản lý
           # config-file: ./.github/codeql/codeql-config.yml
 
-      # BƯỚC 2: TỰ ĐỘNG BUILD ĐỂ TẠO CSDL (Bước bị thiếu)
-      - name: 'Autobuild'
-        uses: github/codeql-action/autobuild@v3
+      # --- THAY ĐỔI Ở ĐÂY ---
+      # Thay thế bước 'Autobuild' bằng lệnh build thủ công
+      # Điều này đảm bảo CodeQL build code theo đúng cách dự án của bạn được thiết lập
+      - name: 'Build the project'
+        run: ./mvnw -B clean package -DskipTests
+      # ----------------------
 
-      # BƯỚC 3: PHÂN TÍCH (Bước đã có nhưng chạy sai thời điểm)
       - name: 'Perform CodeQL Analysis'
         uses: github/codeql-action/analyze@v3
