@@ -38,7 +38,7 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: './target/*.jar'
+          package: './target/seima-server-0.0.1-SNAPSHOT.jar'
           
       - name: 'Post-deployment Notification'
         run: |
