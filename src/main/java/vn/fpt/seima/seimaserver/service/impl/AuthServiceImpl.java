@@ -21,9 +21,12 @@ import vn.fpt.seima.seimaserver.dto.request.auth.LoginRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.NormalRegisterRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.OtpValueDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.ResetPasswordRequestDto;
+import vn.fpt.seima.seimaserver.dto.request.auth.SetNewPasswordRequestDto;
+import vn.fpt.seima.seimaserver.dto.request.auth.VerifyForgotPasswordOtpRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.VerifyOtpRequestDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.LoginResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.NormalRegisterResponseDto;
+import vn.fpt.seima.seimaserver.dto.response.auth.VerifyForgotPasswordOtpResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.user.UserInGoogleReponseDto;
 import vn.fpt.seima.seimaserver.exception.GmailAlreadyExistException;
 import vn.fpt.seima.seimaserver.exception.GoogleAccountConflictException;
@@ -38,6 +41,7 @@ import vn.fpt.seima.seimaserver.service.EmailService;
 import vn.fpt.seima.seimaserver.service.JwtService;
 import vn.fpt.seima.seimaserver.service.RedisService;
 import vn.fpt.seima.seimaserver.service.PasswordValidationService;
+import vn.fpt.seima.seimaserver.service.VerificationTokenService;
 import vn.fpt.seima.seimaserver.util.OtpUtils;
 import vn.fpt.seima.seimaserver.dto.request.auth.ChangePasswordRequestDto;
 
@@ -74,6 +78,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private PasswordValidationService passwordValidationService;
+    
+    @Autowired
+    private VerificationTokenService verificationTokenService;
 
     @Value("${app.lab-name}")
     private String labName;
@@ -95,6 +102,7 @@ public class AuthServiceImpl implements AuthService {
     private static final int MAX_OTP_ATTEMPTS = 5;
     private static final long OTP_EXPIRATION_TIME = 5; // in minutes
     private static final int MAX_INCORRECT_OTP_ATTEMPTS = 3;
+    private static final long VERIFICATION_TOKEN_EXPIRATION = 15 * 60; // 15 minutes in seconds
 
     private final Map<String,Bucket> rateLimitBuckets = new ConcurrentHashMap<>();
     private static final String OTP_KEY_PREFIX = "otp-:";
@@ -566,6 +574,110 @@ public class AuthServiceImpl implements AuthService {
             redisService.delete(otpKey);
             throw new RuntimeException("Failed to resend OTP email");
         }
+    }
+
+    @Override
+    @Transactional
+    public VerifyForgotPasswordOtpResponseDto verifyForgotPasswordOtp(VerifyForgotPasswordOtpRequestDto verifyForgotPasswordOtpRequestDto) {
+        String email = verifyForgotPasswordOtpRequestDto.getEmail();
+        String otp = verifyForgotPasswordOtpRequestDto.getOtp();
+        
+        // Validate input
+        if (email == null || otp == null) {
+            throw new NullRequestParamException("Email and OTP are required");
+        }
+        
+        // Check if user exists and validate account type
+        User user = userRepository.findByUserEmail(email)
+                .orElseThrow(() -> new NullRequestParamException("User not found"));
+        
+        // Check if this is a Google account
+        if (user.getIsLogByGoogle()) {
+            throw new GoogleAccountConflictException("This account was created with Google login. Password reset is not available for Google accounts.");
+        }
+        
+        // Verify OTP
+        String otpKey = "forgot-password-otp:" + email;
+        OtpValueDto otpValueDto = redisService.getObject(otpKey, OtpValueDto.class);
+        
+        if (otpValueDto == null) {
+            throw new OtpNotFoundException("OTP not found or expired");
+        }
+        
+        if (!otpValueDto.getOtpCode().equals(otp)) {
+            // Increment incorrect attempts
+            int incorrectAttempts = otpValueDto.getIncorrectAttempts() != null ? 
+                    otpValueDto.getIncorrectAttempts() + 1 : 1;
+            
+            if (incorrectAttempts >= MAX_INCORRECT_OTP_ATTEMPTS) {
+                redisService.delete(otpKey);
+                throw new MaxOtpAttemptsExceededException("Maximum OTP verification attempts exceeded. Please request a new OTP.");
+            }
+            
+            // Update incorrect attempts in Redis
+            otpValueDto.setIncorrectAttempts(incorrectAttempts);
+            redisService.set(otpKey, otpValueDto);
+            redisService.setTimeToLiveInMinutes(otpKey, OTP_EXPIRATION_TIME);
+            
+            throw new InvalidOtpException("Invalid OTP. Attempts remaining: " + (MAX_INCORRECT_OTP_ATTEMPTS - incorrectAttempts));
+        }
+        
+        // OTP verification successful - generate verification token
+        String verificationToken = verificationTokenService.generateVerificationToken(email);
+        
+        // Clean up OTP from Redis since it's verified
+        redisService.delete(otpKey);
+        
+        logger.info("OTP verification successful for user: {}", email);
+        
+        return VerifyForgotPasswordOtpResponseDto.builder()
+                .email(email)
+                .verified(true)
+                .verificationToken(verificationToken)
+                .expiresIn(VERIFICATION_TOKEN_EXPIRATION)
+                .build();
+    }
+    
+    @Override
+    @Transactional
+    public boolean setNewPasswordAfterVerification(SetNewPasswordRequestDto setNewPasswordRequestDto, String verificationToken) {
+        String email = setNewPasswordRequestDto.getEmail();
+        String newPassword = setNewPasswordRequestDto.getNewPassword();
+        
+        // Validate input
+        if (email == null || newPassword == null || verificationToken == null) {
+            throw new NullRequestParamException("Email, new password, and verification token are required");
+        }
+        
+        // Validate verification token and extract email
+        String tokenEmail = verificationTokenService.validateAndExtractEmail(verificationToken);
+        if (tokenEmail == null) {
+            throw new InvalidOtpException("Invalid or expired verification token");
+        }
+        
+        // Ensure the email in the request matches the token
+        if (!email.equals(tokenEmail)) {
+            throw new InvalidOtpException("Email mismatch with verification token");
+        }
+        
+        // Find user
+        User user = userRepository.findByUserEmail(email)
+                .orElseThrow(() -> new NullRequestParamException("User not found"));
+        
+        // Check if this is a Google account (double check)
+        if (user.getIsLogByGoogle()) {
+            throw new GoogleAccountConflictException("This account was created with Google login. Password reset is not available for Google accounts.");
+        }
+        
+        // Update user password
+        user.setUserPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        
+        // Invalidate the verification token
+        verificationTokenService.invalidateToken(verificationToken);
+        
+        logger.info("Password reset successful for user: {}", email);
+        return true;
     }
 
     @Override
