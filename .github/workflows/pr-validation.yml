@@ -48,7 +48,7 @@ jobs:
       # Thay thế bước 'Autobuild' bằng lệnh build thủ công
       # Điều này đảm bảo CodeQL build code theo đúng cách dự án của bạn được thiết lập
       - name: 'Build the project'
-        run: ./mvnw -B clean package -DskipTests
+        run: ./mvnw -B clean package -Dspring.profiles.active=prod -DskipTests
       # ----------------------
 
       - name: 'Perform CodeQL Analysis'
