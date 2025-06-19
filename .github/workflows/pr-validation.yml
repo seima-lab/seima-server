@@ -1,0 +1,38 @@
+name: 'CI Quality Gate'
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+  # Job này chạy cho mọi PR để đảm bảo code có thể build và pass test cơ bản
+  build-and-test:
+    name: 'Build & Unit Tests'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout code'
+        uses: actions/checkout@v4
+      - name: 'Set up JDK 21'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: 'Build and run tests'
+        run: ./mvnw -B clean package # Chạy cả build và test trong một lệnh
+
+  # Job này chỉ chạy cho các PR quan trọng vào DEV, không cần chạy lại khi từ DEV -> MAIN
+  deep-security-scan:
+    name: 'Security Scan'
+    runs-on: ubuntu-latest
+    # Chỉ chạy khi PR nhắm vào nhánh `dev`
+    if: github.base_ref == 'dev'
+    steps:
+      - name: 'Checkout code'
+        uses: actions/checkout@v4
+      - name: 'Run CodeQL Analysis'
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:java"
