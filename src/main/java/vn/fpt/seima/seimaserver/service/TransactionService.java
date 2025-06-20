@@ -31,5 +31,4 @@ public interface TransactionService {
 
     TransactionOverviewResponse getTransactionOverview(YearMonth month);
 
-    TransactionResponse scanInvoice(MultipartFile file) throws Exception;
 }

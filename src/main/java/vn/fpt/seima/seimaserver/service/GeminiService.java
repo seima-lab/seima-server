@@ -1,11 +1,16 @@
 package vn.fpt.seima.seimaserver.service;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOcrResponse;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Service
@@ -14,11 +19,11 @@ public class GeminiService {
 
     @Value("${gemini.api-key}")
     private String apiKey;
-
+    private final static String GEMINI_SERVER = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=";
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public String analyzeInvoiceFromOcrText(String ocrText) {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey;
+    public TransactionOcrResponse analyzeInvoiceFromOcrText(String ocrText, String imageUrl) {
+        String url = GEMINI_SERVER + apiKey;
 
         String prompt = buildPrompt(ocrText);
 
@@ -44,16 +49,39 @@ public class GeminiService {
             Map candidate = (Map) ((Map) ((java.util.List) response.getBody().get("candidates")).get(0)).get("content");
             String output = ((Map) ((java.util.List) candidate.get("parts")).get(0)).get("text").toString();
 
-            return output;
+            output = output.trim();
+            if (output.startsWith("```json")) {
+                output = output.substring(7).trim(); // Bỏ '```json'
+            }
+            if (output.startsWith("```")) {
+                output = output.substring(3).trim(); // Bỏ '```' nếu Gemini trả về ``` không kèm json
+            }
+            if (output.endsWith("```")) {
+                output = output.substring(0, output.length() - 3).trim();
+            }
+
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new JavaTimeModule()); // để hỗ trợ parse LocalDateTime
+            mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+
+            TransactionOcrResponse result = mapper.readValue(output, TransactionOcrResponse.class);
+
+            // Gán thêm imageUrl vào object
+            result.setReceiptImageUrl(imageUrl);
+
+            return result;
         } catch (Exception e) {
-            return "❌ Lỗi khi gọi Gemini API: " + e.getMessage();
+            throw new  IllegalArgumentException(e.getMessage()) ;
         }
     }
 
     private String buildPrompt(String ocrText) {
         return """
         Dưới đây là nội dung OCR của một hóa đơn:
-
+        
+        hãy cho tôi biết hóa đơn Tóm tắt này thanh toán cái gì vào trường description_invoice và ai đã mua vào trường customer_name
+        nếu không có đầy đủ họ và tên thì để null
+        Không cần liệt kê hết tên sản phẩm cần mua, chỉ cần cho biết đã thanh toán chung chung cái gì
         %s
 
         Hãy trích xuất thông tin sau thành định dạng JSON:

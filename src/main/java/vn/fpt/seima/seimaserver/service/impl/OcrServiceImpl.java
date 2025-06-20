@@ -7,20 +7,25 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import vn.fpt.seima.seimaserver.config.ocr.AzureFormRecognizerConfig;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOcrResponse;
+import vn.fpt.seima.seimaserver.service.CloudinaryService;
 import vn.fpt.seima.seimaserver.service.GeminiService;
 import vn.fpt.seima.seimaserver.service.OcrService;
+
+import java.util.Map;
 
 @Service
 @AllArgsConstructor
 public class OcrServiceImpl implements OcrService {
 
+    private final CloudinaryService cloudinaryService;
     private final GeminiService geminiService;
     private final AzureFormRecognizerConfig config;
     private final RestTemplate restTemplate = new RestTemplate();
     private final HttpHeaders headers = new HttpHeaders();
     private final static String endPointUrl = "formrecognizer/documentModels/prebuilt-invoice:analyze?api-version=2023-07-31";
     @Override
-    public String extractTextFromFile(MultipartFile file) throws Exception {
+    public TransactionOcrResponse extractTextFromFile(MultipartFile file) throws Exception {
 
         String analyzeUrl = config.getEndpoint() +endPointUrl;
 
@@ -29,6 +34,11 @@ public class OcrServiceImpl implements OcrService {
 
         HttpEntity<byte[]> request = new HttpEntity<>(file.getBytes(), headers);
         ResponseEntity<Void> response = restTemplate.exchange(analyzeUrl, HttpMethod.POST, request, Void.class);
+
+        Map uploadResult = cloudinaryService.uploadImage(
+                file, "transaction/receipt"
+        );
+        String imageUrl = ((String) uploadResult.get("secure_url"));
 
         String operationLocation = response.getHeaders().getFirst("Operation-Location");
         if (operationLocation == null) throw new IllegalStateException("Missing Operation-Location header");
@@ -45,7 +55,7 @@ public class OcrServiceImpl implements OcrService {
                 resultRequest,
                 String.class
         );
-      return   geminiService.analyzeInvoiceFromOcrText(resultResponse.getBody());
+      return  geminiService.analyzeInvoiceFromOcrText(resultResponse.getBody(), imageUrl);
 
     }
 

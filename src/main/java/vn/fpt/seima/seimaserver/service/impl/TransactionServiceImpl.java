@@ -84,12 +84,7 @@ public class TransactionServiceImpl implements TransactionService {
             }
 
             Transaction transaction = transactionMapper.toEntity(request);
-            if (request.getReceiptImageUrl() != null && !request.getReceiptImageUrl().isEmpty()) {
-                Map uploadResult = cloudinaryService.uploadImage(
-                        request.getReceiptImageUrl(), "transaction/receipt"
-                );
-                transaction.setReceiptImageUrl((String) uploadResult.get("secure_url"));
-            }
+
 
             transaction.setUser(user);
             transaction.setCategory(category);
@@ -136,13 +131,6 @@ public class TransactionServiceImpl implements TransactionService {
 
             if(request.getAmount().equals(BigDecimal.ZERO)){
                 throw new IllegalArgumentException("Amount must not be zero");
-            }
-
-            if (request.getReceiptImageUrl() != null && !request.getReceiptImageUrl().isEmpty()) {
-                Map uploadResult = cloudinaryService.uploadImage(
-                        request.getReceiptImageUrl(), "transaction/receipt"
-                );
-                transaction.setReceiptImageUrl((String) uploadResult.get("secure_url"));
             }
 
             transactionMapper.updateTransactionFromDto(request, transaction);
@@ -238,27 +226,4 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
     }
 
-    @Override
-    @Transactional
-    @CacheEvict(value = "overview", key = "#request.transactionDate.toLocalDate().withDayOfMonth(1).toString()")
-    public TransactionResponse scanInvoice(MultipartFile file) throws Exception {
-
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("File is empty");
-        }
-
-        String contentType = file.getContentType();
-        if (!"image/jpeg".equalsIgnoreCase(contentType) && !"image/jpg".equalsIgnoreCase(contentType)) {
-            throw new IllegalArgumentException("Only accept file JPEG");
-        }
-
-        String ocrString = ocrService.extractTextFromFile(file);
-        Gson gson = new Gson();
-        ObjectMapper objectMapper = new ObjectMapper();
-
-        Map<String, Object> jsonOcr = gson.fromJson(ocrString, Map.class);
-
-        return objectMapper.convertValue(jsonOcr, TransactionResponse.class);
-
-    }
 }

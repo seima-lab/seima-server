@@ -14,16 +14,13 @@ public class OcrController {
 
     private OcrService ocrService;
 
-    @PostMapping(value = "/scan", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<String> scanInvoice(@RequestParam("file") MultipartFile file) {
-        try {
-            String jsonResult = ocrService.extractTextFromFile(file);
-            return ResponseEntity
-                    .ok()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(jsonResult);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Lỗi xử lý OCR: " + e.getMessage());
-        }
-    }
+//    @PostMapping(value = "/scan", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+//    public ResponseEntity<String> scanInvoice(@RequestParam("file") MultipartFile file) {
+//        try {
+//
+//
+//        } catch (Exception e) {
+//            return ResponseEntity.status(500).body("Lỗi xử lý OCR: " + e.getMessage());
+//        }
+//    }
 }

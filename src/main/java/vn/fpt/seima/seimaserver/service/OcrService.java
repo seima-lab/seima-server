@@ -1,7 +1,8 @@
 package vn.fpt.seima.seimaserver.service;
 
 import org.springframework.web.multipart.MultipartFile;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOcrResponse;
 
 public interface OcrService {
-     String extractTextFromFile(MultipartFile file) throws Exception;
+     TransactionOcrResponse extractTextFromFile(MultipartFile file) throws Exception;
 }
