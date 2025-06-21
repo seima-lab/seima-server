@@ -114,3 +114,10 @@ swagger:
   app-license-url: ${app.swagger.app-license-url}
   app-license: ${app.swagger.app-license}
 
+azure:
+  form:
+    endpoint: ${AZURE_FORM_END_POINT}
+    api-key: ${AZURE_FORM_API_KEY}
+
+gemini:
+  api-key: ${GEMINI_API_KEY}
