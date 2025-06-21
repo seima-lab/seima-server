@@ -7,6 +7,7 @@ import org.mapstruct.ReportingPolicy;
 import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOcrResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 import vn.fpt.seima.seimaserver.entity.Budget;
@@ -41,4 +42,5 @@ public interface TransactionMapper {
 
     List<TransactionOverviewResponse.TransactionItem> toTransactionItems(List<Transaction> transactions);
 
+    TransactionOcrResponse toTransactionOcrResponse(Transaction transaction);
 }
