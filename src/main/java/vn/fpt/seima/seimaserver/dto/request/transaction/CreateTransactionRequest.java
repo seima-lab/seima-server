@@ -23,6 +23,6 @@ public class CreateTransactionRequest {
     private String currencyCode;
     private LocalDateTime transactionDate;
     private String description;
-    private MultipartFile receiptImageUrl;
+    private String receiptImageUrl;
     private String payeePayerName;
 }
