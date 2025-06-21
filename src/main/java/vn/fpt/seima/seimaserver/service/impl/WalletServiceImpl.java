@@ -7,11 +7,13 @@ import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
 import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.entity.Wallet;
 import vn.fpt.seima.seimaserver.entity.WalletType;
+import vn.fpt.seima.seimaserver.exception.WalletException;
 import vn.fpt.seima.seimaserver.mapper.WalletMapper;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.repository.WalletRepository;
 import vn.fpt.seima.seimaserver.repository.WalletTypeRepository;
 import vn.fpt.seima.seimaserver.service.WalletService;
+import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.time.Instant;
 import java.util.List;
@@ -27,20 +29,19 @@ public class WalletServiceImpl implements WalletService {
     private final WalletMapper walletMapper;
 
     @Override
-    public WalletResponse createWallet(Integer userId, CreateWalletRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+    public WalletResponse createWallet(CreateWalletRequest request) {
+        User currentUser = getCurrentUser();
         
         WalletType walletType = walletTypeRepository.findById(request.getWalletTypeId())
-                .orElseThrow(() -> new RuntimeException("Wallet type not found with id: " + request.getWalletTypeId()));
+                .orElseThrow(() -> new WalletException("Wallet type not found with id: " + request.getWalletTypeId()));
 
         if (Boolean.TRUE.equals(request.getIsDefault())) {
-            updateOtherWalletsDefaultStatus(userId, false);
+            updateOtherWalletsDefaultStatus(currentUser.getUserId(), false);
         }
 
         Wallet wallet = walletMapper.toEntity(request);
         wallet.setWalletCreatedAt(Instant.now());
-        wallet.setUser(user);
+        wallet.setUser(currentUser);
         wallet.setWalletType(walletType);
         wallet.setIsDeleted(false);
 
@@ -49,33 +50,39 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
-    public WalletResponse getWallet(Integer userId, Integer id) {
+    public WalletResponse getWallet(Integer id) {
+        User currentUser = getCurrentUser();
+        
         Wallet wallet = walletRepository.findByIdAndNotDeleted(id)
-                .orElseThrow(() -> new RuntimeException("Wallet not found with id: " + id));
-        validateUserOwnership(userId, wallet);
+                .orElseThrow(() -> new WalletException("Wallet not found with id: " + id));
+        validateUserOwnership(currentUser.getUserId(), wallet);
         return walletMapper.toResponse(wallet);
     }
 
     @Override
-    public List<WalletResponse> getAllWallets(Integer userId) {
-        return walletRepository.findAllActiveByUserId(userId).stream()
+    public List<WalletResponse> getAllWallets() {
+        User currentUser = getCurrentUser();
+        
+        return walletRepository.findAllActiveByUserId(currentUser.getUserId()).stream()
                 .map(walletMapper::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public WalletResponse updateWallet(Integer userId, Integer id, CreateWalletRequest request) {
+    public WalletResponse updateWallet(Integer id, CreateWalletRequest request) {
+        User currentUser = getCurrentUser();
+        
         Wallet existingWallet = walletRepository.findByIdAndNotDeleted(id)
-                .orElseThrow(() -> new RuntimeException("Wallet not found with id: " + id));
-        validateUserOwnership(userId, existingWallet);
+                .orElseThrow(() -> new WalletException("Wallet not found with id: " + id));
+        validateUserOwnership(currentUser.getUserId(), existingWallet);
         
         if (Boolean.TRUE.equals(request.getIsDefault())) {
-            updateOtherWalletsDefaultStatus(userId, false);
+            updateOtherWalletsDefaultStatus(currentUser.getUserId(), false);
         }
 
         if (request.getWalletTypeId() != null) {
             WalletType walletType = walletTypeRepository.findById(request.getWalletTypeId())
-                    .orElseThrow(() -> new RuntimeException("Wallet type not found with id: " + request.getWalletTypeId()));
+                    .orElseThrow(() -> new WalletException("Wallet type not found with id: " + request.getWalletTypeId()));
             existingWallet.setWalletType(walletType);
         }
 
@@ -85,10 +92,12 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
-    public void deleteWallet(Integer userId, Integer id) {
+    public void deleteWallet(Integer id) {
+        User currentUser = getCurrentUser();
+        
         Wallet wallet = walletRepository.findByIdAndNotDeleted(id)
-                .orElseThrow(() -> new RuntimeException("Wallet not found with id: " + id));
-        validateUserOwnership(userId, wallet);
+                .orElseThrow(() -> new WalletException("Wallet not found with id: " + id));
+        validateUserOwnership(currentUser.getUserId(), wallet);
         
         wallet.setIsDeleted(true);
         wallet.setDeletedAt(Instant.now());
@@ -105,7 +114,15 @@ public class WalletServiceImpl implements WalletService {
 
     private void validateUserOwnership(Integer userId, Wallet wallet) {
         if (!wallet.getUser().getUserId().equals(userId)) {
-            throw new RuntimeException("User does not own this wallet");
+            throw new WalletException("User does not own this wallet");
         }
+    }
+
+    private User getCurrentUser() {
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new WalletException("Unable to identify the current user");
+        }
+        return currentUser;
     }
 } 

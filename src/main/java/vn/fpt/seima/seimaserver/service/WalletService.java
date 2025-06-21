@@ -7,9 +7,9 @@ import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
 import java.util.List;
 
 public interface WalletService {
-    WalletResponse createWallet(Integer userId, CreateWalletRequest request);
-    WalletResponse getWallet(Integer userId, Integer id);
-    List<WalletResponse> getAllWallets(Integer userId);
-    WalletResponse updateWallet(Integer userId, Integer id, CreateWalletRequest request);
-    void deleteWallet(Integer userId, Integer id);
+    WalletResponse createWallet(CreateWalletRequest request);
+    WalletResponse getWallet(Integer id);
+    List<WalletResponse> getAllWallets();
+    WalletResponse updateWallet(Integer id, CreateWalletRequest request);
+    void deleteWallet(Integer id);
 } 
