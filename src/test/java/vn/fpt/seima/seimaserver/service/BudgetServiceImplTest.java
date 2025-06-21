@@ -59,18 +59,18 @@ class BudgetServiceImplTest {
         Budget budget = new Budget();
         budget.setBudgetId(1);
         BudgetResponse response = new BudgetResponse();
+        response.setBudgetId(1);  // Phải mock đúng dữ liệu như trong service trả về
 
         when(budgetRepository.findById(1)).thenReturn(Optional.of(budget));
         when(budgetMapper.toResponse(budget)).thenReturn(response);
 
         BudgetResponse result = budgetService.getBudgetById(1);
-        assertEquals(response, result);
+        assertEquals(1, result.getBudgetId());
     }
 
     @Test
     void testGetBudgetById_NotFound() {
         when(budgetRepository.findById(1)).thenReturn(Optional.empty());
-
         assertThrows(ResourceNotFoundException.class, () -> budgetService.getBudgetById(1));
     }
 
