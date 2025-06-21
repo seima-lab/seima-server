@@ -81,12 +81,6 @@ public class TransactionServiceImpl implements TransactionService {
             }
 
             Transaction transaction = transactionMapper.toEntity(request);
-            if (request.getReceiptImageUrl() != null && !request.getReceiptImageUrl().isEmpty()) {
-                Map uploadResult = cloudinaryService.uploadImage(
-                        request.getReceiptImageUrl(), "transaction/receipt"
-                );
-                transaction.setReceiptImageUrl((String) uploadResult.get("secure_url"));
-            }
 
             transaction.setUser(user);
             transaction.setCategory(category);
@@ -133,13 +127,6 @@ public class TransactionServiceImpl implements TransactionService {
 
             if(request.getAmount().equals(BigDecimal.ZERO)){
                 throw new IllegalArgumentException("Amount must not be zero");
-            }
-
-            if (request.getReceiptImageUrl() != null && !request.getReceiptImageUrl().isEmpty()) {
-                Map uploadResult = cloudinaryService.uploadImage(
-                        request.getReceiptImageUrl(), "transaction/receipt"
-                );
-                transaction.setReceiptImageUrl((String) uploadResult.get("secure_url"));
             }
 
             transactionMapper.updateTransactionFromDto(request, transaction);
