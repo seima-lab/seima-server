@@ -29,6 +29,16 @@ public class GlobalExceptionHandler {
                 .build();
     }
 
+    @ExceptionHandler(WalletException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleWalletException(WalletException ex, WebRequest request) {
+        log.error("Wallet exception: {}", ex.getMessage(), ex);
+        return ApiResponse.<Void>builder()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .message(ex.getMessage())
+                .build();
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
