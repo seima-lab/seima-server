@@ -2,11 +2,9 @@ name: 'Deploy to Production'
 
 on:
   workflow_dispatch:
-    inputs:
-      version_tag:
-        description: 'Nhập Git tag của phiên bản cần deploy (ví dụ: v1.0.2)'
-        required: true
-        type: string
+  push:
+    branches:
+      - main
 
 env:
   AZURE_WEBAPP_NAME: 'seima-server'
@@ -22,10 +20,8 @@ jobs:
       url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
 
     steps:
-      - name: 'Checkout code from tag: ${{ github.event.inputs.version_tag }}'
+      - name: 'Checkout code'
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.version_tag }}
 
       - name: 'Set up JDK ${{ env.JAVA_VERSION }}'
         uses: actions/setup-java@v4
@@ -42,10 +38,10 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: './target/*.jar'
+          package: './target/seima-server-0.0.1-SNAPSHOT.jar'
           
       - name: 'Post-deployment Notification'
         run: |
           echo "✅ Deployment Successful!"
-          echo "🚀 Version ${{ github.event.inputs.version_tag }} has been deployed to Production."
+          echo "🚀 Latest version from main branch has been deployed to Production."
           echo "🔗 Live URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
