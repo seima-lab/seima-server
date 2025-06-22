@@ -14,5 +14,5 @@ public class GoogleLoginResponseDto {
     private String refreshToken;
     private UserInGoogleReponseDto userInfomation;
     private Boolean isFirstLogin;
-
+    private Boolean isUserActive;
 }

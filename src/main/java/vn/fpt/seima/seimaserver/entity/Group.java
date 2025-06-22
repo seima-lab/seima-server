@@ -1,6 +1,7 @@
 package vn.fpt.seima.seimaserver.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -19,6 +20,9 @@ public class Group {
     @Column(name = "group_name", length = 100, nullable = false)
     private String groupName;
 
+    @Column(name = "group_invite_code", length = 36, unique = true, nullable = true)
+    @Size(min = 8, max = 36, message = "Invite code must be between 8 and 36 characters")
+    private String groupInviteCode;
 
     @CreationTimestamp
     @Column(name = "group_created_date", updatable = false) // ERD là group_created_date (timestamp)
