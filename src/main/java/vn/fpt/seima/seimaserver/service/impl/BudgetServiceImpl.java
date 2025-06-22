@@ -22,7 +22,6 @@ import java.math.BigDecimal;
 public class BudgetServiceImpl implements BudgetService {
     private  BudgetRepository budgetRepository;
     private final BudgetMapper budgetMapper;
-    private final UserRepository userRepository;
 
 
     @Override
