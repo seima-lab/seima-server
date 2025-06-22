@@ -8,7 +8,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
 import org.springframework.mock.web.MockMultipartFile;
-import vn.fpt.seima.seimaserver.service.CloudinaryService;
 import vn.fpt.seima.seimaserver.service.impl.CloudinaryServiceImpl;
 
 import java.io.IOException;
@@ -18,7 +17,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-class CloudinaryServiceImplTest {
+class CloudinaryServiceTest {
 
     @Mock
     private Cloudinary cloudinary;

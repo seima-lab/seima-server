@@ -1,7 +1,6 @@
 package vn.fpt.seima.seimaserver.service;
 
 
-import com.cloudinary.Cloudinary;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -9,14 +8,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.mock.web.MockMultipartFile;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.mapper.TransactionMapper;
 import vn.fpt.seima.seimaserver.repository.*;
-import vn.fpt.seima.seimaserver.service.CloudinaryService;
 import vn.fpt.seima.seimaserver.service.impl.TransactionServiceImpl;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
@@ -29,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class TransactionServiceImplTest {
+class TransactionServiceTest {
 
     @Mock private TransactionRepository transactionRepository;
     @Mock private CategoryRepository categoryRepository;
