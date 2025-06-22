@@ -54,7 +54,7 @@ public class BudgetCategoryLimitServiceImpl implements BudgetCategoryLimitServic
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new IllegalArgumentException("Category not found with id: " + request.getCategoryId()));
 
-        Budget budget = budgetRepository.findById(request.getCategoryId())
+        Budget budget = budgetRepository.findById(request.getBudgetId())
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found with id: " + request.getBudgetId()));
 
         if(request.getAmountLimit().compareTo(BigDecimal.ZERO) <= 0){
@@ -78,7 +78,7 @@ public class BudgetCategoryLimitServiceImpl implements BudgetCategoryLimitServic
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new IllegalArgumentException("Category not found with id: " + request.getCategoryId()));
 
-        Budget budget = budgetRepository.findById(request.getCategoryId())
+        Budget budget = budgetRepository.findById(request.getBudgetId())
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found with id: " + request.getBudgetId()));
 
         if(request.getAmountLimit().compareTo(BigDecimal.ZERO) <= 0){
