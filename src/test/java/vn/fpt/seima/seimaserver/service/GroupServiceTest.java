@@ -7,22 +7,27 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
-import vn.fpt.seima.seimaserver.entity.Group;
-import vn.fpt.seima.seimaserver.entity.GroupMember;
-import vn.fpt.seima.seimaserver.entity.GroupMemberRole;
-import vn.fpt.seima.seimaserver.entity.GroupMemberStatus;
-import vn.fpt.seima.seimaserver.entity.User;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
+import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.GroupException;
+import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.mapper.GroupMapper;
+import vn.fpt.seima.seimaserver.mapper.TransactionMapper;
 import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
 import vn.fpt.seima.seimaserver.repository.GroupRepository;
+import vn.fpt.seima.seimaserver.repository.TransactionRepository;
 import vn.fpt.seima.seimaserver.service.impl.GroupServiceImpl;
+import vn.fpt.seima.seimaserver.service.impl.TransactionServiceImpl;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.time.LocalDateTime;
@@ -52,6 +57,12 @@ class GroupServiceTest {
 
     @InjectMocks
     private GroupServiceImpl groupService;
+
+    @Mock
+    private TransactionRepository transactionRepository;
+
+    @Mock
+    private TransactionMapper transactionMapper;
 
     private CreateGroupRequest validRequest;
     private User mockUser;
@@ -639,5 +650,44 @@ class GroupServiceTest {
         assertNotNull(result);
         assertNull(result.getGroupAvatarUrl());
         assertNull(result.getGroupLeader().getUserAvatarUrl());
+    }
+
+    @Test
+    void testGetTransactionByGroup_Found() {
+        Integer groupId = 1;
+        Group group = new Group();
+        group.setGroupId(groupId);
+
+        Transaction transaction = new Transaction();
+        transaction.setTransactionId(10);
+
+        TransactionResponse response = new TransactionResponse();
+        response.setTransactionId(10);
+        List<Transaction> transactionList = List.of(transaction);
+
+        Page<Transaction> transactionPage = new PageImpl<>(transactionList);
+        Pageable pageable = PageRequest.of(0, 10);
+
+        when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(transactionRepository.findAllByGroup(group, pageable)).thenReturn(transactionPage);
+        when(transactionMapper.toResponse(transaction)).thenReturn(response);
+
+        Page<TransactionResponse> result = groupService.getTransactionByGroup(pageable, groupId);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        assertEquals(10, result.getContent().get(0).getTransactionId());
+    }
+
+    @Test
+    void testGetTransactionByGroup_GroupNotFound() {
+        Integer groupId = 1;
+        Pageable pageable = PageRequest.of(0, 10);
+
+        when(groupRepository.findById(groupId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> {
+            groupService.getTransactionByGroup(pageable, groupId);
+        });
     }
 }

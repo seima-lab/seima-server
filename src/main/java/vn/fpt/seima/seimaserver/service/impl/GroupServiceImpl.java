@@ -2,6 +2,8 @@ package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -10,17 +12,18 @@ import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
-import vn.fpt.seima.seimaserver.entity.Group;
-import vn.fpt.seima.seimaserver.entity.GroupMember;
-import vn.fpt.seima.seimaserver.entity.GroupMemberRole;
-import vn.fpt.seima.seimaserver.entity.GroupMemberStatus;
-import vn.fpt.seima.seimaserver.entity.User;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
+import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.GroupException;
+import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.mapper.GroupMapper;
+import vn.fpt.seima.seimaserver.mapper.TransactionMapper;
 import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
 import vn.fpt.seima.seimaserver.repository.GroupRepository;
+import vn.fpt.seima.seimaserver.repository.TransactionRepository;
 import vn.fpt.seima.seimaserver.service.CloudinaryService;
 import vn.fpt.seima.seimaserver.service.GroupService;
+import vn.fpt.seima.seimaserver.service.TransactionService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.util.Arrays;
@@ -39,6 +42,8 @@ public class GroupServiceImpl implements GroupService {
     private final GroupMemberRepository groupMemberRepository;
     private final GroupMapper groupMapper;
     private final CloudinaryService cloudinaryService;
+    private final TransactionRepository transactionRepository;
+    private final TransactionMapper transactionMapper;
     
     // Constants for image validation
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -254,5 +259,14 @@ public class GroupServiceImpl implements GroupService {
         GroupMember savedMember = groupMemberRepository.save(groupMember);
         log.info("Admin membership created for user ID: {} in group ID: {}", 
                 user.getUserId(), group.getGroupId());
+    }
+
+    @Override
+    public Page<TransactionResponse> getTransactionByGroup(Pageable pageable, Integer groupId) {
+
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+        Page<Transaction> transactions = transactionRepository.findAllByGroup(group, pageable);
+        return transactions.map(transactionMapper::toResponse);
     }
 } 

@@ -1,8 +1,12 @@
 package vn.fpt.seima.seimaserver.service;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
+
 // import vn.fpt.seima.seimaserver.entity.Group;
 public interface GroupService {
     /**
@@ -22,4 +26,7 @@ public interface GroupService {
      * @return the group detail response containing group info, leader, and members
      */
     GroupDetailResponse getGroupDetail(Integer groupId);
+
+    Page<TransactionResponse> getTransactionByGroup(Pageable pageable, Integer groupId);
+
 }
