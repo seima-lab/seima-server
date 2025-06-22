@@ -1,25 +1,22 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.Gson;
 import lombok.AllArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 import vn.fpt.seima.seimaserver.entity.*;
+import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.mapper.TransactionMapper;
+import vn.fpt.seima.seimaserver.repository.BudgetRepository;
 import vn.fpt.seima.seimaserver.repository.CategoryRepository;
 import vn.fpt.seima.seimaserver.repository.TransactionRepository;
 import vn.fpt.seima.seimaserver.repository.WalletRepository;
 import vn.fpt.seima.seimaserver.service.CloudinaryService;
-import vn.fpt.seima.seimaserver.service.OcrService;
 import vn.fpt.seima.seimaserver.service.TransactionService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
@@ -38,7 +35,6 @@ public class TransactionServiceImpl implements TransactionService {
     private final WalletRepository walletRepository;
     private final TransactionMapper transactionMapper;
     private final CloudinaryService cloudinaryService;
-    private final OcrService ocrService;
 
     @Override
     public Page<TransactionResponse> getAllTransaction(Pageable pageable) {
@@ -84,7 +80,6 @@ public class TransactionServiceImpl implements TransactionService {
             }
 
             Transaction transaction = transactionMapper.toEntity(request);
-
 
             transaction.setUser(user);
             transaction.setCategory(category);
@@ -225,5 +220,4 @@ public class TransactionServiceImpl implements TransactionService {
                 .byDate(byDate)
                 .build();
     }
-
 }
