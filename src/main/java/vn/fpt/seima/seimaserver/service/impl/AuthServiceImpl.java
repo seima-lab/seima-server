@@ -101,7 +101,7 @@ public class AuthServiceImpl implements AuthService {
     private String redisPort;
 
     private static final int MAX_OTP_ATTEMPTS = 5;
-    private static final long OTP_EXPIRATION_TIME = 5; // in minutes
+    private static final long OTP_EXPIRATION_TIME = 3; // in minutes
     private static final int MAX_INCORRECT_OTP_ATTEMPTS = 3;
     private static final long VERIFICATION_TOKEN_EXPIRATION = 15 * 60; // 15 minutes in seconds
 
