@@ -28,6 +28,7 @@ import vn.fpt.seima.seimaserver.dto.response.auth.LoginResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.NormalRegisterResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.VerifyForgotPasswordOtpResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.user.UserInGoogleReponseDto;
+import vn.fpt.seima.seimaserver.exception.AccountNotVerifiedException;
 import vn.fpt.seima.seimaserver.exception.GmailAlreadyExistException;
 import vn.fpt.seima.seimaserver.exception.GoogleAccountConflictException;
 import vn.fpt.seima.seimaserver.exception.InvalidOtpException;
@@ -148,9 +149,26 @@ public class AuthServiceImpl implements AuthService {
             // Check if this is a Google account
             if (user.getIsLogByGoogle()) {
                 throw new GmailAlreadyExistException("This email is already registered with Google login. Please use Google login instead.");
-            } else {
+            } else if (user.getUserIsActive()) {
+                // User exists and is already active
                 throw new GmailAlreadyExistException("Email already exists in the system");
             }
+            // User exists but is not active - allow re-registration with OTP
+        } else {
+            // Create new inactive user
+            User newUser = User.builder()
+                    .userEmail(normalRegisterRequestDto.getEmail())
+                    .userFullName(normalRegisterRequestDto.getFullName())
+                    .isLogByGoogle(false)
+                    .userDob(normalRegisterRequestDto.getDob())
+                    .userPhoneNumber(normalRegisterRequestDto.getPhoneNumber())
+                    .userGender(normalRegisterRequestDto.isGender())
+                    .userPassword(passwordEncoder.encode(normalRegisterRequestDto.getPassword()))
+                    .userIsActive(false) // User starts as inactive
+                    .userCreatedDate(LocalDateTime.now())
+                    .build();
+            
+            userRepository.save(newUser);
         }
 
         // 2. Generate OTP
@@ -221,7 +239,6 @@ public class AuthServiceImpl implements AuthService {
         
         String email = verifyOtpRequestDto.getEmail();
         String otp = verifyOtpRequestDto.getOtp();
-        String password = verifyOtpRequestDto.getPassword();
         
         // Get OTP from Redis
         String otpKey = OTP_KEY_PREFIX + email;
@@ -258,18 +275,22 @@ public class AuthServiceImpl implements AuthService {
         // Delete OTP from Redis
         redisService.delete(otpKey);
         
-        // Create and save user
-        User user = User.builder()
-                .userEmail(email)
-                .userFullName(verifyOtpRequestDto.getFullName())
-                .isLogByGoogle(false)
-                .userDob(verifyOtpRequestDto.getDob())
-                .userPhoneNumber(verifyOtpRequestDto.getPhoneNumber())
-                .userGender(verifyOtpRequestDto.isGender())
-                .userPassword(passwordEncoder.encode(password))
-                .userIsActive(true)
-                .userCreatedDate(LocalDateTime.now())
-                .build();
+        // Find and activate existing user
+        User user = userRepository.findByUserEmail(email)
+                .orElseThrow(() -> new NullRequestParamException("User not found"));
+        
+        // Update user information if needed and activate account
+        if (verifyOtpRequestDto.getFullName() != null) {
+            user.setUserFullName(verifyOtpRequestDto.getFullName());
+        }
+        if (verifyOtpRequestDto.getDob() != null) {
+            user.setUserDob(verifyOtpRequestDto.getDob());
+        }
+        if (verifyOtpRequestDto.getPhoneNumber() != null) {
+            user.setUserPhoneNumber(verifyOtpRequestDto.getPhoneNumber());
+        }
+        user.setUserGender(verifyOtpRequestDto.isGender());
+        user.setUserIsActive(true); // Activate the user
         
         userRepository.save(user);
         
@@ -279,8 +300,15 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void resendOtp(String email) {
         // Check if user exists
-        if (userRepository.findByUserEmail(email).isPresent()) {
-            throw new GmailAlreadyExistException("Email already exists in the system");
+        Optional<User> userOptional = userRepository.findByUserEmail(email);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            if (user.getUserIsActive()) {
+                throw new GmailAlreadyExistException("Email already exists and is active in the system");
+            }
+            // User exists but not active - allow resend OTP
+        } else {
+            throw new NullRequestParamException("User not found. Please register first.");
         }
 
         String otpKey = OTP_KEY_PREFIX + email;
@@ -345,7 +373,7 @@ public class AuthServiceImpl implements AuthService {
 
         // Check if user is active
         if (!user.getUserIsActive()) {
-            throw new InvalidOtpException("Account is not active");
+            throw new AccountNotVerifiedException("Your account is not verified. Please check your email and verify your account with the OTP code.");
         }
 
         // Check if user has password (not Google account)

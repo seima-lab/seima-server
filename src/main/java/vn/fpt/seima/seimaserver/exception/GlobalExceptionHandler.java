@@ -108,6 +108,16 @@ public class GlobalExceptionHandler {
                 .build();
     }
 
+    @ExceptionHandler(AccountNotVerifiedException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiResponse<Void> handleAccountNotVerifiedException(AccountNotVerifiedException ex) {
+        log.error("Account not verified: {}", ex.getMessage(), ex);
+        return ApiResponse.<Void>builder()
+                .statusCode(HttpStatus.UNAUTHORIZED.value())
+                .message(ex.getMessage())
+                .build();
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiResponse<Void> handleAllUncaughtException(Exception ex, WebRequest request) {
