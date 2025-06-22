@@ -153,7 +153,14 @@ public class AuthServiceImpl implements AuthService {
                 // User exists and is already active
                 throw new GmailAlreadyExistException("Email already exists in the system");
             }
-            // User exists but is not active - allow re-registration with OTP
+            // User exists but is not active - update user information and allow re-registration with OTP
+            user.setUserFullName(normalRegisterRequestDto.getFullName());
+            user.setUserDob(normalRegisterRequestDto.getDob());
+            user.setUserPhoneNumber(normalRegisterRequestDto.getPhoneNumber());
+            user.setUserGender(normalRegisterRequestDto.isGender());
+            user.setUserPassword(passwordEncoder.encode(normalRegisterRequestDto.getPassword()));
+            user.setUserCreatedDate(LocalDateTime.now()); // Update created date
+            userRepository.save(user);
         } else {
             // Create new inactive user
             User newUser = User.builder()
@@ -368,12 +375,26 @@ public class AuthServiceImpl implements AuthService {
         String password = loginRequestDto.getPassword();
 
         // Find user by email
-        User user = userRepository.findByUserEmail(email)
-                .orElseThrow(() -> new InvalidOtpException("Invalid email or password"));
+        Optional<User> userOptional = userRepository.findByUserEmail(email);
+        
+        if (userOptional.isEmpty()) {
+            throw new InvalidOtpException("Invalid email or password");
+        }
+        
+        User user = userOptional.get();
 
-        // Check if user is active
+        // Check if user is inactive
         if (!user.getUserIsActive()) {
-            throw new AccountNotVerifiedException("Your account is not verified. Please check your email and verify your account with the OTP code.");
+            String otpKey = OTP_KEY_PREFIX + email;
+            OtpValueDto existingOtp = redisService.getObject(otpKey, OtpValueDto.class);
+            
+            if (existingOtp != null) {
+                // Còn OTP → Báo cần verify
+                throw new AccountNotVerifiedException("Your account is not verified. Please check your email and verify your account with the OTP code.");
+            } else {
+                // Hết OTP → Giả vờ user không tồn tại
+                throw new InvalidOtpException("Invalid email or password");
+            }
         }
 
         // Check if user has password (not Google account)

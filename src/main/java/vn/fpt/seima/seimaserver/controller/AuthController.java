@@ -34,6 +34,7 @@ import vn.fpt.seima.seimaserver.exception.NullRequestParamException;
 import vn.fpt.seima.seimaserver.exception.OtpNotFoundException;
 import vn.fpt.seima.seimaserver.exception.PasswordMismatchException;
 import vn.fpt.seima.seimaserver.exception.InvalidPasswordException;
+import vn.fpt.seima.seimaserver.exception.AccountNotVerifiedException;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.AuthService;
 import vn.fpt.seima.seimaserver.service.GoogleService;
@@ -262,6 +263,11 @@ public class AuthController {
                     .statusCode(HttpStatus.OK.value())
                     .message("Login successful")
                     .data(loginResponse)
+                    .build();
+        } catch (AccountNotVerifiedException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.FORBIDDEN.value())
+                    .message(e.getMessage())
                     .build();
         } catch (InvalidOtpException e) {
             return ApiResponse.builder()
