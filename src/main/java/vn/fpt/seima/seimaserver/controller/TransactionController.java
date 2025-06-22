@@ -5,10 +5,13 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOcrResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
+import vn.fpt.seima.seimaserver.service.OcrService;
 import vn.fpt.seima.seimaserver.service.TransactionService;
 
 import java.time.YearMonth;
@@ -18,9 +21,10 @@ import java.time.YearMonth;
 @RequestMapping("/api/v1/transactions")
 public class TransactionController {
     private final TransactionService transactionService;
+    private final OcrService ocrService;
 
-    @PostMapping("/expense")
-    public ApiResponse<TransactionResponse> recordExpense(@ModelAttribute  CreateTransactionRequest request) {
+    @PostMapping(value = "/expense")
+    public ApiResponse<TransactionResponse> recordExpense(@RequestBody  CreateTransactionRequest request) {
         try {
             TransactionResponse transactionCreated = transactionService.recordExpense(request);
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction created successfully", transactionCreated);
@@ -31,8 +35,8 @@ public class TransactionController {
         }
     }
 
-    @PostMapping(value = "/income", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponse<TransactionResponse> recordInCome(@ModelAttribute  CreateTransactionRequest request) {
+    @PostMapping(value = "/income")
+    public ApiResponse<TransactionResponse> recordInCome(@RequestBody  CreateTransactionRequest request) {
         try {
             TransactionResponse transactionCreated = transactionService.recordIncome(request);
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction created successfully", transactionCreated);
@@ -44,7 +48,7 @@ public class TransactionController {
     }
 
     @PutMapping("/update/{id}")
-    public ApiResponse<TransactionResponse> updateTransaction(@ModelAttribute  CreateTransactionRequest request,
+    public ApiResponse<TransactionResponse> updateTransaction(@RequestBody  CreateTransactionRequest request,
                                                               @PathVariable Integer id) {
         try {
             TransactionResponse updatedTransaction = transactionService.updateTransaction(id, request);
@@ -82,6 +86,18 @@ public class TransactionController {
             return new ApiResponse<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage(), null);
         } catch (Exception ex) {
             return new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), ex.getMessage(), null);
+        }
+    }
+
+    @PostMapping("/scan-invoice")
+    public ApiResponse<TransactionOcrResponse> scanInvoice(@RequestBody MultipartFile file) {
+        try {
+            TransactionOcrResponse transactionCreated = ocrService.extractTextFromFile(file);
+            return new ApiResponse<>(HttpStatus.OK.value(), "Scan invoice successfully", transactionCreated);
+        } catch (IllegalArgumentException ex) {
+            return new ApiResponse<>(400, ex.getMessage(), null);
+        } catch (Exception ex) {
+            return new ApiResponse<>(500, ex.getMessage(), null);
         }
     }
 } 

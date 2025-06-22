@@ -56,8 +56,7 @@ public class TransactionServiceImpl implements TransactionService {
             if (request == null) {
                 throw new IllegalArgumentException("Request must not be null");
             }
-            System.out.println("haha" + request.getWalletId());
-            System.out.println("haha" + request.getTransactionType());
+
             User user = UserUtils.getCurrentUser();
             if (user == null) {
                 throw new IllegalArgumentException("User must not be null");
