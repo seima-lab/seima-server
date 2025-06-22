@@ -14,7 +14,7 @@ import vn.fpt.seima.seimaserver.service.WalletService;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/users/{userId}/wallets")
+@RequestMapping("/api/v1/wallets")
 @RequiredArgsConstructor
 @Tag(name = "wallet", description = "Wallet management APIs")
 public class WalletController {
@@ -23,11 +23,9 @@ public class WalletController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Create a new wallet for a user")
-    public ApiResponse<WalletResponse> createWallet(
-            @PathVariable Integer userId,
-            @Valid @RequestBody CreateWalletRequest request) {
-        WalletResponse wallet = walletService.createWallet(userId, request);
+    @Operation(summary = "Create a new wallet for the current user")
+    public ApiResponse<WalletResponse> createWallet(@Valid @RequestBody CreateWalletRequest request) {
+        WalletResponse wallet = walletService.createWallet(request);
         return ApiResponse.<WalletResponse>builder()
                 .statusCode(HttpStatus.CREATED.value())
                 .message("Wallet created successfully")
@@ -36,11 +34,9 @@ public class WalletController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get a user's wallet by ID")
-    public ApiResponse<WalletResponse> getWallet(
-            @PathVariable Integer userId,
-            @PathVariable Integer id) {
-        WalletResponse wallet = walletService.getWallet(userId, id);
+    @Operation(summary = "Get the current user's wallet by ID")
+    public ApiResponse<WalletResponse> getWallet(@PathVariable Integer id) {
+        WalletResponse wallet = walletService.getWallet(id);
         return ApiResponse.<WalletResponse>builder()
                 .statusCode(HttpStatus.OK.value())
                 .message("Wallet retrieved successfully")
@@ -49,9 +45,9 @@ public class WalletController {
     }
 
     @GetMapping
-    @Operation(summary = "Get all wallets for a user")
-    public ApiResponse<List<WalletResponse>> getAllWallets(@PathVariable Integer userId) {
-        List<WalletResponse> wallets = walletService.getAllWallets(userId);
+    @Operation(summary = "Get all wallets for the current user")
+    public ApiResponse<List<WalletResponse>> getAllWallets() {
+        List<WalletResponse> wallets = walletService.getAllWallets();
         return ApiResponse.<List<WalletResponse>>builder()
                 .statusCode(HttpStatus.OK.value())
                 .message("Wallets retrieved successfully")
@@ -60,12 +56,11 @@ public class WalletController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update a user's wallet")
+    @Operation(summary = "Update the current user's wallet")
     public ApiResponse<WalletResponse> updateWallet(
-            @PathVariable Integer userId,
             @PathVariable Integer id,
             @Valid @RequestBody CreateWalletRequest request) {
-        WalletResponse wallet = walletService.updateWallet(userId, id, request);
+        WalletResponse wallet = walletService.updateWallet(id, request);
         return ApiResponse.<WalletResponse>builder()
                 .statusCode(HttpStatus.OK.value())
                 .message("Wallet updated successfully")
@@ -74,11 +69,9 @@ public class WalletController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Delete a user's wallet")
-    public ApiResponse<Void> deleteWallet(
-            @PathVariable Integer userId,
-            @PathVariable Integer id) {
-        walletService.deleteWallet(userId, id);
+    @Operation(summary = "Delete the current user's wallet")
+    public ApiResponse<Void> deleteWallet(@PathVariable Integer id) {
+        walletService.deleteWallet(id);
         return ApiResponse.<Void>builder()
                 .statusCode(HttpStatus.OK.value())
                 .message("Wallet deleted successfully")
