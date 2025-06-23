@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import vn.fpt.seima.seimaserver.config.base.AppProperties;
 import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
@@ -39,6 +40,7 @@ public class GroupServiceImpl implements GroupService {
     private final GroupMemberRepository groupMemberRepository;
     private final GroupMapper groupMapper;
     private final CloudinaryService cloudinaryService;
+    private final AppProperties appProperties;
     
     // Constants for image validation
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -94,13 +96,22 @@ public class GroupServiceImpl implements GroupService {
             throw new GroupException("Group ID cannot be null");
         }
         
+        // Get current user
+        User currentUser = getCurrentUser();
+        
         // Find group
         Group group = groupRepository.findById(groupId)
-            .orElseThrow(() -> new GroupException("Group not found with ID: " + groupId));
+            .orElseThrow(() -> new GroupException("Group not found"));
         
-        // Check if group is active
+        // Check if group is active - nếu không active thì báo group không tồn tại
         if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
-            throw new GroupException("Group is not active");
+            throw new GroupException("Group not found");
+        }
+        
+        // Check if current user is a member of the group
+        if (!groupMemberRepository.existsByUserAndGroupAndStatus(
+                currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE)) {
+            throw new GroupException("You don't have permission to view this group");
         }
         
         // Get group leader
@@ -127,11 +138,14 @@ public class GroupServiceImpl implements GroupService {
         // Get total member count
         Long totalCount = groupMemberRepository.countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE);
         
+        // Build invite link
+        String inviteLink = buildInviteLink(group.getGroupInviteCode());
+        
         // Build response
         GroupDetailResponse response = new GroupDetailResponse();
         response.setGroupId(group.getGroupId());
         response.setGroupName(group.getGroupName());
-        response.setGroupInviteCode(group.getGroupInviteCode());
+        response.setGroupInviteLink(inviteLink);
         response.setGroupAvatarUrl(group.getGroupAvatarUrl());
         response.setGroupCreatedDate(group.getGroupCreatedDate());
         response.setGroupIsActive(group.getGroupIsActive());
@@ -254,5 +268,29 @@ public class GroupServiceImpl implements GroupService {
         GroupMember savedMember = groupMemberRepository.save(groupMember);
         log.info("Admin membership created for user ID: {} in group ID: {}", 
                 user.getUserId(), group.getGroupId());
+    }
+    
+    /**
+     * Build full invite link from invite code
+     * @param inviteCode the invitation code
+     * @return full invite link
+     */
+    private String buildInviteLink(String inviteCode) {
+        if (inviteCode == null) {
+            return null;
+        }
+        
+        String baseUrl = appProperties.getClient().getBaseUrl();
+        if (baseUrl == null || baseUrl.isEmpty()) {
+            log.warn("Client base URL not configured, returning invite code only");
+            return inviteCode;
+        }
+        
+        // Remove trailing slash if exists
+        if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+        
+        return baseUrl + "/" + inviteCode;
     }
 } 

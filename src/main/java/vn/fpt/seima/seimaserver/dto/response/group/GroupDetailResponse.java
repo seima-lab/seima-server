@@ -14,7 +14,7 @@ import java.util.List;
 public class GroupDetailResponse {
     private Integer groupId;
     private String groupName;
-    private String groupInviteCode;
+    private String groupInviteLink;
     private String groupAvatarUrl;
     
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")

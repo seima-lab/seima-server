@@ -4,6 +4,8 @@ app:
   lab-name: Seima Lab
   name: seima-server-dev
   port: 8081
+  client:
+    base-url: ${CLIENT_BASE_URL:https://seima.app.com}
   swagger:
     contact-name: Jason Nguyen
     contact-mail: syhaoc2dh@gmail.com

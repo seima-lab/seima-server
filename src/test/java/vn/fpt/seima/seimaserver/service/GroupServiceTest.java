@@ -8,7 +8,7 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.web.multipart.MultipartFile;
+import vn.fpt.seima.seimaserver.config.base.AppProperties;
 import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
@@ -49,6 +49,9 @@ class GroupServiceTest {
 
     @Mock
     private CloudinaryService cloudinaryService;
+
+    @Mock
+    private AppProperties appProperties;
 
     @InjectMocks
     private GroupServiceImpl groupService;
@@ -143,6 +146,13 @@ class GroupServiceTest {
         testGroupMember2.setUser(testMember2);
         testGroupMember2.setRole(GroupMemberRole.MEMBER);
         testGroupMember2.setStatus(GroupMemberStatus.ACTIVE);
+    }
+
+    // Helper method to setup AppProperties mock for getGroupDetail tests
+    private void setupAppPropertiesMock() {
+        AppProperties.Client clientConfig = new AppProperties.Client();
+        clientConfig.setBaseUrl("https://seima.app.com");
+        when(appProperties.getClient()).thenReturn(clientConfig);
     }
 
     // ===== CREATE GROUP WITH IMAGE TESTS =====
@@ -478,50 +488,58 @@ class GroupServiceTest {
         // Given
         Integer groupId = 1;
         List<GroupMember> allMembers = Arrays.asList(testGroupLeader, testGroupMember1, testGroupMember2);
+        setupAppPropertiesMock();
 
-        when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-        when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
-                .thenReturn(Optional.of(testGroupLeader));
-        when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
-                .thenReturn(allMembers);
-        when(groupMemberRepository.countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
-                .thenReturn(3L);
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testLeader);
+            
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.existsByUserAndGroupAndStatus(testLeader.getUserId(), testGroup.getGroupId(), GroupMemberStatus.ACTIVE))
+                    .thenReturn(true);
+            when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupLeader));
+            when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(allMembers);
+            when(groupMemberRepository.countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(3L);
 
-        // When
-        GroupDetailResponse result = groupService.getGroupDetail(groupId);
+            // When
+            GroupDetailResponse result = groupService.getGroupDetail(groupId);
 
-        // Then
-        assertNotNull(result);
-        assertEquals(testGroup.getGroupId(), result.getGroupId());
-        assertEquals(testGroup.getGroupName(), result.getGroupName());
-        assertEquals(testGroup.getGroupInviteCode(), result.getGroupInviteCode());
-        assertEquals(testGroup.getGroupAvatarUrl(), result.getGroupAvatarUrl());
-        assertEquals(testGroup.getGroupCreatedDate(), result.getGroupCreatedDate());
-        assertEquals(testGroup.getGroupIsActive(), result.getGroupIsActive());
-        assertEquals(3, result.getTotalMembersCount());
+            // Then
+            assertNotNull(result);
+            assertEquals(testGroup.getGroupId(), result.getGroupId());
+            assertEquals(testGroup.getGroupName(), result.getGroupName());
+            assertEquals("https://seima.app.com/test-invite-code-123", result.getGroupInviteLink());
+            assertEquals(testGroup.getGroupAvatarUrl(), result.getGroupAvatarUrl());
+            assertEquals(testGroup.getGroupCreatedDate(), result.getGroupCreatedDate());
+            assertEquals(testGroup.getGroupIsActive(), result.getGroupIsActive());
+            assertEquals(3, result.getTotalMembersCount());
 
-        // Verify leader
-        GroupMemberResponse leader = result.getGroupLeader();
-        assertNotNull(leader);
-        assertEquals(testLeader.getUserId(), leader.getUserId());
-        assertEquals(testLeader.getUserFullName(), leader.getUserFullName());
-        assertEquals(testLeader.getUserAvatarUrl(), leader.getUserAvatarUrl());
-        assertEquals(GroupMemberRole.ADMIN, leader.getRole());
+            // Verify leader
+            GroupMemberResponse leader = result.getGroupLeader();
+            assertNotNull(leader);
+            assertEquals(testLeader.getUserId(), leader.getUserId());
+            assertEquals(testLeader.getUserFullName(), leader.getUserFullName());
+            assertEquals(testLeader.getUserAvatarUrl(), leader.getUserAvatarUrl());
+            assertEquals(GroupMemberRole.ADMIN, leader.getRole());
 
-        // Verify members (should not include leader)
-        List<GroupMemberResponse> members = result.getMembers();
-        assertNotNull(members);
-        assertEquals(2, members.size());
-        
-        // Check that leader is not in members list
-        assertFalse(members.stream().anyMatch(member -> 
-            member.getUserId().equals(testLeader.getUserId())));
+            // Verify members (should not include leader)
+            List<GroupMemberResponse> members = result.getMembers();
+            assertNotNull(members);
+            assertEquals(2, members.size());
+            
+            // Check that leader is not in members list
+            assertFalse(members.stream().anyMatch(member -> 
+                member.getUserId().equals(testLeader.getUserId())));
 
-        // Verify repository calls
-        verify(groupRepository).findById(groupId);
-        verify(groupMemberRepository).findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
-        verify(groupMemberRepository).findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE);
-        verify(groupMemberRepository).countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE);
+            // Verify repository calls
+            verify(groupRepository).findById(groupId);
+            verify(groupMemberRepository).existsByUserAndGroupAndStatus(testLeader.getUserId(), testGroup.getGroupId(), GroupMemberStatus.ACTIVE);
+            verify(groupMemberRepository).findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+            verify(groupMemberRepository).findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE);
+            verify(groupMemberRepository).countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE);
+        }
     }
 
     @Test
@@ -541,16 +559,20 @@ class GroupServiceTest {
     void getGroupDetail_ShouldThrowException_WhenGroupNotFound() {
         // Given
         Integer groupId = 999;
-        when(groupRepository.findById(groupId)).thenReturn(Optional.empty());
+        
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testLeader);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.empty());
 
-        // When & Then
-        GroupException exception = assertThrows(GroupException.class, 
-            () -> groupService.getGroupDetail(groupId));
-        
-        assertEquals("Group not found with ID: " + groupId, exception.getMessage());
-        
-        verify(groupRepository).findById(groupId);
-        verifyNoInteractions(groupMemberRepository);
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, 
+                () -> groupService.getGroupDetail(groupId));
+            
+            assertEquals("Group not found", exception.getMessage());
+            
+            verify(groupRepository).findById(groupId);
+            verifyNoInteractions(groupMemberRepository);
+        }
     }
 
     @Test
@@ -558,34 +580,44 @@ class GroupServiceTest {
         // Given
         Integer groupId = 1;
         testGroup.setGroupIsActive(false);
-        when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+        
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testLeader);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
 
-        // When & Then
-        GroupException exception = assertThrows(GroupException.class, 
-            () -> groupService.getGroupDetail(groupId));
-        
-        assertEquals("Group is not active", exception.getMessage());
-        
-        verify(groupRepository).findById(groupId);
-        verifyNoInteractions(groupMemberRepository);
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, 
+                () -> groupService.getGroupDetail(groupId));
+            
+            assertEquals("Group not found", exception.getMessage());
+            
+            verify(groupRepository).findById(groupId);
+            verifyNoInteractions(groupMemberRepository);
+        }
     }
 
     @Test
     void getGroupDetail_ShouldThrowException_WhenLeaderNotFound() {
         // Given
         Integer groupId = 1;
-        when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-        when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
-                .thenReturn(Optional.empty());
+        
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testLeader);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.existsByUserAndGroupAndStatus(testLeader.getUserId(), testGroup.getGroupId(), GroupMemberStatus.ACTIVE))
+                    .thenReturn(true);
+            when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.empty());
 
-        // When & Then
-        GroupException exception = assertThrows(GroupException.class, 
-            () -> groupService.getGroupDetail(groupId));
-        
-        assertEquals("Group leader not found for group ID: " + groupId, exception.getMessage());
-        
-        verify(groupRepository).findById(groupId);
-        verify(groupMemberRepository).findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, 
+                () -> groupService.getGroupDetail(groupId));
+            
+            assertEquals("Group leader not found for group ID: " + groupId, exception.getMessage());
+            
+            verify(groupRepository).findById(groupId);
+            verify(groupMemberRepository).findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+        }
     }
 
     @Test
@@ -593,26 +625,34 @@ class GroupServiceTest {
         // Given
         Integer groupId = 1;
         List<GroupMember> allMembers = Arrays.asList(testGroupLeader);
+        setupAppPropertiesMock();
 
-        when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-        when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
-                .thenReturn(Optional.of(testGroupLeader));
-        when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
-                .thenReturn(allMembers);
-        when(groupMemberRepository.countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
-                .thenReturn(1L);
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testLeader);
+            
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.existsByUserAndGroupAndStatus(testLeader.getUserId(), testGroup.getGroupId(), GroupMemberStatus.ACTIVE))
+                    .thenReturn(true);
+            when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupLeader));
+            when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(allMembers);
+            when(groupMemberRepository.countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(1L);
 
-        // When
-        GroupDetailResponse result = groupService.getGroupDetail(groupId);
+            // When
+            GroupDetailResponse result = groupService.getGroupDetail(groupId);
 
-        // Then
-        assertNotNull(result);
-        assertEquals(1, result.getTotalMembersCount());
-        assertNotNull(result.getGroupLeader());
-        assertEquals(testLeader.getUserId(), result.getGroupLeader().getUserId());
-        
-        // Members list should be empty (leader excluded)
-        assertTrue(result.getMembers().isEmpty());
+            // Then
+            assertNotNull(result);
+            assertEquals(1, result.getTotalMembersCount());
+            assertNotNull(result.getGroupLeader());
+            assertEquals(testLeader.getUserId(), result.getGroupLeader().getUserId());
+            assertEquals("https://seima.app.com/test-invite-code-123", result.getGroupInviteLink());
+            
+            // Members list should be empty (leader excluded)
+            assertTrue(result.getMembers().isEmpty());
+        }
     }
 
     @Test
@@ -621,23 +661,30 @@ class GroupServiceTest {
         Integer groupId = 1;
         testGroup.setGroupAvatarUrl(null);
         testLeader.setUserAvatarUrl(null);
+        setupAppPropertiesMock();
         
         List<GroupMember> allMembers = Arrays.asList(testGroupLeader);
 
-        when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-        when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
-                .thenReturn(Optional.of(testGroupLeader));
-        when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
-                .thenReturn(allMembers);
-        when(groupMemberRepository.countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
-                .thenReturn(1L);
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testLeader);
+            
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.existsByUserAndGroupAndStatus(testLeader.getUserId(), testGroup.getGroupId(), GroupMemberStatus.ACTIVE))
+                    .thenReturn(true);
+            when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupLeader));
+            when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(allMembers);
+            when(groupMemberRepository.countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(1L);
 
-        // When
-        GroupDetailResponse result = groupService.getGroupDetail(groupId);
+            // When
+            GroupDetailResponse result = groupService.getGroupDetail(groupId);
 
-        // Then
-        assertNotNull(result);
-        assertNull(result.getGroupAvatarUrl());
-        assertNull(result.getGroupLeader().getUserAvatarUrl());
+            // Then
+            assertNotNull(result);
+            assertNull(result.getGroupAvatarUrl());
+            assertNull(result.getGroupLeader().getUserAvatarUrl());
+        }
     }
-}
+} 
