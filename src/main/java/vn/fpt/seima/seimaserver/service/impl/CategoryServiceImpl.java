@@ -91,7 +91,7 @@ public class CategoryServiceImpl implements CategoryService {
         if (isDuplicate) {
             throw new IllegalArgumentException("A category with the same name already exists in the same scope and type.");
         }
-        System.out.println("!23" + user.getUserId());
+
         Category category = categoryMapper.toEntity(request);
         if (group != null) {
             category.setGroup(group);
