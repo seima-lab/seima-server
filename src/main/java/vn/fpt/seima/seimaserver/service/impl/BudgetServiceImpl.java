@@ -95,4 +95,18 @@ public class BudgetServiceImpl implements BudgetService {
 
         budgetRepository.deleteById(id);
     }
+
+    @Override
+    public void reduceAmount(Integer userId, BigDecimal amount) {
+        Budget existingBudget =  budgetRepository.findByUserId(userId);
+        if (existingBudget == null) {
+          throw new IllegalArgumentException("Budget not found ");
+        }
+
+        BigDecimal newAmount = existingBudget.getOverallAmountLimit().subtract(amount);
+        existingBudget.setOverallAmountLimit(newAmount);
+
+        budgetRepository.save(existingBudget);
+    }
+
 }

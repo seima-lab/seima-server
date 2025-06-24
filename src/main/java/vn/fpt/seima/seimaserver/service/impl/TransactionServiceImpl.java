@@ -6,6 +6,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
@@ -16,8 +17,10 @@ import vn.fpt.seima.seimaserver.repository.BudgetRepository;
 import vn.fpt.seima.seimaserver.repository.CategoryRepository;
 import vn.fpt.seima.seimaserver.repository.TransactionRepository;
 import vn.fpt.seima.seimaserver.repository.WalletRepository;
+import vn.fpt.seima.seimaserver.service.BudgetService;
 import vn.fpt.seima.seimaserver.service.CloudinaryService;
 import vn.fpt.seima.seimaserver.service.TransactionService;
+import vn.fpt.seima.seimaserver.service.WalletService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
@@ -34,7 +37,8 @@ public class TransactionServiceImpl implements TransactionService {
     private final CategoryRepository categoryRepository;
     private final WalletRepository walletRepository;
     private final TransactionMapper transactionMapper;
-    private final CloudinaryService cloudinaryService;
+    private final WalletService walletService;
+    private final BudgetService budgetService;
 
     @Override
     public Page<TransactionResponse> getAllTransaction(Pageable pageable) {
@@ -51,6 +55,7 @@ public class TransactionServiceImpl implements TransactionService {
         return transactionMapper.toResponse(transaction);
     }
 
+//    @Transactional
     public TransactionResponse saveTransaction(CreateTransactionRequest request, TransactionType type) {
         try {
             if (request == null) {
@@ -86,6 +91,9 @@ public class TransactionServiceImpl implements TransactionService {
             transaction.setWallet(wallet);
             transaction.setTransactionType(type);
             Transaction savedTransaction = transactionRepository.save(transaction);
+
+            budgetService.reduceAmount(user.getUserId(), transaction.getAmount());
+            walletService.reduceAmount(request.getWalletId(),transaction.getAmount());
 
             return transactionMapper.toResponse(savedTransaction);
         }

@@ -5,6 +5,8 @@ import org.springframework.data.domain.Pageable;
 import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 
+import java.math.BigDecimal;
+
 public interface BudgetService {
     Page<BudgetResponse> getAllBudget(Pageable pageable);
 
@@ -15,4 +17,6 @@ public interface BudgetService {
     BudgetResponse updateBudget(Integer id,CreateBudgetRequest budget);
 
     void deleteBudget(int id);
-} 
+
+    void reduceAmount(Integer userId, BigDecimal amount);
+}

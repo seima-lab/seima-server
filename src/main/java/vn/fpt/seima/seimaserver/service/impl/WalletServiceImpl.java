@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import vn.fpt.seima.seimaserver.dto.request.wallet.CreateWalletRequest;
 import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
+import vn.fpt.seima.seimaserver.entity.Budget;
 import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.entity.Wallet;
 import vn.fpt.seima.seimaserver.entity.WalletType;
@@ -15,6 +16,7 @@ import vn.fpt.seima.seimaserver.repository.WalletTypeRepository;
 import vn.fpt.seima.seimaserver.service.WalletService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -124,5 +126,16 @@ public class WalletServiceImpl implements WalletService {
             throw new WalletException("Unable to identify the current user");
         }
         return currentUser;
+    }
+
+    @Override
+    public void reduceAmount(Integer id, BigDecimal amount) {
+        Wallet existingWallet =  walletRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Wallet not found for this id: " + id));
+
+        BigDecimal newAmount = existingWallet.getCurrentBalance().subtract(amount);
+        existingWallet.setCurrentBalance(newAmount);
+
+        walletRepository.save(existingWallet);
     }
 } 
