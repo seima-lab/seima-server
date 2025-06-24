@@ -1,13 +1,10 @@
 package vn.fpt.seima.seimaserver.service;
 
-
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
@@ -33,6 +30,8 @@ class TransactionServiceTest {
     @Mock private WalletRepository walletRepository;
     @Mock private TransactionMapper transactionMapper;
     @Mock private CloudinaryService cloudinaryService;
+    @Mock private WalletService walletService;
+    @Mock private BudgetService budgetService;
 
     @InjectMocks private TransactionServiceImpl transactionService;
 
@@ -101,9 +100,9 @@ class TransactionServiceTest {
         when(walletRepository.findById(1)).thenReturn(Optional.of(wallet));
         when(categoryRepository.findById(2)).thenReturn(Optional.of(category));
         when(transactionMapper.toEntity(request)).thenReturn(transaction);
-
         when(transactionRepository.save(transaction)).thenReturn(savedTransaction);
         when(transactionMapper.toResponse(savedTransaction)).thenReturn(response);
+
 
         TransactionResponse result = transactionService.saveTransaction(request, TransactionType.EXPENSE);
         assertEquals(response, result);
@@ -194,10 +193,8 @@ class TransactionServiceTest {
         when(transactionRepository.findAllByUserAndTransactionDateBetween(any(), any(), any()))
                 .thenReturn(List.of(transaction));
 
-
         TransactionOverviewResponse result = transactionService.getTransactionOverview(YearMonth.now());
         assertNotNull(result);
         assertEquals(BigDecimal.valueOf(100), result.getSummary().getTotalIncome());
     }
 }
-

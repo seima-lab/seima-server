@@ -6,7 +6,7 @@ import vn.fpt.seima.seimaserver.dto.response.category.CategoryResponse;
 import java.util.List;
 
 public interface CategoryService {
-    List<CategoryResponse> getAllCategoryByTypeAndUser(Integer categoryType, Integer userId, Integer groupId);
+    List<CategoryResponse> getAllCategoryByTypeAndUser(Integer categoryType, Integer groupId);
 
     CategoryResponse getCategoryById(int id);
 
