@@ -2,7 +2,11 @@ package vn.fpt.seima.seimaserver.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -23,6 +27,8 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class BudgetServiceTest {
 
     @Mock
@@ -34,13 +40,17 @@ class BudgetServiceTest {
     @InjectMocks
     private BudgetServiceImpl budgetService;
 
+    private User mockUser;
+
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        mockUser = new User();
+        mockUser.setUserId(1);
     }
 
     @Test
-    void testGetAllBudget() {
+    void getAllBudget_ReturnsPageOfBudgetResponses() {
+        // Arrange
         Budget budget = new Budget();
         Page<Budget> budgets = new PageImpl<>(List.of(budget));
         BudgetResponse budgetResponse = new BudgetResponse();
@@ -48,44 +58,45 @@ class BudgetServiceTest {
         when(budgetRepository.findAll(any(Pageable.class))).thenReturn(budgets);
         when(budgetMapper.toResponse(budget)).thenReturn(budgetResponse);
 
+        // Act
         Page<BudgetResponse> result = budgetService.getAllBudget(Pageable.unpaged());
 
+        // Assert
         assertEquals(1, result.getTotalElements());
         verify(budgetRepository).findAll(any(Pageable.class));
     }
 
     @Test
-    void testGetBudgetById_Found() {
+    void getBudgetById_WhenFound_ReturnsBudgetResponse() {
+        // Arrange
         Budget budget = new Budget();
         budget.setBudgetId(1);
-
         BudgetResponse response = new BudgetResponse();
         response.setBudgetId(1);
-        response.setBudgetName(null);
-        response.setStartDate(null);
-        response.setEndDate(null);
-        response.setPeriodType(null);
-        response.setOverallAmountLimit(null);
-        response.setCreatedAt(null);
 
         when(budgetRepository.findById(1)).thenReturn(Optional.of(budget));
         when(budgetMapper.toResponse(budget)).thenReturn(response);
 
+        // Act
         BudgetResponse result = budgetService.getBudgetById(1);
 
+        // Assert
         assertNotNull(result);
         assertEquals(1, result.getBudgetId());
     }
 
-
     @Test
-    void testGetBudgetById_NotFound() {
+    void getBudgetById_WhenNotFound_ThrowsException() {
+        // Arrange
         when(budgetRepository.findById(1)).thenReturn(Optional.empty());
+
+        // Act & Assert
         assertThrows(ResourceNotFoundException.class, () -> budgetService.getBudgetById(1));
     }
 
     @Test
-    void testSaveBudget_Success() {
+    void saveBudget_WhenSuccess_ReturnsBudgetResponse() {
+        // Arrange
         CreateBudgetRequest request = new CreateBudgetRequest();
         request.setBudgetName("New Budget");
         request.setOverallAmountLimit(BigDecimal.valueOf(1000));
@@ -94,34 +105,37 @@ class BudgetServiceTest {
         Budget savedBudget = new Budget();
         BudgetResponse response = new BudgetResponse();
 
-        User user = new User(); // Giả lập user đang login
+        when(budgetRepository.existsByBudgetName("New Budget")).thenReturn(false);
+        when(budgetMapper.toEntity(request)).thenReturn(budget);
+        when(budgetRepository.save(budget)).thenReturn(savedBudget);
+        when(budgetMapper.toResponse(savedBudget)).thenReturn(response);
 
-        // Mock static UserUtils
         try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
-            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(user);
-            when(budgetRepository.existsByBudgetName("New Budget")).thenReturn(false);
-            when(budgetMapper.toEntity(request)).thenReturn(budget);
-            when(budgetRepository.save(budget)).thenReturn(savedBudget);
-            when(budgetMapper.toResponse(savedBudget)).thenReturn(response);
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(mockUser);
 
+            // Act
             BudgetResponse result = budgetService.saveBudget(request);
+
+            // Assert
             assertEquals(response, result);
         }
     }
 
     @Test
-    void testSaveBudget_BudgetNameExists() {
+    void saveBudget_WhenBudgetNameExists_ThrowsException() {
+        // Arrange
         CreateBudgetRequest request = new CreateBudgetRequest();
         request.setBudgetName("Existing Budget");
-        request.setOverallAmountLimit(BigDecimal.valueOf(1000));
 
         when(budgetRepository.existsByBudgetName("Existing Budget")).thenReturn(true);
 
+        // Act & Assert
         assertThrows(IllegalArgumentException.class, () -> budgetService.saveBudget(request));
     }
 
     @Test
-    void testUpdateBudget_Success() {
+    void updateBudget_WhenSuccess_ReturnsUpdatedBudgetResponse() {
+        // Arrange
         CreateBudgetRequest request = new CreateBudgetRequest();
         request.setBudgetName("Updated Budget");
         request.setOverallAmountLimit(BigDecimal.valueOf(2000));
@@ -133,34 +147,43 @@ class BudgetServiceTest {
         Budget updatedBudget = new Budget();
         BudgetResponse response = new BudgetResponse();
 
-        User user = new User();
-
         when(budgetRepository.findById(1)).thenReturn(Optional.of(existingBudget));
         when(budgetRepository.existsByBudgetName("Updated Budget")).thenReturn(false);
+        doNothing().when(budgetMapper).updateBudgetFromDto(request, existingBudget);
+        when(budgetRepository.save(existingBudget)).thenReturn(updatedBudget);
+        when(budgetMapper.toResponse(updatedBudget)).thenReturn(response);
 
         try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
-            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(user);
-            doNothing().when(budgetMapper).updateBudgetFromDto(request, existingBudget);
-            when(budgetRepository.save(existingBudget)).thenReturn(updatedBudget);
-            when(budgetMapper.toResponse(updatedBudget)).thenReturn(response);
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(mockUser);
 
+            // Act
             BudgetResponse result = budgetService.updateBudget(1, request);
+
+            // Assert
             assertEquals(response, result);
         }
     }
 
     @Test
-    void testDeleteBudget_Success() {
+    void deleteBudget_WhenSuccess_DeletesBudget() {
+        // Arrange
         Budget budget = new Budget();
         when(budgetRepository.findById(1)).thenReturn(Optional.of(budget));
         doNothing().when(budgetRepository).deleteById(1);
+
+        // Act
         budgetService.deleteBudget(1);
+
+        // Assert
         verify(budgetRepository).deleteById(1);
     }
 
     @Test
-    void testDeleteBudget_NotFound() {
+    void deleteBudget_WhenNotFound_ThrowsException() {
+        // Arrange
         when(budgetRepository.findById(1)).thenReturn(Optional.empty());
+
+        // Act & Assert
         assertThrows(IllegalArgumentException.class, () -> budgetService.deleteBudget(1));
     }
 }
