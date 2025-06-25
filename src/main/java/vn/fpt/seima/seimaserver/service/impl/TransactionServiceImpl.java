@@ -1,6 +1,8 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -55,7 +57,7 @@ public class TransactionServiceImpl implements TransactionService {
         return transactionMapper.toResponse(transaction);
     }
 
-//    @Transactional
+    @Transactional
     public TransactionResponse saveTransaction(CreateTransactionRequest request, TransactionType type) {
         try {
             if (request == null) {
@@ -71,7 +73,7 @@ public class TransactionServiceImpl implements TransactionService {
                 throw new IllegalArgumentException("WalletId must not be null");
             }
             if (request.getCategoryId() == null) {
-                throw new IllegalArgumentException("WalletId must not be null");
+                throw new IllegalArgumentException("Category must not be null");
             }
 
             Wallet wallet = walletRepository.findById(request.getWalletId())
@@ -90,10 +92,10 @@ public class TransactionServiceImpl implements TransactionService {
             transaction.setCategory(category);
             transaction.setWallet(wallet);
             transaction.setTransactionType(type);
-            Transaction savedTransaction = transactionRepository.save(transaction);
 
-            budgetService.reduceAmount(user.getUserId(), transaction.getAmount());
+            budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount());
             walletService.reduceAmount(request.getWalletId(),transaction.getAmount());
+            Transaction savedTransaction = transactionRepository.save(transaction);
 
             return transactionMapper.toResponse(savedTransaction);
         }
@@ -104,6 +106,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    @Transactional
     @CacheEvict(value = "overview", key = "#request.transactionDate.toLocalDate().withDayOfMonth(1).toString()")
     public TransactionResponse updateTransaction(Integer id, CreateTransactionRequest request) {
         try {
@@ -122,7 +125,7 @@ public class TransactionServiceImpl implements TransactionService {
                 throw new IllegalArgumentException("WalletId must not be null");
             }
             if (request.getCategoryId() == null) {
-                throw new IllegalArgumentException("WalletId must not be null");
+                throw new IllegalArgumentException("CategoryId must not be null");
             }
             Wallet wallet = walletRepository.findById(request.getWalletId())
                     .orElseThrow(() -> new IllegalArgumentException("Wallet not found"));
@@ -137,7 +140,8 @@ public class TransactionServiceImpl implements TransactionService {
             }
 
             transactionMapper.updateTransactionFromDto(request, transaction);
-
+            budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount());
+            walletService.reduceAmount(request.getWalletId(),transaction.getAmount());
             Transaction updatedTransaction = transactionRepository.save(transaction);
 
             return transactionMapper.toResponse(updatedTransaction);
@@ -159,12 +163,14 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    @Transactional
     @CacheEvict(value = "overview", key = "#request.transactionDate.toLocalDate().withDayOfMonth(1).toString()")
     public TransactionResponse recordExpense(CreateTransactionRequest request) {
         return saveTransaction(request, TransactionType.EXPENSE);
     }
 
     @Override
+    @Transactional
     @CacheEvict(value = "overview", key = "#request.transactionDate.toLocalDate().withDayOfMonth(1).toString()")
     public TransactionResponse recordIncome(CreateTransactionRequest request) {
         return saveTransaction(request, TransactionType.INCOME);

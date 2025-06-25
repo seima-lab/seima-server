@@ -24,6 +24,7 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @AllArgsConstructor
@@ -31,7 +32,6 @@ public class BudgetServiceImpl implements BudgetService {
     private  BudgetRepository budgetRepository;
     private final BudgetMapper budgetMapper;
     private final BudgetCategoryLimitRepository budgetCategoryLimitRepository;
-    private static final Logger log = LoggerFactory.getLogger(BudgetServiceImpl.class);
 
     @Override
     public Page<BudgetResponse> getAllBudget(Pageable pageable) {
@@ -134,16 +134,25 @@ public class BudgetServiceImpl implements BudgetService {
     }
 
     @Override
-    public void reduceAmount(Integer userId, BigDecimal amount) {
-        Budget existingBudget =  budgetRepository.findByUserId(userId);
+    @Transactional
+    public void reduceAmount(Integer userId, Integer categoryId ,BigDecimal amount) {
+        List<Budget> existingBudget =  budgetRepository.findByUserId(userId);
+
         if (existingBudget == null) {
           throw new IllegalArgumentException("Budget not found ");
         }
 
-        BigDecimal newAmount = existingBudget.getOverallAmountLimit().subtract(amount);
-        existingBudget.setOverallAmountLimit(newAmount);
+        for (Budget budget : existingBudget) {
 
-        budgetRepository.save(existingBudget);
+            List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository
+                    .findByTransaction(categoryId);
+
+            if (budgetCategoryLimits.isEmpty()) {
+                throw new IllegalArgumentException("Budget category limit not found");
+            }
+            BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
+            budget.setOverallAmountLimit(newAmount);
+        }
+        budgetRepository.saveAll(existingBudget);
     }
-
 }

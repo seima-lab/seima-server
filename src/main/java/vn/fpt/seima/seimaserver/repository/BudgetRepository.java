@@ -6,10 +6,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import vn.fpt.seima.seimaserver.entity.Budget;
 
+import java.util.List;
+
 @Repository
 public interface BudgetRepository extends JpaRepository<Budget, Integer> {
     boolean existsByBudgetName(String budgetName);
 
     @Query("SELECT b FROM Budget b WHERE b.user.id = :userId")
-    Budget findByUserId(@Param("userId") Integer userId);
+    List<Budget> findByUserId(@Param("userId") Integer userId);
 }
