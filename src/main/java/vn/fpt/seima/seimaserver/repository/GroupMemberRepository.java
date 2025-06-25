@@ -65,4 +65,23 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Intege
             "WHERE gm.user.userId = :userId AND gm.group.groupId = :groupId")
     Optional<GroupMember> findByUserIdAndGroupId(@Param("userId") Integer userId,
                                                  @Param("groupId") Integer groupId);
+
+    /**
+     * Find all groups that a user has joined (active membership in active groups only)
+     *
+     * @param userId        the user ID
+     * @param memberStatus  the membership status (should be ACTIVE)
+     * @param groupIsActive the group active status (should be true)
+     * @return List of GroupMember with group and user eagerly loaded, ordered by join date desc
+     */
+    @Query("SELECT gm FROM GroupMember gm " +
+            "JOIN FETCH gm.group g " +
+            "JOIN FETCH gm.user u " +
+            "WHERE gm.user.userId = :userId " +
+            "AND gm.status = :memberStatus " +
+            "AND g.groupIsActive = :groupIsActive " +
+            "ORDER BY gm.joinDate DESC")
+    List<GroupMember> findUserJoinedGroups(@Param("userId") Integer userId,
+                                           @Param("memberStatus") GroupMemberStatus memberStatus,
+                                           @Param("groupIsActive") Boolean groupIsActive);
 } 

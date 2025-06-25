@@ -7,9 +7,13 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
+import vn.fpt.seima.seimaserver.dto.request.group.UpdateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.UserJoinedGroupResponse;
 import vn.fpt.seima.seimaserver.service.GroupService;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -30,5 +34,28 @@ public class GroupController {
     public ApiResponse<GroupDetailResponse> getGroupDetail(@PathVariable Integer groupId) {
         GroupDetailResponse groupDetail = groupService.getGroupDetail(groupId);
         return new ApiResponse<>(HttpStatus.OK.value(), "Group detail retrieved successfully", groupDetail);
+    }
+
+    @PutMapping(value = "/{groupId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<GroupResponse> updateGroupInformation(
+            @PathVariable Integer groupId,
+            @ModelAttribute @Validated UpdateGroupRequest request) {
+        GroupResponse groupResponse = groupService.updateGroupInformation(groupId, request);
+        return new ApiResponse<>(HttpStatus.OK.value(), "Group information updated successfully", groupResponse);
+    }
+
+    @GetMapping("/joined")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<List<UserJoinedGroupResponse>> getUserJoinedGroups() {
+        List<UserJoinedGroupResponse> joinedGroups = groupService.getUserJoinedGroups();
+        return new ApiResponse<>(HttpStatus.OK.value(), "User joined groups retrieved successfully", joinedGroups);
+    }
+
+    @DeleteMapping("/{groupId}/archive")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<GroupResponse> archiveGroup(@PathVariable Integer groupId) {
+        GroupResponse groupResponse = groupService.archiveGroup(groupId);
+        return new ApiResponse<>(HttpStatus.OK.value(), "Group archived successfully", groupResponse);
     }
 } 
