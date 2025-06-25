@@ -117,20 +117,29 @@ public class GroupServiceImpl implements GroupService {
         }
         
         GroupMember leader = leaderOptional.get();
+        
+        // Check if leader's account is active
+        if (!Boolean.TRUE.equals(leader.getUser().getUserIsActive())) {
+            throw new GroupException("Group leader account is inactive for group ID: " + groupId);
+        }
+        
         GroupMemberResponse leaderResponse = mapToGroupMemberResponse(leader);
         
         // Get all active members (including leader)
         List<GroupMember> allMembers = groupMemberRepository.findActiveGroupMembers(
             groupId, GroupMemberStatus.ACTIVE);
         
-        // Convert to response objects and exclude leader from members list
+        // Filter out inactive users and exclude leader from members list
         List<GroupMemberResponse> memberResponses = allMembers.stream()
+            .filter(member -> Boolean.TRUE.equals(member.getUser().getUserIsActive())) // Filter active users only
             .filter(member -> !member.getUser().getUserId().equals(leader.getUser().getUserId()))
             .map(this::mapToGroupMemberResponse)
             .collect(Collectors.toList());
         
-        // Get total member count
-        Long totalCount = groupMemberRepository.countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE);
+        // Get total member count (only active users)
+        Long totalActiveMembers = allMembers.stream()
+            .filter(member -> Boolean.TRUE.equals(member.getUser().getUserIsActive()))
+            .count();
 
         // Get current user's role in the group
         GroupMemberRole currentUserRole = allMembers.stream()
@@ -152,11 +161,11 @@ public class GroupServiceImpl implements GroupService {
         response.setGroupIsActive(group.getGroupIsActive());
         response.setGroupLeader(leaderResponse);
         response.setMembers(memberResponses);
-        response.setTotalMembersCount(totalCount.intValue());
+        response.setTotalMembersCount(totalActiveMembers.intValue());
         response.setCurrentUserRole(currentUserRole); // Set current user's role
 
-        log.info("Successfully retrieved group detail for group ID: {} with {} total members, current user role: {}",
-                groupId, totalCount, currentUserRole);
+        log.info("Successfully retrieved group detail for group ID: {} with {} total active members, current user role: {}",
+                groupId, totalActiveMembers, currentUserRole);
 
         return response;
     }
@@ -199,6 +208,7 @@ public class GroupServiceImpl implements GroupService {
     
     private GroupMemberResponse mapToGroupMemberResponse(GroupMember groupMember) {
         User user = groupMember.getUser();
+        
         GroupMemberResponse response = new GroupMemberResponse();
         response.setUserId(user.getUserId());
         response.setUserFullName(user.getUserFullName());
@@ -475,12 +485,20 @@ public class GroupServiceImpl implements GroupService {
 
         GroupMemberResponse leaderResponse = null;
         if (leaderOptional.isPresent()) {
-            leaderResponse = mapToGroupMemberResponse(leaderOptional.get());
+            GroupMember leaderMember = leaderOptional.get();
+            // Only include leader if their account is active
+            if (Boolean.TRUE.equals(leaderMember.getUser().getUserIsActive())) {
+                leaderResponse = mapToGroupMemberResponse(leaderMember);
+            }
         }
 
-        // Get total member count
-        Long totalCount = groupMemberRepository.countActiveGroupMembers(
+        // Get total member count (only active users)
+        List<GroupMember> allActiveMembers = groupMemberRepository.findActiveGroupMembers(
                 group.getGroupId(), GroupMemberStatus.ACTIVE);
+        
+        Long totalActiveCount = allActiveMembers.stream()
+                .filter(member -> Boolean.TRUE.equals(member.getUser().getUserIsActive()))
+                .count();
 
         return UserJoinedGroupResponse.builder()
                 .groupId(group.getGroupId())
@@ -489,7 +507,7 @@ public class GroupServiceImpl implements GroupService {
                 .groupCreatedDate(group.getGroupCreatedDate())
                 .joinedDate(groupMember.getJoinDate())
                 .userRole(groupMember.getRole())
-                .totalMembersCount(totalCount.intValue())
+                .totalMembersCount(totalActiveCount.intValue())
                 .groupLeader(leaderResponse)
                 .build();
     }

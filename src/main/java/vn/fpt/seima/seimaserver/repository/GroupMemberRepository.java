@@ -84,4 +84,17 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Intege
     List<GroupMember> findUserJoinedGroups(@Param("userId") Integer userId,
                                            @Param("memberStatus") GroupMemberStatus memberStatus,
                                            @Param("groupIsActive") Boolean groupIsActive);
+
+    /**
+     * Find all group memberships for a user with specific role
+     * @param userId the user ID
+     * @param role the role to filter by
+     * @return List of GroupMember with group and user eagerly loaded
+     */
+    @Query("SELECT gm FROM GroupMember gm " +
+            "JOIN FETCH gm.group g " +
+            "JOIN FETCH gm.user u " +
+            "WHERE gm.user.userId = :userId AND gm.role = :role")
+    List<GroupMember> findByUserIdAndRole(@Param("userId") Integer userId,
+                                         @Param("role") GroupMemberRole role);
 } 

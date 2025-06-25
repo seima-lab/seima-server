@@ -80,6 +80,7 @@ class GroupServiceTest {
         mockUser = new User();
         mockUser.setUserId(1);
         mockUser.setUserEmail("test@example.com");
+        mockUser.setUserIsActive(true); // Explicitly set to active
 
         mockGroup = new Group();
         mockGroup.setGroupId(1);
@@ -105,12 +106,13 @@ class GroupServiceTest {
         testGroup.setGroupCreatedDate(LocalDateTime.now());
         testGroup.setGroupIsActive(true);
 
-        // Setup test users
+        // Setup test users with explicit active status
         testLeader = User.builder()
                 .userId(1)
                 .userFullName("John Doe")
                 .userAvatarUrl("https://example.com/john-avatar.jpg")
                 .userEmail("john@example.com")
+                .userIsActive(true) // Explicitly set to active
                 .build();
 
         testMember1 = User.builder()
@@ -118,6 +120,7 @@ class GroupServiceTest {
                 .userFullName("Jane Smith")
                 .userAvatarUrl("https://example.com/jane-avatar.jpg")
                 .userEmail("jane@example.com")
+                .userIsActive(true) // Explicitly set to active
                 .build();
 
         testMember2 = User.builder()
@@ -125,6 +128,7 @@ class GroupServiceTest {
                 .userFullName("Bob Johnson")
                 .userAvatarUrl("https://example.com/bob-avatar.jpg")
                 .userEmail("bob@example.com")
+                .userIsActive(true) // Explicitly set to active
                 .build();
 
         // Setup group members
@@ -502,8 +506,6 @@ class GroupServiceTest {
                     .thenReturn(Optional.of(testGroupLeader));
             when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(allMembers);
-            when(groupMemberRepository.countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
-                    .thenReturn(3L);
 
             // When
             GroupDetailResponse result = groupService.getGroupDetail(groupId);
@@ -543,7 +545,6 @@ class GroupServiceTest {
             verify(groupMemberRepository).existsByUserAndGroupAndStatus(testLeader.getUserId(), testGroup.getGroupId(), GroupMemberStatus.ACTIVE);
             verify(groupMemberRepository).findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
             verify(groupMemberRepository).findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE);
-            verify(groupMemberRepository).countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE);
         }
     }
 
@@ -642,8 +643,6 @@ class GroupServiceTest {
                     .thenReturn(Optional.of(testGroupLeader));
             when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(allMembers);
-            when(groupMemberRepository.countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
-                    .thenReturn(1L);
 
             // When
             GroupDetailResponse result = groupService.getGroupDetail(groupId);
@@ -681,8 +680,6 @@ class GroupServiceTest {
                     .thenReturn(Optional.of(testGroupLeader));
             when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(allMembers);
-            when(groupMemberRepository.countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
-                    .thenReturn(1L);
 
             // When
             GroupDetailResponse result = groupService.getGroupDetail(groupId);
@@ -690,9 +687,8 @@ class GroupServiceTest {
             // Then
             assertNotNull(result);
             assertNull(result.getGroupAvatarUrl());
-            assertNotNull(result.getGroupLeader());
             assertNull(result.getGroupLeader().getUserAvatarUrl());
-            assertEquals(GroupMemberRole.ADMIN, result.getCurrentUserRole());
+            assertEquals(1, result.getTotalMembersCount());
         }
     }
 
@@ -700,47 +696,138 @@ class GroupServiceTest {
     void getGroupDetail_ShouldReturnMemberRole_WhenCurrentUserIsMember() {
         // Given
         Integer groupId = 1;
+        testLeader.setUserIsActive(true);
+        testMember1.setUserIsActive(true); // Current user
+        testMember2.setUserIsActive(true);
+
         List<GroupMember> allMembers = Arrays.asList(testGroupLeader, testGroupMember1, testGroupMember2);
-        setupAppPropertiesMock();
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            // Use testMember1 as current user instead of testLeader
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testMember1);
-
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testMember1); // Member as current user
+            
+            setupAppPropertiesMock();
+            
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.existsByUserAndGroupAndStatus(testMember1.getUserId(), testGroup.getGroupId(), GroupMemberStatus.ACTIVE))
+            when(groupMemberRepository.existsByUserAndGroupAndStatus(
+                    testMember1.getUserId(), groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(true);
             when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
                     .thenReturn(Optional.of(testGroupLeader));
             when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(allMembers);
-            when(groupMemberRepository.countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
-                    .thenReturn(3L);
 
             // When
             GroupDetailResponse result = groupService.getGroupDetail(groupId);
 
             // Then
             assertNotNull(result);
-            assertEquals(testGroup.getGroupId(), result.getGroupId());
-            assertEquals(testGroup.getGroupName(), result.getGroupName());
-            assertEquals(3, result.getTotalMembersCount());
-
-            // Verify current user role (should be MEMBER since testMember1 is a member)
             assertEquals(GroupMemberRole.MEMBER, result.getCurrentUserRole());
+            assertEquals(3, result.getTotalMembersCount()); // All 3 are active
+            assertEquals(2, result.getMembers().size()); // 2 members (excluding leader)
+        }
+    }
 
-            // Verify leader is still the admin
+    @Test
+    void getGroupDetail_ShouldFilterOutInactiveUsers() {
+        // Given
+        Integer groupId = 1;
+        
+        // Create an inactive user
+        User inactiveUser = User.builder()
+                .userId(4)
+                .userFullName("Inactive User")
+                .userAvatarUrl("https://example.com/inactive-avatar.jpg")
+                .userEmail("inactive@example.com")
+                .userIsActive(false) // This user is inactive
+                .build();
+        
+        GroupMember inactiveGroupMember = new GroupMember();
+        inactiveGroupMember.setGroupMemberId(4);
+        inactiveGroupMember.setGroup(testGroup);
+        inactiveGroupMember.setUser(inactiveUser);
+        inactiveGroupMember.setRole(GroupMemberRole.MEMBER);
+        inactiveGroupMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        // Set up active and inactive users
+        testLeader.setUserIsActive(true);
+        testMember1.setUserIsActive(true); // Current user
+        testMember2.setUserIsActive(true);
+
+        // List includes both active and inactive users
+        List<GroupMember> allMembers = Arrays.asList(testGroupLeader, testGroupMember1, testGroupMember2, inactiveGroupMember);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testMember1);
+            
+            setupAppPropertiesMock();
+            
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.existsByUserAndGroupAndStatus(
+                    testMember1.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(true);
+            when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupLeader));
+            when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(allMembers);
+
+            // When
+            GroupDetailResponse result = groupService.getGroupDetail(groupId);
+
+            // Then
+            assertNotNull(result);
+            
+            // Should only count active users (3 active users total)
+            assertEquals(3, result.getTotalMembersCount());
+            
+            // Verify leader is returned correctly (leader is active)
             GroupMemberResponse leader = result.getGroupLeader();
             assertNotNull(leader);
             assertEquals(testLeader.getUserId(), leader.getUserId());
+            assertEquals(testLeader.getUserFullName(), leader.getUserFullName());
             assertEquals(GroupMemberRole.ADMIN, leader.getRole());
 
-            // Verify repository calls
-            verify(groupRepository).findById(groupId);
-            verify(groupMemberRepository).existsByUserAndGroupAndStatus(testMember1.getUserId(), testGroup.getGroupId(), GroupMemberStatus.ACTIVE);
-            verify(groupMemberRepository).findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
-            verify(groupMemberRepository).findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE);
-            verify(groupMemberRepository).countActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE);
+            // Verify members list only contains active users (should not include leader or inactive user)
+            List<GroupMemberResponse> members = result.getMembers();
+            assertNotNull(members);
+            assertEquals(2, members.size()); // Only 2 active members (excluding leader and inactive user)
+            
+            // Verify inactive user is not included
+            assertFalse(members.stream().anyMatch(member -> 
+                member.getUserId().equals(inactiveUser.getUserId())));
+            
+            // Verify leader is not included in members list
+            assertFalse(members.stream().anyMatch(member -> 
+                member.getUserId().equals(testLeader.getUserId())));
+                
+            // Verify all returned members are from active users
+            assertTrue(members.stream().allMatch(member -> 
+                member.getUserId().equals(testMember1.getUserId()) || 
+                member.getUserId().equals(testMember2.getUserId())));
+        }
+    }
+
+    @Test
+    void getGroupDetail_ShouldThrowException_WhenLeaderIsInactive() {
+        // Given
+        Integer groupId = 1;
+        testLeader.setUserIsActive(false); // Leader is inactive
+        testMember1.setUserIsActive(true); // Current user
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testMember1);
+            
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.existsByUserAndGroupAndStatus(
+                    testMember1.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(true);
+            when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupLeader));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupService.getGroupDetail(groupId));
+
+            assertEquals("Group leader account is inactive for group ID: " + groupId, exception.getMessage());
         }
     }
 
@@ -1021,10 +1108,15 @@ class GroupServiceTest {
                     .thenReturn(Optional.of(leaderMembership1));
             when(groupMemberRepository.findGroupLeader(group2.getGroupId(), GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
                     .thenReturn(Optional.of(leaderMembership2));
-            when(groupMemberRepository.countActiveGroupMembers(group1.getGroupId(), GroupMemberStatus.ACTIVE))
-                    .thenReturn(3L);
-            when(groupMemberRepository.countActiveGroupMembers(group2.getGroupId(), GroupMemberStatus.ACTIVE))
-                    .thenReturn(5L);
+            
+            // Mock findActiveGroupMembers instead of countActiveGroupMembers
+            when(groupMemberRepository.findActiveGroupMembers(group1.getGroupId(), GroupMemberStatus.ACTIVE))
+                    .thenReturn(Arrays.asList(membership1, leaderMembership1, createGroupMember(group1, createTestUserWithId(99, "Extra Member", "extra@test.com"), GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE)));
+            when(groupMemberRepository.findActiveGroupMembers(group2.getGroupId(), GroupMemberStatus.ACTIVE))
+                    .thenReturn(Arrays.asList(membership2, leaderMembership2, 
+                        createGroupMember(group2, createTestUserWithId(98, "Extra Member 1", "extra1@test.com"), GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE),
+                        createGroupMember(group2, createTestUserWithId(97, "Extra Member 2", "extra2@test.com"), GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE),
+                        createGroupMember(group2, createTestUserWithId(96, "Extra Member 3", "extra3@test.com"), GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE)));
 
             // When
             List<UserJoinedGroupResponse> result = groupService.getUserJoinedGroups();
@@ -1054,7 +1146,7 @@ class GroupServiceTest {
             // Verify repository calls
             verify(groupMemberRepository).findUserJoinedGroups(testUser.getUserId(), GroupMemberStatus.ACTIVE, true);
             verify(groupMemberRepository, times(2)).findGroupLeader(any(), eq(GroupMemberRole.ADMIN), eq(GroupMemberStatus.ACTIVE));
-            verify(groupMemberRepository, times(2)).countActiveGroupMembers(any(), eq(GroupMemberStatus.ACTIVE));
+            verify(groupMemberRepository, times(2)).findActiveGroupMembers(any(), eq(GroupMemberStatus.ACTIVE));
         }
     }
 
@@ -1102,12 +1194,319 @@ class GroupServiceTest {
         }
     }
 
+    @Test
+    void getUserJoinedGroups_ShouldNotIncludeLeader_WhenLeaderIsInactive() {
+        // Given
+        User testUser = createTestUserWithId(1, "Test User", "test@example.com");
+
+        // Create test group
+        Group group = createTestGroupWithId(1, "Test Group", true);
+
+        // Create inactive leader
+        User inactiveLeader = User.builder()
+                .userId(10)
+                .userFullName("Inactive Leader")
+                .userEmail("inactive-leader@test.com")
+                .userAvatarUrl("https://example.com/inactive-leader-avatar.jpg")
+                .userIsActive(false) // Leader is inactive
+                .build();
+
+        // Create group membership for current user
+        GroupMember userMembership = createGroupMember(group, testUser, GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
+
+        // Create leader membership (inactive user)
+        GroupMember inactiveLeaderMembership = createGroupMember(group, inactiveLeader, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+
+        List<GroupMember> userMemberships = Arrays.asList(userMembership);
+        List<GroupMember> allActiveMembers = Arrays.asList(userMembership, inactiveLeaderMembership);
+
+        // Mock UserUtils
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(testUser);
+
+            // Mock repository calls
+            when(groupMemberRepository.findUserJoinedGroups(testUser.getUserId(), GroupMemberStatus.ACTIVE, true))
+                    .thenReturn(userMemberships);
+            when(groupMemberRepository.findGroupLeader(group.getGroupId(), GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(inactiveLeaderMembership));
+            when(groupMemberRepository.findActiveGroupMembers(group.getGroupId(), GroupMemberStatus.ACTIVE))
+                    .thenReturn(allActiveMembers);
+
+            // When
+            List<UserJoinedGroupResponse> result = groupService.getUserJoinedGroups();
+
+            // Then
+            assertNotNull(result);
+            assertEquals(1, result.size());
+
+            UserJoinedGroupResponse groupResponse = result.get(0);
+            assertEquals(group.getGroupId(), groupResponse.getGroupId());
+            assertEquals(group.getGroupName(), groupResponse.getGroupName());
+            assertEquals(GroupMemberRole.MEMBER, groupResponse.getUserRole());
+            
+            // Leader should be null because leader account is inactive
+            assertNull(groupResponse.getGroupLeader());
+            
+            // Total members count should only include active users (1 in this case)
+            assertEquals(1, groupResponse.getTotalMembersCount());
+
+            // Verify repository calls
+            verify(groupMemberRepository).findUserJoinedGroups(testUser.getUserId(), GroupMemberStatus.ACTIVE, true);
+            verify(groupMemberRepository).findGroupLeader(group.getGroupId(), GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+            verify(groupMemberRepository).findActiveGroupMembers(group.getGroupId(), GroupMemberStatus.ACTIVE);
+        }
+    }
+
+    @Test
+    void getUserJoinedGroups_ShouldCountOnlyActiveMembers_WhenMixedActiveInactiveMembers() {
+        // Given
+        User testUser = createTestUserWithId(1, "Test User", "test@example.com");
+
+        // Create test group
+        Group group = createTestGroupWithId(1, "Test Group", true);
+
+        // Create active leader
+        User activeLeader = User.builder()
+                .userId(10)
+                .userFullName("Active Leader")
+                .userEmail("active-leader@test.com")
+                .userAvatarUrl("https://example.com/active-leader-avatar.jpg")
+                .userIsActive(true)
+                .build();
+
+        // Create active member
+        User activeMember = User.builder()
+                .userId(11)
+                .userFullName("Active Member")
+                .userEmail("active-member@test.com")
+                .userAvatarUrl("https://example.com/active-member-avatar.jpg")
+                .userIsActive(true)
+                .build();
+
+        // Create inactive member
+        User inactiveMember = User.builder()
+                .userId(12)
+                .userFullName("Inactive Member")
+                .userEmail("inactive-member@test.com")
+                .userAvatarUrl("https://example.com/inactive-member-avatar.jpg")
+                .userIsActive(false)
+                .build();
+
+        // Create group memberships
+        GroupMember userMembership = createGroupMember(group, testUser, GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
+        GroupMember leaderMembership = createGroupMember(group, activeLeader, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+        GroupMember activeMemberMembership = createGroupMember(group, activeMember, GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
+        GroupMember inactiveMemberMembership = createGroupMember(group, inactiveMember, GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
+
+        List<GroupMember> userMemberships = Arrays.asList(userMembership);
+        List<GroupMember> allActiveMembers = Arrays.asList(userMembership, leaderMembership, activeMemberMembership, inactiveMemberMembership);
+
+        // Mock UserUtils
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(testUser);
+
+            // Mock repository calls
+            when(groupMemberRepository.findUserJoinedGroups(testUser.getUserId(), GroupMemberStatus.ACTIVE, true))
+                    .thenReturn(userMemberships);
+            when(groupMemberRepository.findGroupLeader(group.getGroupId(), GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(leaderMembership));
+            when(groupMemberRepository.findActiveGroupMembers(group.getGroupId(), GroupMemberStatus.ACTIVE))
+                    .thenReturn(allActiveMembers);
+
+            // When
+            List<UserJoinedGroupResponse> result = groupService.getUserJoinedGroups();
+
+            // Then
+            assertNotNull(result);
+            assertEquals(1, result.size());
+
+            UserJoinedGroupResponse groupResponse = result.get(0);
+            assertEquals(group.getGroupId(), groupResponse.getGroupId());
+            assertEquals(group.getGroupName(), groupResponse.getGroupName());
+            assertEquals(GroupMemberRole.MEMBER, groupResponse.getUserRole());
+            
+            // Leader should be included because leader account is active
+            assertNotNull(groupResponse.getGroupLeader());
+            assertEquals(activeLeader.getUserId(), groupResponse.getGroupLeader().getUserId());
+            assertEquals(activeLeader.getUserFullName(), groupResponse.getGroupLeader().getUserFullName());
+            assertEquals(GroupMemberRole.ADMIN, groupResponse.getGroupLeader().getRole());
+            
+            // Total members count should only include active users (3 active: testUser, activeLeader, activeMember)
+            // Should exclude inactiveMember
+            assertEquals(3, groupResponse.getTotalMembersCount());
+
+            // Verify repository calls
+            verify(groupMemberRepository).findUserJoinedGroups(testUser.getUserId(), GroupMemberStatus.ACTIVE, true);
+            verify(groupMemberRepository).findGroupLeader(group.getGroupId(), GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+            verify(groupMemberRepository).findActiveGroupMembers(group.getGroupId(), GroupMemberStatus.ACTIVE);
+        }
+    }
+
+    @Test
+    void getUserJoinedGroups_ShouldHandleMultipleGroups_WithMixedLeaderStates() {
+        // Given
+        User testUser = createTestUserWithId(1, "Test User", "test@example.com");
+
+        // Create test groups
+        Group group1 = createTestGroupWithId(1, "Group with Active Leader", true);
+        Group group2 = createTestGroupWithId(2, "Group with Inactive Leader", true);
+
+        // Create leaders
+        User activeLeader = User.builder()
+                .userId(10)
+                .userFullName("Active Leader")
+                .userEmail("active-leader@test.com")
+                .userAvatarUrl("https://example.com/active-leader-avatar.jpg")
+                .userIsActive(true)
+                .build();
+
+        User inactiveLeader = User.builder()
+                .userId(11)
+                .userFullName("Inactive Leader")
+                .userEmail("inactive-leader@test.com")
+                .userAvatarUrl("https://example.com/inactive-leader-avatar.jpg")
+                .userIsActive(false)
+                .build();
+
+        // Create group memberships
+        GroupMember userMembership1 = createGroupMember(group1, testUser, GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
+        GroupMember userMembership2 = createGroupMember(group2, testUser, GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
+        GroupMember activeLeaderMembership = createGroupMember(group1, activeLeader, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+        GroupMember inactiveLeaderMembership = createGroupMember(group2, inactiveLeader, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+
+        List<GroupMember> userMemberships = Arrays.asList(userMembership1, userMembership2);
+
+        // Mock UserUtils
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(testUser);
+
+            // Mock repository calls
+            when(groupMemberRepository.findUserJoinedGroups(testUser.getUserId(), GroupMemberStatus.ACTIVE, true))
+                    .thenReturn(userMemberships);
+            when(groupMemberRepository.findGroupLeader(group1.getGroupId(), GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(activeLeaderMembership));
+            when(groupMemberRepository.findGroupLeader(group2.getGroupId(), GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(inactiveLeaderMembership));
+            when(groupMemberRepository.findActiveGroupMembers(group1.getGroupId(), GroupMemberStatus.ACTIVE))
+                    .thenReturn(Arrays.asList(userMembership1, activeLeaderMembership));
+            when(groupMemberRepository.findActiveGroupMembers(group2.getGroupId(), GroupMemberStatus.ACTIVE))
+                    .thenReturn(Arrays.asList(userMembership2, inactiveLeaderMembership));
+
+            // When
+            List<UserJoinedGroupResponse> result = groupService.getUserJoinedGroups();
+
+            // Then
+            assertNotNull(result);
+            assertEquals(2, result.size());
+
+            // Find group responses by group ID
+            UserJoinedGroupResponse group1Response = result.stream()
+                    .filter(r -> r.getGroupId().equals(group1.getGroupId()))
+                    .findFirst()
+                    .orElseThrow();
+            
+            UserJoinedGroupResponse group2Response = result.stream()
+                    .filter(r -> r.getGroupId().equals(group2.getGroupId()))
+                    .findFirst()
+                    .orElseThrow();
+
+            // Verify group 1 (active leader)
+            assertEquals(group1.getGroupName(), group1Response.getGroupName());
+            assertNotNull(group1Response.getGroupLeader()); // Active leader should be included
+            assertEquals(activeLeader.getUserId(), group1Response.getGroupLeader().getUserId());
+            assertEquals(2, group1Response.getTotalMembersCount()); // Both users are active
+
+            // Verify group 2 (inactive leader)
+            assertEquals(group2.getGroupName(), group2Response.getGroupName());
+            assertNull(group2Response.getGroupLeader()); // Inactive leader should be null
+            assertEquals(1, group2Response.getTotalMembersCount()); // Only testUser is active
+
+            // Verify repository calls
+            verify(groupMemberRepository).findUserJoinedGroups(testUser.getUserId(), GroupMemberStatus.ACTIVE, true);
+            verify(groupMemberRepository, times(2)).findGroupLeader(any(), eq(GroupMemberRole.ADMIN), eq(GroupMemberStatus.ACTIVE));
+            verify(groupMemberRepository, times(2)).findActiveGroupMembers(any(), eq(GroupMemberStatus.ACTIVE));
+        }
+    }
+
+    @Test
+    void getUserJoinedGroups_ShouldReturnZeroMembersCount_WhenAllMembersInactive() {
+        // Given
+        User testUser = createTestUserWithId(1, "Test User", "test@example.com");
+        testUser.setUserIsActive(false); // Make test user inactive too
+
+        // Create test group
+        Group group = createTestGroupWithId(1, "Test Group", true);
+
+        // Create inactive leader
+        User inactiveLeader = User.builder()
+                .userId(10)
+                .userFullName("Inactive Leader")
+                .userEmail("inactive-leader@test.com")
+                .userAvatarUrl("https://example.com/inactive-leader-avatar.jpg")
+                .userIsActive(false)
+                .build();
+
+        // Create inactive member
+        User inactiveMember = User.builder()
+                .userId(11)
+                .userFullName("Inactive Member")
+                .userEmail("inactive-member@test.com")
+                .userAvatarUrl("https://example.com/inactive-member-avatar.jpg")
+                .userIsActive(false)
+                .build();
+
+        // Create group memberships (all users are inactive)
+        GroupMember userMembership = createGroupMember(group, testUser, GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
+        GroupMember leaderMembership = createGroupMember(group, inactiveLeader, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+        GroupMember memberMembership = createGroupMember(group, inactiveMember, GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
+
+        List<GroupMember> userMemberships = Arrays.asList(userMembership);
+        List<GroupMember> allActiveMembers = Arrays.asList(userMembership, leaderMembership, memberMembership);
+
+        // Mock UserUtils
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(testUser);
+
+            // Mock repository calls
+            when(groupMemberRepository.findUserJoinedGroups(testUser.getUserId(), GroupMemberStatus.ACTIVE, true))
+                    .thenReturn(userMemberships);
+            when(groupMemberRepository.findGroupLeader(group.getGroupId(), GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(leaderMembership));
+            when(groupMemberRepository.findActiveGroupMembers(group.getGroupId(), GroupMemberStatus.ACTIVE))
+                    .thenReturn(allActiveMembers);
+
+            // When
+            List<UserJoinedGroupResponse> result = groupService.getUserJoinedGroups();
+
+            // Then
+            assertNotNull(result);
+            assertEquals(1, result.size());
+
+            UserJoinedGroupResponse groupResponse = result.get(0);
+            assertEquals(group.getGroupId(), groupResponse.getGroupId());
+            assertEquals(group.getGroupName(), groupResponse.getGroupName());
+            assertEquals(GroupMemberRole.MEMBER, groupResponse.getUserRole());
+            
+            // Leader should be null because leader account is inactive
+            assertNull(groupResponse.getGroupLeader());
+            
+            // Total members count should be 0 because all users are inactive
+            assertEquals(0, groupResponse.getTotalMembersCount());
+
+            // Verify repository calls
+            verify(groupMemberRepository).findUserJoinedGroups(testUser.getUserId(), GroupMemberStatus.ACTIVE, true);
+            verify(groupMemberRepository).findGroupLeader(group.getGroupId(), GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+            verify(groupMemberRepository).findActiveGroupMembers(group.getGroupId(), GroupMemberStatus.ACTIVE);
+        }
+    }
+
     private User createTestUserWithId(Integer userId, String fullName, String email) {
         return User.builder()
                 .userId(userId)
                 .userFullName(fullName)
                 .userEmail(email)
                 .userAvatarUrl("https://example.com/avatar.jpg")
+                .userIsActive(true) // Default to active, override in specific tests if needed
                 .build();
     }
 
