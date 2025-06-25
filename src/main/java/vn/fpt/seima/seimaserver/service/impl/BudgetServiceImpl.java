@@ -4,14 +4,19 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.entity.Budget;
+import vn.fpt.seima.seimaserver.entity.BudgetCategoryLimit;
+import vn.fpt.seima.seimaserver.entity.Category;
 import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.mapper.BudgetMapper;
+import vn.fpt.seima.seimaserver.repository.BudgetCategoryLimitRepository;
 import vn.fpt.seima.seimaserver.repository.BudgetRepository;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
+import vn.fpt.seima.seimaserver.service.BudgetCategoryLimitService;
 import vn.fpt.seima.seimaserver.service.BudgetService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
@@ -22,7 +27,7 @@ import java.math.BigDecimal;
 public class BudgetServiceImpl implements BudgetService {
     private  BudgetRepository budgetRepository;
     private final BudgetMapper budgetMapper;
-
+    private final BudgetCategoryLimitRepository budgetCategoryLimitRepository;
 
     @Override
     public Page<BudgetResponse> getAllBudget(Pageable pageable) {
@@ -55,13 +60,26 @@ public class BudgetServiceImpl implements BudgetService {
             throw new IllegalArgumentException("User must not be null");
         }
 
+        if (request.getCategoryList().isEmpty()) {
+            throw new IllegalArgumentException("Category list must not be empty");
+        }
+
         Budget budget = budgetMapper.toEntity(request);
         budget.setUser(user);
         Budget savedBudget = budgetRepository.save(budget);
+
+        for (Category category : request.getCategoryList()) {
+            BudgetCategoryLimit budgetCategoryLimit = new BudgetCategoryLimit();
+            budgetCategoryLimit.setCategory(category);
+            budgetCategoryLimit.setBudget(budget);
+
+            budgetCategoryLimitRepository.save(budgetCategoryLimit);
+        }
         return budgetMapper.INSTANCE.toResponse(savedBudget);
     }
 
     @Override
+    @Transactional
     public BudgetResponse updateBudget(Integer id,CreateBudgetRequest request) {
         Budget existingBudget = budgetRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found for this id: " + id));
@@ -79,11 +97,22 @@ public class BudgetServiceImpl implements BudgetService {
         if (user == null) {
             throw new IllegalArgumentException("User must not be null");
         }
+        if (request.getCategoryList().isEmpty()) {
+            throw new IllegalArgumentException("Category list must not be empty");
+        }
+        budgetCategoryLimitRepository.deleteByBudget_BudgetId(existingBudget.getBudgetId());
 
         budgetMapper.updateBudgetFromDto(request, existingBudget);
         existingBudget.setUser(user);
-        Budget updatedBudget = budgetRepository.save(existingBudget);
 
+        Budget updatedBudget = budgetRepository.save(existingBudget);
+        for (Category category : request.getCategoryList()) {
+            BudgetCategoryLimit budgetCategoryLimit = new BudgetCategoryLimit();
+            budgetCategoryLimit.setCategory(category);
+            budgetCategoryLimit.setBudget(existingBudget);
+
+            budgetCategoryLimitRepository.save(budgetCategoryLimit);
+        }
         return budgetMapper.toResponse(updatedBudget);
 
     }

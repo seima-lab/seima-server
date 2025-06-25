@@ -37,6 +37,9 @@ public class Budget {
     @Column(name = "overall_amount_limit", precision = 18, scale = 2)
     private BigDecimal overallAmountLimit;
 
+    @Column(name = "budget_remaining_amount", precision = 18, scale = 2)
+    private BigDecimal budgetRemainingAmount;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

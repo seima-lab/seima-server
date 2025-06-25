@@ -12,5 +12,4 @@ import java.math.BigDecimal;
 @Builder
 public class BudgetCategoryLimitResponse {
     private Integer budgetCategoryLimitId;
-    private BigDecimal amountLimit;
 }

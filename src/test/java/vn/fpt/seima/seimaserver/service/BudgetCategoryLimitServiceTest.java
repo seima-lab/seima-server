@@ -83,7 +83,6 @@ class BudgetCategoryLimitServiceTest {
         CreateBudgetCategoryLimitRequest request = new CreateBudgetCategoryLimitRequest();
         request.setBudgetId(1);
         request.setCategoryId(2);
-        request.setAmountLimit(BigDecimal.valueOf(1000));
 
         Budget budget = new Budget();
         Category category = new Category();
@@ -106,7 +105,6 @@ class BudgetCategoryLimitServiceTest {
         CreateBudgetCategoryLimitRequest request = new CreateBudgetCategoryLimitRequest();
         request.setCategoryId(2);
         request.setBudgetId(1);
-        request.setAmountLimit(BigDecimal.valueOf(1000));
 
         when(categoryRepository.findById(2)).thenReturn(Optional.empty());
 
@@ -118,7 +116,6 @@ class BudgetCategoryLimitServiceTest {
         CreateBudgetCategoryLimitRequest request = new CreateBudgetCategoryLimitRequest();
         request.setBudgetId(1);
         request.setCategoryId(2);
-        request.setAmountLimit(BigDecimal.valueOf(2000));
 
         BudgetCategoryLimit existingLimit = new BudgetCategoryLimit();
         Budget budget = new Budget();

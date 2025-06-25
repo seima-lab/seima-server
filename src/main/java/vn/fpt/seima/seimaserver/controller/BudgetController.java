@@ -59,7 +59,7 @@ public class BudgetController {
     }
 
     @PutMapping("/update/{id}")
-    public ApiResponse<BudgetResponse> createBudget(@RequestBody CreateBudgetRequest request, @PathVariable int id) {
+    public ApiResponse<BudgetResponse> updateBudget(@RequestBody CreateBudgetRequest request, @PathVariable int id) {
         try {
             BudgetResponse budgetUpdate = budgetService.updateBudget(id, request);
 

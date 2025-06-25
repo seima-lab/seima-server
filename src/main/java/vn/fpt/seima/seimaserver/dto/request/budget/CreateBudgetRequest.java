@@ -5,10 +5,12 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import vn.fpt.seima.seimaserver.entity.Category;
 import vn.fpt.seima.seimaserver.entity.PeriodType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 
 @Data
 @Builder
@@ -25,4 +27,6 @@ public class CreateBudgetRequest {
     private LocalDateTime endDate;
     private PeriodType periodType;
     private BigDecimal overallAmountLimit;
+    private BigDecimal budgetRemainingAmount;
+    private ArrayList<Category> categoryList;
 }

@@ -6,4 +6,5 @@ import vn.fpt.seima.seimaserver.entity.BudgetCategoryLimit;
 
 @Repository
 public interface BudgetCategoryLimitRepository extends JpaRepository<BudgetCategoryLimit, Integer> {
+    void deleteByBudget_BudgetId(Integer budgetId);
 } 

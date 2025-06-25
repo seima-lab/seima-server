@@ -14,5 +14,4 @@ import java.math.BigDecimal;
 public class CreateBudgetCategoryLimitRequest {
     private Integer budgetId;
     private Integer categoryId;
-    private BigDecimal amountLimit;
 }
