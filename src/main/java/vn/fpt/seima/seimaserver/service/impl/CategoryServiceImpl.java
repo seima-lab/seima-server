@@ -24,7 +24,11 @@ public class CategoryServiceImpl implements CategoryService {
     private CategoryRepository categoryRepository;
 
     @Override
-    public List<CategoryResponse> getAllCategoryByTypeAndUser(Integer categoryType, Integer userId, Integer groupId) {
+    public List<CategoryResponse> getAllCategoryByTypeAndUser(Integer categoryType, Integer groupId) {
+        User user = UserUtils.getCurrentUser();
+        if (user == null) {
+            throw new ResourceNotFoundException("User not found ");
+        }
         CategoryType type = CategoryType.fromCode(categoryType);
 
         List<Category> categories;
@@ -32,7 +36,7 @@ public class CategoryServiceImpl implements CategoryService {
         if (groupId != null && groupId != 0){
             categories = categoryRepository.findByCategoryTypeAndGroup_GroupIdOrGroupIsNull(type, groupId);
         }else{
-            categories = categoryRepository.findByCategoryTypeAndUser_UserIdOrUserIsNull(type, userId);
+            categories = categoryRepository.findByCategoryTypeAndUser_UserIdOrUserIsNull(type, user.getUserId());
         }
         return categories.stream().map(categoryMapper::toResponse).toList();
     }
@@ -61,9 +65,12 @@ public class CategoryServiceImpl implements CategoryService {
         }
 
         if (request.getCategoryName() == null || request.getCategoryType() == null) {
-            throw new IllegalArgumentException("Category name and type must not be null.");
+            throw new IllegalArgumentException("Category name already exists");
         }
 
+        if (categoryRepository.existsByCategoryName(request.getCategoryName())) {
+
+        }
         if(request.getGroupId()!= null){
             group = groupRepository.findById(request.getGroupId())
                     .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + request.getGroupId()));
@@ -93,8 +100,7 @@ public class CategoryServiceImpl implements CategoryService {
             category.setUser(user);
             category.setGroup(null);
         }
-
-
+        category.setUser(user);
         Category savedCategory = categoryRepository.save(category);
         return categoryMapper.toResponse(savedCategory);
     }
@@ -117,6 +123,10 @@ public class CategoryServiceImpl implements CategoryService {
             throw new IllegalArgumentException("System-defined categories cannot be updated.");
         }
 
+        if (categoryRepository.existsByCategoryName(request.getCategoryName()) &&
+                !existingCategory.getCategoryName().equals(request.getCategoryName())) {
+            throw new IllegalArgumentException("Category name already exists");
+        }
         Group group = existingCategory.getGroup();
         boolean isDuplicate;
 
