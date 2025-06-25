@@ -1,10 +1,12 @@
 package vn.fpt.seima.seimaserver.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -40,10 +42,16 @@ public class Budget {
     @Column(name = "budget_remaining_amount", precision = 18, scale = 2)
     private BigDecimal budgetRemainingAmount;
 
+    @Column(name = "is_deleted")
+    private Boolean isDeleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "budget", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private Set<BudgetCategoryLimit> budgetCategoryLimits;
 }

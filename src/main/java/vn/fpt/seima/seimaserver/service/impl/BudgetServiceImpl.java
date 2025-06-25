@@ -1,6 +1,8 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ import vn.fpt.seima.seimaserver.service.BudgetService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Service
 @AllArgsConstructor
@@ -28,6 +31,7 @@ public class BudgetServiceImpl implements BudgetService {
     private  BudgetRepository budgetRepository;
     private final BudgetMapper budgetMapper;
     private final BudgetCategoryLimitRepository budgetCategoryLimitRepository;
+    private static final Logger log = LoggerFactory.getLogger(BudgetServiceImpl.class);
 
     @Override
     public Page<BudgetResponse> getAllBudget(Pageable pageable) {
@@ -118,11 +122,15 @@ public class BudgetServiceImpl implements BudgetService {
     }
 
     @Override
+    @Transactional
     public void deleteBudget(int id) {
-        budgetRepository.findById(id)
+        Budget budget = budgetRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found for this id: " + id));
 
-        budgetRepository.deleteById(id);
+        budgetCategoryLimitRepository.deleteByBudget_BudgetId(budget.getBudgetId());
+        budget.setDeletedAt(LocalDateTime.now());
+        budget.setIsDeleted(true);
+        budgetRepository.save(budget);
     }
 
     @Override
