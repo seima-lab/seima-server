@@ -4,6 +4,8 @@ app:
   lab-name: Seima Lab
   name: seima-server-dev
   port: 8081
+  client:
+    base-url: ${CLIENT_BASE_URL:https://seima.app.com}
   swagger:
     contact-name: Jason Nguyen
     contact-mail: syhaoc2dh@gmail.com
@@ -15,7 +17,7 @@ app:
   datasource:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-    url: jdbc:mysql://localhost:3306/seima_database_v1.4?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/seima_database_official?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     driver-class-name: com.mysql.cj.jdbc.Driver
   oauth2:
     redirect-uri: seimaapp://auth/success
@@ -103,13 +105,12 @@ redis:
   port: ${REDIS_PORT}
   username: ${REDIS_USERNAME}
   password: ${REDIS_PASSWORD}
-
 #JWT configuration
 jwt:
   secret: aVeryLongAndRandomStringForHS512IsNeededHerePleaseMakeItSecure1234567890!@#$%^&*()_+
   access:
     token:
-      expiration: 3600 # in seconds
+      expiration: 7200 # in seconds (2 hours)
   refresh:
     token:
       expiration: 604800 # in seconds (7 days)
