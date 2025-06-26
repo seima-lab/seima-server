@@ -128,14 +128,16 @@ public class BudgetServiceImpl implements BudgetService {
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found for this id: " + id));
 
         budgetCategoryLimitRepository.deleteByBudget_BudgetId(budget.getBudgetId());
-        budget.setDeletedAt(LocalDateTime.now());
-        budget.setIsDeleted(true);
-        budgetRepository.save(budget);
+//        budget.setDeletedAt(LocalDateTime.now());
+//        budget.setIsDeleted(true);
+//        budgetRepository.save(budget);
+
+        budgetRepository.deleteById(id);
     }
 
     @Override
     @Transactional
-    public void reduceAmount(Integer userId, Integer categoryId ,BigDecimal amount) {
+    public void reduceAmount(Integer userId, Integer categoryId ,BigDecimal amount, LocalDateTime transactionDate) {
         List<Budget> existingBudget =  budgetRepository.findByUserId(userId);
 
         if (existingBudget == null) {
@@ -150,8 +152,11 @@ public class BudgetServiceImpl implements BudgetService {
             if (budgetCategoryLimits.isEmpty()) {
                 throw new IllegalArgumentException("Budget category limit not found");
             }
-            BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
-            budget.setOverallAmountLimit(newAmount);
+            if (transactionDate.isBefore(budget.getEndDate()) && transactionDate.isAfter(budget.getStartDate())) {
+                BigDecimal newAmount = budget.getOverallAmountLimit().subtract(amount);
+                budget.setBudgetRemainingAmount(newAmount);
+            }
+
         }
         budgetRepository.saveAll(existingBudget);
     }

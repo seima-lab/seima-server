@@ -93,7 +93,7 @@ public class TransactionServiceImpl implements TransactionService {
             transaction.setWallet(wallet);
             transaction.setTransactionType(type);
 
-            budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount());
+            budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate());
             walletService.reduceAmount(request.getWalletId(),transaction.getAmount());
             Transaction savedTransaction = transactionRepository.save(transaction);
 
@@ -140,7 +140,7 @@ public class TransactionServiceImpl implements TransactionService {
             }
 
             transactionMapper.updateTransactionFromDto(request, transaction);
-            budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount());
+            budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate());
             walletService.reduceAmount(request.getWalletId(),transaction.getAmount());
             Transaction updatedTransaction = transactionRepository.save(transaction);
 

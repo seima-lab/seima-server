@@ -3,6 +3,8 @@ package vn.fpt.seima.seimaserver.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
@@ -42,16 +44,13 @@ public class Budget {
     @Column(name = "budget_remaining_amount", precision = 18, scale = 2)
     private BigDecimal budgetRemainingAmount;
 
-    @Column(name = "is_deleted")
-    private Boolean isDeleted = false;
-
-    @Column(name = "deleted_at")
-    private LocalDateTime deletedAt;
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "budget", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @JsonIgnore
     private Set<BudgetCategoryLimit> budgetCategoryLimits;
 }

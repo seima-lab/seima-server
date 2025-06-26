@@ -6,6 +6,7 @@ import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public interface BudgetService {
     Page<BudgetResponse> getAllBudget(Pageable pageable);
@@ -18,5 +19,5 @@ public interface BudgetService {
 
     void deleteBudget(int id);
 
-    void reduceAmount(Integer userId, Integer categoryId,BigDecimal amount);
+    void reduceAmount(Integer userId, Integer categoryId, BigDecimal amount, LocalDateTime transactionDate);
 }
