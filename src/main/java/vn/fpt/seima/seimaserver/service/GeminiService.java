@@ -77,21 +77,26 @@ public class GeminiService {
 
     private String buildPrompt(String ocrText) {
         return """
-        Dưới đây là nội dung OCR của một hóa đơn:
-        
-        hãy cho tôi biết hóa đơn Tóm tắt này thanh toán cái gì vào trường description_invoice và ai đã mua vào trường customer_name
-        nếu không có đầy đủ họ và tên thì để null
-        Không cần liệt kê hết tên sản phẩm cần mua, chỉ cần cho biết đã thanh toán chung chung cái gì
-        %s
+    Dưới đây là nội dung OCR từ một hóa đơn:
 
-        Hãy trích xuất thông tin sau thành định dạng JSON:
-        {
-          "total_amount": "",
-          "currency_code": "",
-          "transaction_date": "",
-          "description_invoice": "",
-          "customer_name": ""
-        }
-        """.formatted(ocrText);
+    %s
+
+    Hãy trích xuất và trả về JSON với các trường sau:
+
+    {
+      "total_amount": "",          // Tổng tiền đã thanh toán
+      "currency_code": "",         // Mã tiền tệ (ví dụ: VND, USD...)
+      "transaction_date": "",      // Ngày giao dịch (định dạng ISO 8601 hoặc yyyy-MM-dd)
+      "description_invoice": "",   // Đã thanh toán cho cái gì (tóm tắt, không cần liệt kê sản phẩm cụ thể)
+      "customer_name": ""          // Họ tên người mua, nếu không rõ thì để null
     }
+
+    Lưu ý:
+    - Chỉ mô tả mục đích thanh toán (ví dụ: mua hàng, ăn uống, thanh toán dịch vụ, v.v).
+    - Nếu không rõ họ tên đầy đủ của người mua, gán "customer_name": null.
+    - Mẫu description_invoice sẽ là : "Thanh toán ..."
+    - Số tiền mà có dấu chấm là số tiền lớn họ tách ra không phải số thập phân
+    """.formatted(ocrText);
+    }
+
 }
