@@ -187,6 +187,7 @@ class TransactionServiceTest {
     @Test
     void testGetTransactionOverview() {
         Transaction transaction = new Transaction();
+        User currentUser = UserUtils.getCurrentUser();
         transaction.setTransactionType(TransactionType.INCOME);
         transaction.setTransactionDate(LocalDateTime.now());
         transaction.setAmount(BigDecimal.valueOf(100));
@@ -195,7 +196,7 @@ class TransactionServiceTest {
                 .thenReturn(List.of(transaction));
 
 
-        TransactionOverviewResponse result = transactionService.getTransactionOverview(YearMonth.now());
+        TransactionOverviewResponse result = transactionService.getTransactionOverview(currentUser.getUserId(), YearMonth.now());
         assertNotNull(result);
         assertEquals(BigDecimal.valueOf(100), result.getSummary().getTotalIncome());
     }

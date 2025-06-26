@@ -1,8 +1,6 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.AllArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -13,14 +11,9 @@ import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 import vn.fpt.seima.seimaserver.entity.*;
-import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.mapper.TransactionMapper;
-import vn.fpt.seima.seimaserver.repository.BudgetRepository;
-import vn.fpt.seima.seimaserver.repository.CategoryRepository;
-import vn.fpt.seima.seimaserver.repository.TransactionRepository;
-import vn.fpt.seima.seimaserver.repository.WalletRepository;
+import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.BudgetService;
-import vn.fpt.seima.seimaserver.service.CloudinaryService;
 import vn.fpt.seima.seimaserver.service.TransactionService;
 import vn.fpt.seima.seimaserver.service.WalletService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
@@ -153,7 +146,7 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
-    @CacheEvict(value = "overview", key = "#request.transactionDate.toLocalDate().withDayOfMonth(1).toString()")
+    @CacheEvict(value = "transactionOverview", key = "#userId + '-' + #month.toString()")
     public void deleteTransaction(int id) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found with ID: " + id));
@@ -164,14 +157,14 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "overview", key = "#request.transactionDate.toLocalDate().withDayOfMonth(1).toString()")
+    @CacheEvict(value = "transactionOverview", key = "#userId + '-' + #month.toString()")
     public TransactionResponse recordExpense(CreateTransactionRequest request) {
         return saveTransaction(request, TransactionType.EXPENSE);
     }
 
     @Override
     @Transactional
-    @CacheEvict(value = "overview", key = "#request.transactionDate.toLocalDate().withDayOfMonth(1).toString()")
+    @CacheEvict(value = "transactionOverview", key = "#userId + '-' + #month.toString()")
     public TransactionResponse recordIncome(CreateTransactionRequest request) {
         return saveTransaction(request, TransactionType.INCOME);
     }
@@ -182,7 +175,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Cacheable(value = "transactionOverview", key = "#userId + '-' + #month.toString()")
-    public TransactionOverviewResponse getTransactionOverview(YearMonth month) {
+    public TransactionOverviewResponse getTransactionOverview(Integer userId, YearMonth month) {
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");

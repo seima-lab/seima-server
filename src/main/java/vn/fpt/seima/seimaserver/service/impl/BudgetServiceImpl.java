@@ -128,10 +128,6 @@ public class BudgetServiceImpl implements BudgetService {
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found for this id: " + id));
 
         budgetCategoryLimitRepository.deleteByBudget_BudgetId(budget.getBudgetId());
-//        budget.setDeletedAt(LocalDateTime.now());
-//        budget.setIsDeleted(true);
-//        budgetRepository.save(budget);
-
         budgetRepository.deleteById(id);
     }
 

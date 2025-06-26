@@ -1,11 +1,8 @@
 package vn.fpt.seima.seimaserver.controller;
 
 import lombok.AllArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
@@ -13,8 +10,10 @@ import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOcrResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
+import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.service.OcrService;
 import vn.fpt.seima.seimaserver.service.TransactionService;
+import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.time.YearMonth;
 
@@ -80,7 +79,11 @@ public class TransactionController {
     public ApiResponse<TransactionOverviewResponse> overviewTransaction(@RequestParam("month")
                                                                         @DateTimeFormat(pattern = "yyyy-MM") YearMonth month) {
         try {
-            TransactionOverviewResponse response = transactionService.getTransactionOverview(month);
+            User currentUser = UserUtils.getCurrentUser();
+            if (currentUser == null) {
+                return new ApiResponse<>(HttpStatus.UNAUTHORIZED.value(), "You are not logged in", null);
+            }
+            TransactionOverviewResponse response = transactionService.getTransactionOverview(currentUser.getUserId(), month);
 
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction get successfully", response);
         } catch (IllegalArgumentException ex) {

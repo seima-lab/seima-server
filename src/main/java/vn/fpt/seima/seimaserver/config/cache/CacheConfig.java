@@ -1,7 +1,9 @@
 package vn.fpt.seima.seimaserver.config.cache;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -29,15 +31,20 @@ public class CacheConfig {
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
+        mapper.activateDefaultTyping(
+                LaissezFaireSubTypeValidator.instance,
+                ObjectMapper.DefaultTyping.EVERYTHING,
+                JsonTypeInfo.As.PROPERTY  // <- dùng @class dưới dạng field, không phải mảng
+        );
+
         RedisSerializer<Object> serializer = new GenericJackson2JsonRedisSerializer(mapper);
 
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer))
-                .entryTtl(Duration.ofMinutes(10))
                 .disableCachingNullValues();
 
         Map<String, RedisCacheConfiguration> cacheConfigs = new HashMap<>();
-//        cacheConfigs.put("budgetByUser", defaultConfig.entryTtl(Duration.ofMinutes(5)));
+        cacheConfigs.put("transactionOverview", defaultConfig.entryTtl(Duration.ofDays(31)));
 //        cacheConfigs.put("ocrResult", defaultConfig.entryTtl(Duration.ofMinutes(30)));
 //        cacheConfigs.put("countryList", defaultConfig.entryTtl(Duration.ofHours(12)));
 
