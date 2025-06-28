@@ -61,12 +61,12 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
             return buildInvalidInvitationResponse(inviteCode, "This group is no longer active");
         }
         
-        // Get group leader
-        Optional<GroupMember> leaderOpt = groupMemberRepository.findGroupLeader(
-            group.getGroupId(), GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+        // Get group leader (owner)
+        Optional<GroupMember> leaderOpt = groupMemberRepository.findGroupOwner(
+            group.getGroupId(), GroupMemberStatus.ACTIVE);
         
         if (leaderOpt.isEmpty()) {
-            log.error("No active leader found for group: {}", group.getGroupId());
+            log.error("No active owner found for group: {}", group.getGroupId());
             return buildInvalidInvitationResponse(inviteCode, "Group configuration error");
         }
         

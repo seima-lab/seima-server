@@ -28,13 +28,7 @@ public class GroupInvitationController {
     
     private final GroupInvitationService groupInvitationService;
     
-    /**
-     * Get invitation details by invite code
-     * Endpoint: GET /api/v1/invites/{code}/details
-     * 
-     * @param inviteCode the invitation code
-     * @return invitation details including group information
-     */
+
     @GetMapping("/invites/{inviteCode}/details")
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<InvitationDetailsResponse> getInvitationDetails(
@@ -62,13 +56,7 @@ public class GroupInvitationController {
         }
     }
     
-    /**
-     * Join a group using invitation code
-     * Endpoint: POST /api/v1/groups/join
-     * 
-     * @param request the join group request containing invite code
-     * @return join group response with updated group information
-     */
+
     @PostMapping("/groups/join")
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<JoinGroupResponse> joinGroup(@RequestBody @Valid JoinGroupRequest request) {
@@ -84,13 +72,7 @@ public class GroupInvitationController {
         );
     }
     
-    /**
-     * Validate invitation code
-     * Endpoint: GET /api/v1/invites/{code}/validate
-     * 
-     * @param inviteCode the invitation code to validate
-     * @return validation result
-     */
+
     @GetMapping("/invites/{inviteCode}/validate")
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<Boolean> validateInvitation(

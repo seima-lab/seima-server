@@ -13,6 +13,7 @@ import vn.fpt.seima.seimaserver.exception.GmailAlreadyExistException;
 import vn.fpt.seima.seimaserver.exception.NotMatchCurrentGmailException;
 import vn.fpt.seima.seimaserver.mapper.UserMapper;
 import vn.fpt.seima.seimaserver.service.UserService;
+import vn.fpt.seima.seimaserver.service.GroupMemberService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 @RestController
@@ -20,6 +21,7 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 @RequestMapping("/api/v1/users")
 public class UserController {
     private UserService userService;
+    private GroupMemberService groupMemberService;
 
 
     @PostMapping("/create")
@@ -88,6 +90,36 @@ public class UserController {
             return ApiResponse.<UserProfileResponseDto>builder()
                     .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
                     .message("Error updating profile: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    @PutMapping("/deactivate")
+    public ApiResponse<Object> deactivateCurrentUserAccount() {
+        try {
+            User currentUser = UserUtils.getCurrentUser();
+            if (currentUser == null) {
+                return ApiResponse.builder()
+                        .statusCode(HttpStatus.UNAUTHORIZED.value())
+                        .message("User not authenticated.")
+                        .build();
+            }
+
+            // Handle group leadership transfer before deactivating
+            groupMemberService.handleUserAccountDeactivation(currentUser.getUserId());
+            
+            // Deactivate the user account
+            userService.deactivateUserAccount(currentUser.getUserId());
+            
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.OK.value())
+                    .message("Account deactivated successfully. Group leadership has been transferred if applicable.")
+                    .build();
+                    
+        } catch (Exception e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .message("Error deactivating account: " + e.getMessage())
                     .build();
         }
     }
