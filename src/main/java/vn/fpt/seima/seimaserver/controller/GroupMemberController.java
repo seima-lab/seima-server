@@ -1,9 +1,11 @@
 package vn.fpt.seima.seimaserver.controller;
 
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
+import vn.fpt.seima.seimaserver.dto.request.group.UpdateMemberRoleRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberListResponse;
 import vn.fpt.seima.seimaserver.service.GroupMemberService;
 
@@ -30,5 +32,15 @@ public class GroupMemberController {
             @PathVariable Integer memberUserId) {
         groupMemberService.removeMemberFromGroup(groupId, memberUserId);
         return new ApiResponse<>(HttpStatus.OK.value(), "Member removed from group successfully", null);
+    }
+    
+    @PutMapping("/group/{groupId}/members/{memberUserId}/role")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<Object> updateMemberRole(
+            @PathVariable Integer groupId,
+            @PathVariable Integer memberUserId,
+            @Valid @RequestBody UpdateMemberRoleRequest request) {
+        groupMemberService.updateMemberRole(groupId, memberUserId, request);
+        return new ApiResponse<>(HttpStatus.OK.value(), "Member role updated successfully", null);
     }
 } 

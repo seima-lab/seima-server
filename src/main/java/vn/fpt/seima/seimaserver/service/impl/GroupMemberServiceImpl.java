@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.fpt.seima.seimaserver.dto.request.group.UpdateMemberRoleRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberListResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
 import vn.fpt.seima.seimaserver.entity.*;
@@ -284,6 +285,144 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         groupMemberRepository.save(memberToRemove);
 
         log.info("Successfully removed member {} from group {}", memberUserId, groupId);
+    }
+
+    @Override
+    @Transactional
+    public void updateMemberRole(Integer groupId, Integer memberUserId, UpdateMemberRoleRequest request) {
+        log.info("Updating member {} role to {} in group {}", memberUserId, 
+                request != null ? request.getNewRole() : "null", groupId);
+
+        // Validate input parameters
+        validateUpdateRoleInput(groupId, memberUserId, request);
+
+        Integer currentUserId = getCurrentUser().getUserId();
+
+        // Validate group
+        Group group = validateGroupForRoleUpdate(groupId);
+
+        // Validate owner permission
+        GroupMember currentUserMember = validateOwnerPermission(currentUserId, group);
+
+        // Find target member
+        GroupMember targetMember = findActiveMemberForRoleUpdate(memberUserId, group);
+
+        // Validate business rules
+        validateRoleUpdateBusinessRules(currentUserId, memberUserId, targetMember.getRole(), request.getNewRole());
+
+        // Update role
+        targetMember.setRole(request.getNewRole());
+        groupMemberRepository.save(targetMember);
+
+        log.info("Successfully updated member {} role from {} to {} in group {}", 
+                memberUserId, targetMember.getRole(), request.getNewRole(), groupId);
+    }
+
+    /**
+     * Validate input for role update
+     */
+    private void validateUpdateRoleInput(Integer groupId, Integer memberUserId, UpdateMemberRoleRequest request) {
+        if (groupId == null) {
+            throw new GroupException("Group ID is required for updating member role");
+        }
+
+        if (memberUserId == null) {
+            throw new GroupException("Member user ID is required for updating member role");
+        }
+
+        if (request == null) {
+            throw new GroupException("New role is required");
+        }
+
+        if (request.getNewRole() == null) {
+            throw new GroupException("New role is required");
+        }
+    }
+
+    /**
+     * Validate group exists and is active for role update
+     */
+    private Group validateGroupForRoleUpdate(Integer groupId) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new GroupException("Group not found"));
+
+        if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+            throw new GroupException("Group not found");
+        }
+
+        return group;
+    }
+
+    /**
+     * Validate current user is owner of the group
+     */
+    private GroupMember validateOwnerPermission(Integer currentUserId, Group group) {
+        Optional<GroupMember> currentUserMembership = groupMemberRepository.findByUserIdAndGroupId(
+                currentUserId, group.getGroupId());
+
+        if (currentUserMembership.isEmpty() || 
+            currentUserMembership.get().getStatus() != GroupMemberStatus.ACTIVE) {
+            throw new GroupException("You are not an active member of this group");
+        }
+
+        GroupMember currentUserMember = currentUserMembership.get();
+        GroupMemberRole currentUserRole = currentUserMember.getRole();
+        if (currentUserRole != GroupMemberRole.OWNER) {
+            throw new GroupException("Only group owner can update member roles");
+        }
+
+        return currentUserMember;
+    }
+
+    /**
+     * Find active member for role update
+     */
+    private GroupMember findActiveMemberForRoleUpdate(Integer memberUserId, Group group) {
+        Optional<GroupMember> memberOptional = groupMemberRepository.findByUserIdAndGroupId(memberUserId, group.getGroupId());
+
+        if (memberOptional.isEmpty()) {
+            throw new GroupException("Member not found in this group");
+        }
+
+        GroupMember member = memberOptional.get();
+
+        if (member.getStatus() != GroupMemberStatus.ACTIVE) {
+            throw new GroupException("Member is not currently active in this group");
+        }
+
+        if (!Boolean.TRUE.equals(member.getUser().getUserIsActive())) {
+            throw new GroupException("Cannot update role of inactive user account");
+        }
+
+        return member;
+    }
+
+    /**
+     * Validate business rules for role update
+     */
+    private void validateRoleUpdateBusinessRules(Integer currentUserId, Integer memberUserId, 
+                                                GroupMemberRole currentRole, GroupMemberRole newRole) {
+        
+        // Cannot update your own role
+        if (currentUserId.equals(memberUserId)) {
+            throw new GroupException("Cannot update your own role");
+        }
+
+        // Check if user already has this role
+        if (currentRole == newRole) {
+            throw new GroupException("Member already has this role");
+        }
+
+        // Use permission service to validate role changes
+        if (!groupPermissionService.canUpdateMemberRole(GroupMemberRole.OWNER, currentRole, newRole)) {
+            if (currentRole == GroupMemberRole.OWNER) {
+                throw new GroupException("Cannot change owner role");
+            } else if (newRole == GroupMemberRole.OWNER) {
+                throw new GroupException("Cannot promote to owner (prevent multiple owners)");
+            } else {
+                throw new GroupException("Invalid role update operation");
+            }
+        }
     }
 
     /**

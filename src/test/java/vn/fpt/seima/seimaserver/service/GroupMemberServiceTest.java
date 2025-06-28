@@ -8,6 +8,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import vn.fpt.seima.seimaserver.dto.request.group.UpdateMemberRoleRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberListResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
 import vn.fpt.seima.seimaserver.entity.*;
@@ -947,5 +948,396 @@ class GroupMemberServiceTest {
         group.setGroupName(groupName);
         group.setGroupIsActive(true);
         return group;
+    }
+
+    // =============== UPDATE MEMBER ROLE TESTS ===============
+    
+    @Test
+    @DisplayName("updateMemberRole - Should successfully update member to admin when owner updates")
+    void updateMemberRole_ShouldSuccessfullyUpdateMemberToAdmin_WhenOwnerUpdates() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        Integer ownerUserId = 3;
+        User ownerUser = createTestUser(ownerUserId, "owner@example.com", "Owner User");
+        User memberUser = createTestUser(memberUserId, "member@example.com", "Member User");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(ownerUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember targetMember = new GroupMember();
+        targetMember.setUser(memberUser);
+        targetMember.setGroup(group);
+        targetMember.setRole(GroupMemberRole.MEMBER);
+        targetMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        UpdateMemberRoleRequest request = new UpdateMemberRoleRequest();
+        request.setNewRole(GroupMemberRole.ADMIN);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(ownerUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(ownerUserId, groupId))
+                    .thenReturn(Optional.of(ownerMember));
+            when(groupMemberRepository.findByUserIdAndGroupId(memberUserId, groupId))
+                    .thenReturn(Optional.of(targetMember));
+            when(groupPermissionService.canUpdateMemberRole(GroupMemberRole.OWNER, GroupMemberRole.MEMBER, GroupMemberRole.ADMIN))
+                    .thenReturn(true);
+
+            // When
+            groupMemberService.updateMemberRole(groupId, memberUserId, request);
+
+            // Then
+            verify(groupMemberRepository).save(targetMember);
+            assertEquals(GroupMemberRole.ADMIN, targetMember.getRole());
+        }
+    }
+
+    @Test
+    @DisplayName("updateMemberRole - Should successfully update admin to member when owner updates") 
+    void updateMemberRole_ShouldSuccessfullyUpdateAdminToMember_WhenOwnerUpdates() {
+        // Given
+        Integer groupId = 1;
+        Integer adminUserId = 2;
+        Integer ownerUserId = 3;
+        User ownerUser = createTestUser(ownerUserId, "owner@example.com", "Owner User");
+        User adminUser = createTestUser(adminUserId, "admin@example.com", "Admin User");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(ownerUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember targetMember = new GroupMember();
+        targetMember.setUser(adminUser);
+        targetMember.setGroup(group);
+        targetMember.setRole(GroupMemberRole.ADMIN);
+        targetMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        UpdateMemberRoleRequest request = new UpdateMemberRoleRequest();
+        request.setNewRole(GroupMemberRole.MEMBER);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(ownerUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(ownerUserId, groupId))
+                    .thenReturn(Optional.of(ownerMember));
+            when(groupMemberRepository.findByUserIdAndGroupId(adminUserId, groupId))
+                    .thenReturn(Optional.of(targetMember));
+            when(groupPermissionService.canUpdateMemberRole(GroupMemberRole.OWNER, GroupMemberRole.ADMIN, GroupMemberRole.MEMBER))
+                    .thenReturn(true);
+
+            // When
+            groupMemberService.updateMemberRole(groupId, adminUserId, request);
+
+            // Then
+            verify(groupMemberRepository).save(targetMember);
+            assertEquals(GroupMemberRole.MEMBER, targetMember.getRole());
+        }
+    }
+
+    @Test
+    @DisplayName("Should throw exception when group ID is null")
+    void updateMemberRole_ShouldThrowException_WhenGroupIdIsNull() {
+        // Given
+        UpdateMemberRoleRequest request = new UpdateMemberRoleRequest();
+        request.setNewRole(GroupMemberRole.ADMIN);
+
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class, () ->
+                groupMemberService.updateMemberRole(null, 2, request)
+        );
+        
+        assertEquals("Group ID is required for updating member role", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when member user ID is null")
+    void updateMemberRole_ShouldThrowException_WhenMemberUserIdIsNull() {
+        // Given
+        UpdateMemberRoleRequest request = new UpdateMemberRoleRequest();
+        request.setNewRole(GroupMemberRole.ADMIN);
+
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class, () ->
+                groupMemberService.updateMemberRole(1, null, request)
+        );
+        
+        assertEquals("Member user ID is required for updating member role", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("updateMemberRole - Should throw exception when request is null")
+    void updateMemberRole_ShouldThrowException_WhenRequestIsNull() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class,
+                () -> groupMemberService.updateMemberRole(groupId, memberUserId, null));
+        assertEquals("New role is required", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("updateMemberRole - Should throw exception when new role is null")
+    void updateMemberRole_ShouldThrowException_WhenNewRoleIsNull() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        UpdateMemberRoleRequest request = new UpdateMemberRoleRequest();
+        request.setNewRole(null);
+
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class,
+                () -> groupMemberService.updateMemberRole(groupId, memberUserId, request));
+        assertEquals("New role is required", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("updateMemberRole - Should throw exception when group not found")
+    void updateMemberRole_ShouldThrowException_WhenGroupNotFound() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        User ownerUser = createTestUser(3, "owner@example.com", "Owner User");
+        UpdateMemberRoleRequest request = new UpdateMemberRoleRequest();
+        request.setNewRole(GroupMemberRole.ADMIN);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(ownerUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.updateMemberRole(groupId, memberUserId, request));
+            assertEquals("Group not found", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("updateMemberRole - Should throw exception when group is inactive")
+    void updateMemberRole_ShouldThrowException_WhenGroupIsInactive() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        User ownerUser = createTestUser(3, "owner@example.com", "Owner User");
+        Group inactiveGroup = createTestGroup(groupId, "Inactive Group");
+        inactiveGroup.setGroupIsActive(false);
+        UpdateMemberRoleRequest request = new UpdateMemberRoleRequest();
+        request.setNewRole(GroupMemberRole.ADMIN);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(ownerUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(inactiveGroup));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.updateMemberRole(groupId, memberUserId, request));
+            assertEquals("Group not found", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("updateMemberRole - Should throw exception when current user is not owner")
+    void updateMemberRole_ShouldThrowException_WhenCurrentUserIsNotOwner() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        Integer adminUserId = 3;
+        User adminUser = createTestUser(adminUserId, "admin@example.com", "Admin User");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember adminMember = new GroupMember();
+        adminMember.setUser(adminUser);
+        adminMember.setGroup(group);
+        adminMember.setRole(GroupMemberRole.ADMIN);
+        adminMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        UpdateMemberRoleRequest request = new UpdateMemberRoleRequest();
+        request.setNewRole(GroupMemberRole.ADMIN);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(adminUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(adminUserId, groupId))
+                    .thenReturn(Optional.of(adminMember));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.updateMemberRole(groupId, memberUserId, request));
+            assertEquals("Only group owner can update member roles", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("updateMemberRole - Should throw exception when target member not found")
+    void updateMemberRole_ShouldThrowException_WhenTargetMemberNotFound() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        Integer ownerUserId = 3;
+        User ownerUser = createTestUser(ownerUserId, "owner@example.com", "Owner User");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(ownerUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        UpdateMemberRoleRequest request = new UpdateMemberRoleRequest();
+        request.setNewRole(GroupMemberRole.ADMIN);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(ownerUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(ownerUserId, groupId))
+                    .thenReturn(Optional.of(ownerMember));
+            when(groupMemberRepository.findByUserIdAndGroupId(memberUserId, groupId))
+                    .thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.updateMemberRole(groupId, memberUserId, request));
+            assertEquals("Member not found in this group", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("updateMemberRole - Should throw exception when trying to update owner role")
+    void updateMemberRole_ShouldThrowException_WhenTryingToUpdateOwnerRole() {
+        // Given
+        Integer groupId = 1;
+        Integer anotherOwnerUserId = 2;
+        Integer ownerUserId = 3;
+        User ownerUser = createTestUser(ownerUserId, "owner@example.com", "Owner User");
+        User anotherOwnerUser = createTestUser(anotherOwnerUserId, "owner2@example.com", "Another Owner");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(ownerUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember targetOwnerMember = new GroupMember();
+        targetOwnerMember.setUser(anotherOwnerUser);
+        targetOwnerMember.setGroup(group);
+        targetOwnerMember.setRole(GroupMemberRole.OWNER);
+        targetOwnerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        UpdateMemberRoleRequest request = new UpdateMemberRoleRequest();
+        request.setNewRole(GroupMemberRole.ADMIN);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(ownerUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(ownerUserId, groupId))
+                    .thenReturn(Optional.of(ownerMember));
+            when(groupMemberRepository.findByUserIdAndGroupId(anotherOwnerUserId, groupId))
+                    .thenReturn(Optional.of(targetOwnerMember));
+            when(groupPermissionService.canUpdateMemberRole(GroupMemberRole.OWNER, GroupMemberRole.OWNER, GroupMemberRole.ADMIN))
+                    .thenReturn(false);
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.updateMemberRole(groupId, anotherOwnerUserId, request));
+            assertEquals("Cannot change owner role", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("Should throw exception when trying to promote to owner")
+    void updateMemberRole_ShouldThrowException_WhenTryingToPromoteToOwner() {
+        // Given
+        UpdateMemberRoleRequest request = new UpdateMemberRoleRequest();
+        request.setNewRole(GroupMemberRole.OWNER);
+
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        Integer ownerUserId = 3;
+        User ownerUser = createTestUser(ownerUserId, "owner@example.com", "Owner User");
+        User memberUser = createTestUser(memberUserId, "member@example.com", "Member User");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(ownerUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember targetMember = new GroupMember();
+        targetMember.setUser(memberUser);
+        targetMember.setGroup(group);
+        targetMember.setRole(GroupMemberRole.MEMBER);
+        targetMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(ownerUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(ownerUserId, groupId))
+                    .thenReturn(Optional.of(ownerMember));
+            when(groupMemberRepository.findByUserIdAndGroupId(memberUserId, groupId))
+                    .thenReturn(Optional.of(targetMember));
+            when(groupPermissionService.canUpdateMemberRole(GroupMemberRole.OWNER, GroupMemberRole.MEMBER, GroupMemberRole.OWNER))
+                    .thenReturn(false);
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, () ->
+                    groupMemberService.updateMemberRole(groupId, memberUserId, request)
+            );
+            
+            assertEquals("Cannot promote to owner (prevent multiple owners)", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("Should throw exception when member already has the role")
+    void updateMemberRole_ShouldThrowException_WhenMemberAlreadyHasTheRole() {
+        // Given
+        UpdateMemberRoleRequest request = new UpdateMemberRoleRequest();
+        request.setNewRole(GroupMemberRole.ADMIN);
+
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        Integer ownerUserId = 3;
+        User ownerUser = createTestUser(ownerUserId, "owner@example.com", "Owner User");
+        User memberUser = createTestUser(memberUserId, "member@example.com", "Member User");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(ownerUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember targetMember = new GroupMember();
+        targetMember.setUser(memberUser);
+        targetMember.setGroup(group);
+        targetMember.setRole(GroupMemberRole.ADMIN); // Same as request
+        targetMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(ownerUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(ownerUserId, groupId))
+                    .thenReturn(Optional.of(ownerMember));
+            when(groupMemberRepository.findByUserIdAndGroupId(memberUserId, groupId))
+                    .thenReturn(Optional.of(targetMember));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, () ->
+                    groupMemberService.updateMemberRole(groupId, memberUserId, request)
+            );
+            
+            assertEquals("Member already has this role", exception.getMessage());
+        }
     }
 } 

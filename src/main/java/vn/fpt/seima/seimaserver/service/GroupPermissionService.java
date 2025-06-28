@@ -42,6 +42,29 @@ public class GroupPermissionService {
         return role == GroupMemberRole.OWNER;
     }
 
+    /**
+     * Check if user can update member role
+     * Only OWNER can update member roles
+     */
+    public boolean canUpdateMemberRole(GroupMemberRole currentRole, GroupMemberRole targetCurrentRole, GroupMemberRole newRole) {
+        // Only owner can update roles
+        if (currentRole != GroupMemberRole.OWNER) {
+            return false;
+        }
+        
+        // Cannot change owner role
+        if (targetCurrentRole == GroupMemberRole.OWNER) {
+            return false;
+        }
+        
+        // Cannot promote to owner (prevent multiple owners)
+        if (newRole == GroupMemberRole.OWNER) {
+            return false;
+        }
+        
+        return true;
+    }
+
     public boolean canRemoveLastAdmin(GroupMemberRole currentRole, boolean hasOwner, int adminCount) {
         if (currentRole != GroupMemberRole.OWNER) {
             return false;
