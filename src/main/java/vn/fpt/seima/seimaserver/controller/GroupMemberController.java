@@ -21,4 +21,14 @@ public class GroupMemberController {
         GroupMemberListResponse memberList = groupMemberService.getActiveGroupMembers(groupId);
         return new ApiResponse<>(HttpStatus.OK.value(), "Active group members retrieved successfully", memberList);
     }
+
+   
+    @DeleteMapping("/group/{groupId}/members/{memberUserId}")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<Object> removeMemberFromGroup(
+            @PathVariable Integer groupId,
+            @PathVariable Integer memberUserId) {
+        groupMemberService.removeMemberFromGroup(groupId, memberUserId);
+        return new ApiResponse<>(HttpStatus.OK.value(), "Member removed from group successfully", null);
+    }
 } 

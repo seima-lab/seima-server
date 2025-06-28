@@ -20,6 +20,7 @@ import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
 import vn.fpt.seima.seimaserver.repository.GroupRepository;
 import vn.fpt.seima.seimaserver.service.CloudinaryService;
 import vn.fpt.seima.seimaserver.service.GroupService;
+import vn.fpt.seima.seimaserver.service.GroupPermissionService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.util.*;
@@ -35,6 +36,7 @@ public class GroupServiceImpl implements GroupService {
     private final GroupMapper groupMapper;
     private final CloudinaryService cloudinaryService;
     private final AppProperties appProperties;
+    private final GroupPermissionService groupPermissionService;
     
     // Constants for image validation
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -72,8 +74,8 @@ public class GroupServiceImpl implements GroupService {
         Group savedGroup = groupRepository.save(group);
         log.info("Group created with ID: {}", savedGroup.getGroupId());
         
-        // Add creator as admin member
-        createAdminMembership(savedGroup, currentUser);
+        // Add creator as owner member
+        createOwnerMembership(savedGroup, currentUser);
         
         GroupResponse response = groupMapper.toResponse(savedGroup);
         log.info("Group creation completed successfully");
@@ -102,25 +104,34 @@ public class GroupServiceImpl implements GroupService {
             throw new GroupException("Group not found");
         }
         
-        // Check if current user is a member of the group
-        if (!groupMemberRepository.existsByUserAndGroupAndStatus(
-                currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE)) {
+        // Get current user's membership and role
+        Optional<GroupMember> currentUserMembership = groupMemberRepository.findByUserAndGroupAndStatus(
+                currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE);
+        
+        if (currentUserMembership.isEmpty()) {
             throw new GroupException("You don't have permission to view this group");
         }
         
-        // Get group leader
-        Optional<GroupMember> leaderOptional = groupMemberRepository.findGroupLeader(
-            groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+        GroupMemberRole currentUserRole = currentUserMembership.get().getRole();
+        
+        // Check permission to view group members
+        if (!groupPermissionService.canViewGroupMembers(currentUserRole)) {
+            throw new GroupException("You don't have permission to view group members");
+        }
+        
+        // Get group leader (owner)
+        Optional<GroupMember> leaderOptional = groupMemberRepository.findGroupOwner(
+            groupId, GroupMemberStatus.ACTIVE);
         
         if (leaderOptional.isEmpty()) {
-            throw new GroupException("Group leader not found for group ID: " + groupId);
+            throw new GroupException("Group owner not found for group ID: " + groupId);
         }
         
         GroupMember leader = leaderOptional.get();
         
         // Check if leader's account is active
         if (!Boolean.TRUE.equals(leader.getUser().getUserIsActive())) {
-            throw new GroupException("Group leader account is inactive for group ID: " + groupId);
+            throw new GroupException("Group owner account is inactive for group ID: " + groupId);
         }
         
         GroupMemberResponse leaderResponse = mapToGroupMemberResponse(leader);
@@ -140,13 +151,6 @@ public class GroupServiceImpl implements GroupService {
         Long totalActiveMembers = allMembers.stream()
             .filter(member -> Boolean.TRUE.equals(member.getUser().getUserIsActive()))
             .count();
-
-        // Get current user's role in the group
-        GroupMemberRole currentUserRole = allMembers.stream()
-                .filter(member -> member.getUser().getUserId().equals(currentUser.getUserId()))
-                .map(GroupMember::getRole)
-                .findFirst()
-                .orElse(GroupMemberRole.MEMBER); // Default to MEMBER if not found
 
         // Build invite link
         String inviteLink = buildInviteLink(group.getGroupInviteCode());
@@ -184,8 +188,16 @@ public class GroupServiceImpl implements GroupService {
         // Find and validate group
         Group group = findAndValidateGroupForUpdate(groupId, currentUser);
 
-        // Check admin permission
-        validateAdminPermission(groupId, currentUser);
+        // Get current user's role and check permissions
+        GroupMemberRole currentUserRole = getCurrentUserRole(groupId, currentUser);
+        
+        // Check permission to update group info using GroupPermissionService
+        if (!groupPermissionService.canUpdateGroupInfo(currentUserRole)) {
+            String permissionDesc = groupPermissionService.getPermissionDescription(
+                "UPDATE_GROUP_INFO", currentUserRole, null);
+            log.warn("Permission denied: {}", permissionDesc);
+            throw new GroupException("Only group owners can update group information");
+        }
 
         // Process group name update
         boolean nameUpdated = updateGroupName(group, request.getGroupName());
@@ -306,15 +318,15 @@ public class GroupServiceImpl implements GroupService {
         return UUID.randomUUID().toString().replace("-", "");
     }
     
-    private void createAdminMembership(Group group, User user) {
+    private void createOwnerMembership(Group group, User user) {
         GroupMember groupMember = new GroupMember();
         groupMember.setGroup(group);
         groupMember.setUser(user);
-        groupMember.setRole(GroupMemberRole.ADMIN);
+        groupMember.setRole(GroupMemberRole.OWNER);  // Group creator becomes OWNER
         groupMember.setStatus(GroupMemberStatus.ACTIVE);
         
         GroupMember savedMember = groupMemberRepository.save(groupMember);
-        log.info("Admin membership created for user ID: {} in group ID: {}", 
+        log.info("Owner membership created for user ID: {} in group ID: {}", 
                 user.getUserId(), group.getGroupId());
     }
     
@@ -398,13 +410,35 @@ public class GroupServiceImpl implements GroupService {
         return group;
     }
 
-    private void validateAdminPermission(Integer groupId, User currentUser) {
-        // Check if current user is admin of the group
-        boolean isAdmin = groupMemberRepository.existsByGroupAndUserAndRole(
-                groupId, currentUser.getUserId(), GroupMemberRole.ADMIN);
+    /**
+     * Get current user's role in the group
+     * @param groupId the group ID
+     * @param currentUser the current user
+     * @return the user's role in the group
+     */
+    private GroupMemberRole getCurrentUserRole(Integer groupId, User currentUser) {
+        Optional<GroupMember> membership = groupMemberRepository.findByUserAndGroupAndStatus(
+                currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE);
+        
+        if (membership.isEmpty()) {
+            throw new GroupException("You are not a member of this group");
+        }
+        
+        return membership.get().getRole();
+    }
 
-        if (!isAdmin) {
-            throw new GroupException("Only group administrators can update group information");
+    /**
+     * Validate admin or owner permission for group operations
+     * Uses GroupPermissionService to check manage group settings permission
+     */
+    private void validateManageGroupPermission(Integer groupId, User currentUser) {
+        GroupMemberRole currentUserRole = getCurrentUserRole(groupId, currentUser);
+        
+        if (!groupPermissionService.canManageGroupSettings(currentUserRole)) {
+            String permissionDesc = groupPermissionService.getPermissionDescription(
+                "MANAGE_GROUP_SETTINGS", currentUserRole, null);
+            log.warn("Permission denied: {}", permissionDesc);
+            throw new GroupException("Only group administrators and owners can manage group settings");
         }
     }
 
@@ -479,9 +513,9 @@ public class GroupServiceImpl implements GroupService {
     private UserJoinedGroupResponse mapToUserJoinedGroupResponse(GroupMember groupMember) {
         Group group = groupMember.getGroup();
 
-        // Get group leader
-        Optional<GroupMember> leaderOptional = groupMemberRepository.findGroupLeader(
-                group.getGroupId(), GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+        // Get group leader (owner)
+        Optional<GroupMember> leaderOptional = groupMemberRepository.findGroupOwner(
+                group.getGroupId(), GroupMemberStatus.ACTIVE);
 
         GroupMemberResponse leaderResponse = null;
         if (leaderOptional.isPresent()) {
@@ -528,8 +562,15 @@ public class GroupServiceImpl implements GroupService {
         // Find and validate group
         Group group = findAndValidateGroupForArchive(groupId);
 
-        // Check admin permission
-        validateAdminPermission(groupId, currentUser);
+        // Check permission using GroupPermissionService
+        GroupMemberRole currentUserRole = getCurrentUserRole(groupId, currentUser);
+        
+        if (!groupPermissionService.canManageGroupSettings(currentUserRole)) {
+            String permissionDesc = groupPermissionService.getPermissionDescription(
+                "ARCHIVE_GROUP", currentUserRole, null);
+            log.warn("Permission denied: {}", permissionDesc);
+            throw new GroupException("Only group administrators and owners can archive groups");
+        }
 
         // Archive the group
         group.setGroupIsActive(false);

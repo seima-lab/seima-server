@@ -11,6 +11,7 @@ import vn.fpt.seima.seimaserver.exception.GroupException;
 import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
 import vn.fpt.seima.seimaserver.repository.GroupRepository;
 import vn.fpt.seima.seimaserver.service.GroupMemberService;
+import vn.fpt.seima.seimaserver.service.GroupPermissionService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.util.List;
@@ -24,6 +25,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
     
     private final GroupMemberRepository groupMemberRepository;
     private final GroupRepository groupRepository;
+    private final GroupPermissionService groupPermissionService;
 
     @Override
     @Transactional(readOnly = true)
@@ -53,14 +55,14 @@ public class GroupMemberServiceImpl implements GroupMemberService {
             throw new GroupException("You don't have permission to view this group's members");
         }
 
-        // Get group leader
-        GroupMember leader = groupMemberRepository.findGroupLeader(
-                groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE)
-                .orElseThrow(() -> new GroupException("Group leader not found for group ID: " + groupId));
+        // Get group leader (owner)
+        GroupMember leader = groupMemberRepository.findGroupOwner(
+                groupId, GroupMemberStatus.ACTIVE)
+                .orElseThrow(() -> new GroupException("Group owner not found for group ID: " + groupId));
 
         // Check if leader account is still active
         if (!Boolean.TRUE.equals(leader.getUser().getUserIsActive())) {
-            throw new GroupException("Group leader account is no longer active");
+            throw new GroupException("Group owner account is no longer active");
         }
 
         GroupMemberResponse leaderResponse = mapToGroupMemberResponse(leader);
@@ -132,19 +134,87 @@ public class GroupMemberServiceImpl implements GroupMemberService {
             throw new GroupException("User ID cannot be null");
         }
 
-        // Find all groups where this user is a leader
-        List<GroupMember> leadershipRoles = groupMemberRepository.findByUserIdAndRole(userId, GroupMemberRole.ADMIN);
+        // Find all groups where this user has leadership roles (ADMIN or OWNER)
+        List<GroupMember> adminRoles = groupMemberRepository.findByUserIdAndRole(userId, GroupMemberRole.ADMIN);
+        List<GroupMember> ownerRoles = groupMemberRepository.findByUserIdAndRole(userId, GroupMemberRole.OWNER);
 
-        for (GroupMember leaderRole : leadershipRoles) {
-            Group group = leaderRole.getGroup();
+        // Handle OWNER role deactivation first (higher priority)
+        for (GroupMember ownerRole : ownerRoles) {
+            Group group = ownerRole.getGroup();
             
             // Skip if group is already inactive
             if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
                 continue;
             }
 
-            log.info("Processing leadership transfer for group ID: {} (user {} was leader)", 
+            log.info("Processing OWNER account deactivation for group ID: {} (user {} was owner)", 
                     group.getGroupId(), userId);
+
+            // Find active admins to promote to owner
+            List<GroupMember> activeAdmins = groupMemberRepository.findActiveGroupMembers(
+                    group.getGroupId(), GroupMemberStatus.ACTIVE)
+                    .stream()
+                    .filter(member -> member.getRole() == GroupMemberRole.ADMIN)
+                    .filter(member -> Boolean.TRUE.equals(member.getUser().getUserIsActive()))
+                    .collect(Collectors.toList());
+
+            if (!activeAdmins.isEmpty()) {
+                // Promote the first active admin to owner
+                GroupMember newOwner = activeAdmins.get(0);
+                newOwner.setRole(GroupMemberRole.OWNER);
+                groupMemberRepository.save(newOwner);
+                
+                log.info("Promoted user {} from ADMIN to OWNER for group {}", 
+                        newOwner.getUser().getUserId(), group.getGroupId());
+                continue;
+            }
+
+            // No active admins available, find active members to promote
+            List<GroupMember> activeMembers = groupMemberRepository.findActiveGroupMembers(
+                    group.getGroupId(), GroupMemberStatus.ACTIVE)
+                    .stream()
+                    .filter(member -> member.getRole() == GroupMemberRole.MEMBER)
+                    .filter(member -> Boolean.TRUE.equals(member.getUser().getUserIsActive()))
+                    .collect(Collectors.toList());
+
+            if (!activeMembers.isEmpty()) {
+                // Promote the first active member to owner
+                GroupMember newOwner = activeMembers.get(0);
+                newOwner.setRole(GroupMemberRole.OWNER);
+                groupMemberRepository.save(newOwner);
+                
+                log.info("Promoted user {} from MEMBER to OWNER for group {}", 
+                        newOwner.getUser().getUserId(), group.getGroupId());
+            } else {
+                // No active members left, deactivate the group
+                group.setGroupIsActive(false);
+                groupRepository.save(group);
+                
+                log.info("No active members left in group {}, group has been deactivated", group.getGroupId());
+            }
+        }
+
+        // Handle ADMIN role deactivation
+        for (GroupMember adminRole : adminRoles) {
+            Group group = adminRole.getGroup();
+            
+            // Skip if group is already inactive
+            if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+                continue;
+            }
+
+            log.info("Processing ADMIN account deactivation for group ID: {} (user {} was admin)", 
+                    group.getGroupId(), userId);
+
+            // Check if there's still an active owner
+            Optional<GroupMember> activeOwner = groupMemberRepository.findGroupOwner(
+                    group.getGroupId(), GroupMemberStatus.ACTIVE);
+            
+            if (activeOwner.isPresent() && Boolean.TRUE.equals(activeOwner.get().getUser().getUserIsActive())) {
+                // Owner exists and is active, no action needed for admin removal
+                log.info("Group {} has active owner, no action needed for admin removal", group.getGroupId());
+                continue;
+            }
 
             // Find other active admins in the group
             List<GroupMember> otherActiveAdmins = groupMemberRepository.findActiveGroupMembers(
@@ -170,13 +240,13 @@ public class GroupMemberServiceImpl implements GroupMemberService {
                     .collect(Collectors.toList());
 
             if (!activeMembers.isEmpty()) {
-                // Promote the first active member (could be based on join date, etc.)
-                GroupMember newLeader = activeMembers.get(0);
-                newLeader.setRole(GroupMemberRole.ADMIN);
-                groupMemberRepository.save(newLeader);
+                // Promote the first active member to admin
+                GroupMember newAdmin = activeMembers.get(0);
+                newAdmin.setRole(GroupMemberRole.ADMIN);
+                groupMemberRepository.save(newAdmin);
                 
                 log.info("Promoted user {} to admin for group {}", 
-                        newLeader.getUser().getUserId(), group.getGroupId());
+                        newAdmin.getUser().getUserId(), group.getGroupId());
             } else {
                 // No active members left, deactivate the group
                 group.setGroupIsActive(false);
@@ -187,5 +257,156 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         }
 
         log.info("Account deactivation handling completed for user ID: {}", userId);
+    }
+
+    @Override
+    @Transactional
+    public void removeMemberFromGroup(Integer groupId, Integer memberUserId) {
+        log.info("Removing member {} from group {}", memberUserId, groupId);
+
+        // Validate input parameters
+        validateRemoveMemberInput(groupId, memberUserId);
+
+        // Get current user (the one performing the removal)
+        User currentUser = getCurrentUser();
+
+        // Validate group and user's permission
+        Group group = validateGroupAndPermission(groupId, currentUser);
+
+        // Find the member to be removed
+        GroupMember memberToRemove = findActiveMemberToRemove(groupId, memberUserId);
+
+        // Validate business rules for removal with hierarchy
+        validateRemovalBusinessRulesWithHierarchy(groupId, currentUser, memberToRemove);
+
+        // Remove the member by setting status to LEFT
+        memberToRemove.setStatus(GroupMemberStatus.LEFT);
+        groupMemberRepository.save(memberToRemove);
+
+        log.info("Successfully removed member {} from group {}", memberUserId, groupId);
+    }
+
+    /**
+     * Validate input parameters for member removal
+     */
+    private void validateRemoveMemberInput(Integer groupId, Integer memberUserId) {
+        if (groupId == null) {
+            throw new GroupException("Group ID cannot be null");
+        }
+        if (memberUserId == null) {
+            throw new GroupException("Member user ID cannot be null");
+        }
+    }
+
+    /**
+     * Validate group exists, is active, and current user has permission to remove members
+     */
+    private Group validateGroupAndPermission(Integer groupId, User currentUser) {
+        // Find and validate group
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new GroupException("Group not found"));
+
+        // Check if group is active
+        if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+            throw new GroupException("Group not found");
+        }
+
+        // Check if current user is admin or owner of the group
+        Optional<GroupMember> currentUserMembership = groupMemberRepository.findByUserIdAndGroupId(
+                currentUser.getUserId(), groupId);
+        
+        if (currentUserMembership.isEmpty() || 
+            currentUserMembership.get().getStatus() != GroupMemberStatus.ACTIVE ||
+            (currentUserMembership.get().getRole() != GroupMemberRole.ADMIN && 
+             currentUserMembership.get().getRole() != GroupMemberRole.OWNER)) {
+            throw new GroupException("Only group administrators and owners can remove members");
+        }
+
+        return group;
+    }
+
+    /**
+     * Find the active member to be removed
+     */
+    private GroupMember findActiveMemberToRemove(Integer groupId, Integer memberUserId) {
+        // Find the member to be removed
+        Optional<GroupMember> memberOptional = groupMemberRepository.findByUserIdAndGroupId(memberUserId, groupId);
+        
+        if (memberOptional.isEmpty()) {
+            throw new GroupException("Member not found in this group");
+        }
+
+        GroupMember member = memberOptional.get();
+
+        // Check if member is currently active
+        if (member.getStatus() != GroupMemberStatus.ACTIVE) {
+            throw new GroupException("Member is not currently active in this group");
+        }
+
+        // Check if the user account is still active
+        if (!Boolean.TRUE.equals(member.getUser().getUserIsActive())) {
+            throw new GroupException("Cannot remove inactive user account");
+        }
+
+        return member;
+    }
+
+    /**
+     * Validate business rules for member removal with proper hierarchy
+     * Hierarchy: OWNER > ADMIN > MEMBER
+     * Rules:
+     * 1. OWNER cannot be removed by anyone (including themselves)
+     * 2. Only OWNER can remove ADMIN
+     * 3. ADMIN can remove MEMBER
+     * 4. OWNER can remove MEMBER
+     * 5. Cannot remove last ADMIN if no OWNER exists (edge case protection)
+     */
+    private void validateRemovalBusinessRulesWithHierarchy(Integer groupId, User currentUser, GroupMember memberToRemove) {
+        Integer memberUserId = memberToRemove.getUser().getUserId();
+        GroupMemberRole memberRole = memberToRemove.getRole();
+        
+        // Get current user's role
+        GroupMemberRole currentUserRole = groupMemberRepository.findByUserIdAndGroupId(
+                currentUser.getUserId(), groupId)
+                .map(GroupMember::getRole)
+                .orElseThrow(() -> new GroupException("Current user membership not found"));
+
+        log.info("Permission check: {} (role: {}) attempting to remove {} (role: {})", 
+                currentUser.getUserId(), currentUserRole, memberUserId, memberRole);
+
+        // Rule 1: OWNER cannot be removed by anyone (including themselves)
+        if (memberRole == GroupMemberRole.OWNER) {
+            throw new GroupException("Group owner cannot be removed from the group");
+        }
+
+        // Rule 2-3: Use permission service for role-based removal checks
+        if (!groupPermissionService.canRemoveMember(currentUserRole, memberRole)) {
+            String permissionDesc = groupPermissionService.getPermissionDescription(
+                "REMOVE_MEMBER", currentUserRole, memberRole);
+            log.warn("Permission denied: {}", permissionDesc);
+            
+            throw new GroupException("Insufficient permission to remove this member");
+        }
+
+        // Rule 4: Special case for removing admin - check if it's the last admin without owner
+        if (memberRole == GroupMemberRole.ADMIN) {
+            List<GroupMember> activeAdmins = groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE)
+                    .stream()
+                    .filter(member -> member.getRole() == GroupMemberRole.ADMIN)
+                    .filter(member -> Boolean.TRUE.equals(member.getUser().getUserIsActive()))
+                    .collect(Collectors.toList());
+
+            // Check if there's an owner
+            boolean hasOwner = groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE)
+                    .stream()
+                    .anyMatch(member -> member.getRole() == GroupMemberRole.OWNER && 
+                              Boolean.TRUE.equals(member.getUser().getUserIsActive()));
+
+            // Use permission service for context-aware last admin check
+            if (!groupPermissionService.canRemoveLastAdmin(currentUserRole, hasOwner, activeAdmins.size())) {
+                log.warn("Cannot remove last admin - hasOwner: {}, adminCount: {}", hasOwner, activeAdmins.size());
+                throw new GroupException("Cannot remove the last administrator. Please promote another member to admin first");
+            }
+        }
     }
 } 

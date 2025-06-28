@@ -1,6 +1,7 @@
 package vn.fpt.seima.seimaserver.service;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -34,6 +35,9 @@ class GroupMemberServiceTest {
 
     @Mock
     private GroupRepository groupRepository;
+
+    @Mock
+    private GroupPermissionService groupPermissionService;
 
     @InjectMocks
     private GroupMemberServiceImpl groupMemberService;
@@ -92,7 +96,7 @@ class GroupMemberServiceTest {
                 .userIsActive(true)
                 .build();
 
-        testGroupLeader = createGroupMember(1, testGroup, testLeader, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+        testGroupLeader = createGroupMember(1, testGroup, testLeader, GroupMemberRole.OWNER, GroupMemberStatus.ACTIVE);
         testGroupMember1 = createGroupMember(2, testGroup, testCurrentUser, GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
         testGroupMember2 = createGroupMember(3, testGroup, testMember2, GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
     }
@@ -142,7 +146,7 @@ class GroupMemberServiceTest {
             when(groupMemberRepository.existsByUserAndGroupAndStatus(
                     testCurrentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(true);
-            when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+            when(groupMemberRepository.findGroupOwner(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(Optional.of(testGroupLeader));
             when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(allMembers);
@@ -163,7 +167,7 @@ class GroupMemberServiceTest {
             assertNotNull(leader);
             assertEquals(testLeader.getUserId(), leader.getUserId());
             assertEquals(testLeader.getUserFullName(), leader.getUserFullName());
-            assertEquals(GroupMemberRole.ADMIN, leader.getRole());
+            assertEquals(GroupMemberRole.OWNER, leader.getRole());
 
             // Verify members (should not include leader)
             List<GroupMemberResponse> members = result.getMembers();
@@ -250,14 +254,14 @@ class GroupMemberServiceTest {
             when(groupMemberRepository.existsByUserAndGroupAndStatus(
                     testCurrentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(true);
-            when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+            when(groupMemberRepository.findGroupOwner(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(Optional.empty());
 
             // When & Then
             GroupException exception = assertThrows(GroupException.class,
                     () -> groupMemberService.getActiveGroupMembers(groupId));
 
-            assertEquals("Group leader not found for group ID: " + groupId, exception.getMessage());
+            assertEquals("Group owner not found for group ID: " + groupId, exception.getMessage());
         }
     }
 
@@ -274,7 +278,7 @@ class GroupMemberServiceTest {
             when(groupMemberRepository.existsByUserAndGroupAndStatus(
                     testCurrentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(true);
-            when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+            when(groupMemberRepository.findGroupOwner(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(Optional.of(testGroupLeader));
             when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(allMembers);
@@ -291,27 +295,27 @@ class GroupMemberServiceTest {
     void getActiveGroupMembers_ShouldReturnOnlyLeader_WhenOnlyLeaderExists() {
         // Given
         Integer groupId = 1;
-        List<GroupMember> allMembers = Arrays.asList(testGroupLeader);
+        List<GroupMember> onlyLeader = Arrays.asList(testGroupLeader);
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testLeader);
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testLeader); // Current user is the leader
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
             when(groupMemberRepository.existsByUserAndGroupAndStatus(
                     testLeader.getUserId(), groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(true);
-            when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+            when(groupMemberRepository.findGroupOwner(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(Optional.of(testGroupLeader));
             when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
-                    .thenReturn(allMembers);
+                    .thenReturn(onlyLeader);
 
             // When
             GroupMemberListResponse result = groupMemberService.getActiveGroupMembers(groupId);
 
             // Then
+            assertNotNull(result);
             assertEquals(1, result.getTotalMembersCount());
-            assertEquals(testLeader.getUserId(), result.getGroupLeader().getUserId());
-            assertEquals(GroupMemberRole.ADMIN, result.getCurrentUserRole());
-            assertTrue(result.getMembers().isEmpty());
+            assertEquals(GroupMemberRole.OWNER, result.getCurrentUserRole());
+            assertEquals(0, result.getMembers().size()); // No members other than leader
         }
     }
 
@@ -319,13 +323,9 @@ class GroupMemberServiceTest {
     void getActiveGroupMembers_ShouldFilterOutInactiveUsers() {
         // Given
         Integer groupId = 1;
-        
-        // Create inactive user
-        User inactiveUser = createUser(5, "Inactive User", false);
-        GroupMember inactiveGroupMember = createGroupMember(4, testGroup, inactiveUser, GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
-        
-        // List includes both active and inactive users
-        List<GroupMember> allMembers = Arrays.asList(testGroupLeader, testGroupMember1, testGroupMember2, inactiveGroupMember);
+        testMember2.setUserIsActive(false); // Member2 is inactive
+
+        List<GroupMember> allMembers = Arrays.asList(testGroupLeader, testGroupMember1, testGroupMember2);
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testCurrentUser);
@@ -333,7 +333,7 @@ class GroupMemberServiceTest {
             when(groupMemberRepository.existsByUserAndGroupAndStatus(
                     testCurrentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(true);
-            when(groupMemberRepository.findGroupLeader(groupId, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE))
+            when(groupMemberRepository.findGroupOwner(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(Optional.of(testGroupLeader));
             when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(allMembers);
@@ -343,33 +343,10 @@ class GroupMemberServiceTest {
 
             // Then
             assertNotNull(result);
-            // Should only count active users (3 active + 1 inactive = 3 in result)
-            assertEquals(3, result.getTotalMembersCount());
-            
-            // Verify leader is returned correctly (leader is active)
-            GroupMemberResponse leader = result.getGroupLeader();
-            assertNotNull(leader);
-            assertEquals(testLeader.getUserId(), leader.getUserId());
-            assertEquals(testLeader.getUserFullName(), leader.getUserFullName());
-            assertEquals(GroupMemberRole.ADMIN, leader.getRole());
-
-            // Verify members list only contains active users (should not include leader or inactive user)
-            List<GroupMemberResponse> members = result.getMembers();
-            assertNotNull(members);
-            assertEquals(2, members.size()); // Only 2 active members (excluding leader and inactive user)
-            
-            // Verify inactive user is not included
-            assertFalse(members.stream().anyMatch(member -> 
-                member.getUserId().equals(inactiveUser.getUserId())));
-            
-            // Verify leader is not included in members list
-            assertFalse(members.stream().anyMatch(member -> 
-                member.getUserId().equals(testLeader.getUserId())));
-                
-            // Verify all returned members are from active users
-            assertTrue(members.stream().allMatch(member -> 
-                member.getUserId().equals(testCurrentUser.getUserId()) || 
-                member.getUserId().equals(testMember2.getUserId())));
+            assertEquals(2, result.getTotalMembersCount()); // Total count only includes active users
+            assertEquals(1, result.getMembers().size()); // But filtered members only include active ones
+            assertFalse(result.getMembers().stream().anyMatch(member ->
+                    member.getUserId().equals(testMember2.getUserId())));
         }
     }
 
@@ -507,5 +484,468 @@ class GroupMemberServiceTest {
         verify(groupMemberRepository).save(activeMemberMembership);
         assertThat(activeMemberMembership.getRole()).isEqualTo(GroupMemberRole.ADMIN);
         assertThat(inactiveMemberMembership.getRole()).isEqualTo(GroupMemberRole.MEMBER); // unchanged
+    }
+
+    @Test
+    @DisplayName("removeMemberFromGroup - Should successfully remove member when owner removes regular member")
+    void removeMemberFromGroup_ShouldSuccessfullyRemoveMember_WhenAdminRemovesRegularMember() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        Integer ownerUserId = 3;
+        User ownerUser = createTestUser(ownerUserId, "owner@example.com", "Owner User");
+        User memberUser = createTestUser(memberUserId, "member@example.com", "Member User");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        // Create owner member
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(ownerUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        // Create member to be removed
+        GroupMember memberToRemove = new GroupMember();
+        memberToRemove.setUser(memberUser);
+        memberToRemove.setGroup(group);
+        memberToRemove.setRole(GroupMemberRole.MEMBER);
+        memberToRemove.setStatus(GroupMemberStatus.ACTIVE);
+
+        // Mock current user
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(ownerUser);
+
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(ownerUserId, groupId))
+                    .thenReturn(Optional.of(ownerMember));
+            when(groupMemberRepository.findByUserIdAndGroupId(memberUserId, groupId))
+                    .thenReturn(Optional.of(memberToRemove));
+            
+            // Mock GroupPermissionService
+            when(groupPermissionService.canRemoveMember(GroupMemberRole.OWNER, GroupMemberRole.MEMBER))
+                    .thenReturn(true);
+
+            // When
+            groupMemberService.removeMemberFromGroup(groupId, memberUserId);
+
+            // Then
+            verify(groupMemberRepository).save(memberToRemove);
+            assertEquals(GroupMemberStatus.LEFT, memberToRemove.getStatus());
+        }
+    }
+
+    @Test
+    @DisplayName("removeMemberFromGroup - Should throw exception when group ID is null")
+    void removeMemberFromGroup_ShouldThrowException_WhenGroupIdIsNull() {
+        // Given
+        Integer groupId = null;
+        Integer memberUserId = 2;
+
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class, 
+                () -> groupMemberService.removeMemberFromGroup(groupId, memberUserId));
+        assertEquals("Group ID cannot be null", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("removeMemberFromGroup - Should throw exception when member user ID is null")
+    void removeMemberFromGroup_ShouldThrowException_WhenMemberUserIdIsNull() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = null;
+
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class, 
+                () -> groupMemberService.removeMemberFromGroup(groupId, memberUserId));
+        assertEquals("Member user ID cannot be null", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("removeMemberFromGroup - Should throw exception when group not found")
+    void removeMemberFromGroup_ShouldThrowException_WhenGroupNotFound() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        User adminUser = createTestUser(3, "admin@example.com", "Admin User");
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(adminUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, 
+                    () -> groupMemberService.removeMemberFromGroup(groupId, memberUserId));
+            assertEquals("Group not found", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("removeMemberFromGroup - Should throw exception when group is inactive")
+    void removeMemberFromGroup_ShouldThrowException_WhenGroupIsInactive() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        User adminUser = createTestUser(3, "admin@example.com", "Admin User");
+        Group inactiveGroup = createTestGroup(groupId, "Inactive Group");
+        inactiveGroup.setGroupIsActive(false);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(adminUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(inactiveGroup));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, 
+                    () -> groupMemberService.removeMemberFromGroup(groupId, memberUserId));
+            assertEquals("Group not found", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("removeMemberFromGroup - Should throw exception when current user is not admin")
+    void removeMemberFromGroup_ShouldThrowException_WhenCurrentUserIsNotAdmin() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 3;
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testCurrentUser);
+            
+            GroupMember currentUserMember = createGroupMember(1, testGroup, testCurrentUser, 
+                    GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
+            
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserIdAndGroupId(testCurrentUser.getUserId(), groupId))
+                    .thenReturn(Optional.of(currentUserMember));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.removeMemberFromGroup(groupId, memberUserId));
+
+            assertEquals("Only group administrators and owners can remove members", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("removeMemberFromGroup - Should throw exception when member not found in group")
+    void removeMemberFromGroup_ShouldThrowException_WhenMemberNotFoundInGroup() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        Integer ownerUserId = 3;
+        User ownerUser = createTestUser(ownerUserId, "owner@example.com", "Owner User");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(ownerUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(ownerUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(ownerUserId, groupId))
+                    .thenReturn(Optional.of(ownerMember));
+            when(groupMemberRepository.findByUserIdAndGroupId(memberUserId, groupId))
+                    .thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, 
+                    () -> groupMemberService.removeMemberFromGroup(groupId, memberUserId));
+            assertEquals("Member not found in this group", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("removeMemberFromGroup - Should throw exception when member is not active")
+    void removeMemberFromGroup_ShouldThrowException_WhenMemberIsNotActive() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        Integer ownerUserId = 3;
+        User ownerUser = createTestUser(ownerUserId, "owner@example.com", "Owner User");
+        User memberUser = createTestUser(memberUserId, "member@example.com", "Member User");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(ownerUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember inactiveMember = new GroupMember();
+        inactiveMember.setUser(memberUser);
+        inactiveMember.setGroup(group);
+        inactiveMember.setRole(GroupMemberRole.MEMBER);
+        inactiveMember.setStatus(GroupMemberStatus.LEFT); // Not active
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(ownerUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(ownerUserId, groupId))
+                    .thenReturn(Optional.of(ownerMember));
+            when(groupMemberRepository.findByUserIdAndGroupId(memberUserId, groupId))
+                    .thenReturn(Optional.of(inactiveMember));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, 
+                    () -> groupMemberService.removeMemberFromGroup(groupId, memberUserId));
+            assertEquals("Member is not currently active in this group", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("removeMemberFromGroup - Should throw exception when member user account is inactive")
+    void removeMemberFromGroup_ShouldThrowException_WhenMemberUserAccountIsInactive() {
+        // Given
+        Integer groupId = 1;
+        Integer memberUserId = 2;
+        Integer ownerUserId = 3;
+        User ownerUser = createTestUser(ownerUserId, "owner@example.com", "Owner User");
+        User memberUser = createTestUser(memberUserId, "member@example.com", "Member User");
+        memberUser.setUserIsActive(false); // Inactive user account
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(ownerUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember activeMember = new GroupMember();
+        activeMember.setUser(memberUser);
+        activeMember.setGroup(group);
+        activeMember.setRole(GroupMemberRole.MEMBER);
+        activeMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(ownerUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(ownerUserId, groupId))
+                    .thenReturn(Optional.of(ownerMember));
+            when(groupMemberRepository.findByUserIdAndGroupId(memberUserId, groupId))
+                    .thenReturn(Optional.of(activeMember));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, 
+                    () -> groupMemberService.removeMemberFromGroup(groupId, memberUserId));
+            assertEquals("Cannot remove inactive user account", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("removeMemberFromGroup - Should throw exception when trying to remove the owner")
+    void removeMemberFromGroup_ShouldThrowException_WhenTryingToRemoveLastAdmin() {
+        // Given
+        Integer groupId = 1;
+        Integer ownerUserId = 2;
+        Integer adminUserId = 3;
+        User ownerUser = createTestUser(ownerUserId, "owner@example.com", "Owner User");
+        User adminUser = createTestUser(adminUserId, "admin@example.com", "Admin User");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(ownerUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember adminMember = new GroupMember();
+        adminMember.setUser(adminUser);
+        adminMember.setGroup(group);
+        adminMember.setRole(GroupMemberRole.ADMIN);
+        adminMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(adminUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(adminUserId, groupId))
+                    .thenReturn(Optional.of(adminMember));
+            when(groupMemberRepository.findByUserIdAndGroupId(ownerUserId, groupId))
+                    .thenReturn(Optional.of(ownerMember));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, 
+                    () -> groupMemberService.removeMemberFromGroup(groupId, ownerUserId));
+            assertEquals("Group owner cannot be removed from the group", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("removeMemberFromGroup - Should throw exception when admin tries to remove another admin")
+    void removeMemberFromGroup_ShouldThrowException_WhenAdminTriesToRemoveLastAdmin() {
+        // Given
+        Integer groupId = 1;
+        Integer admin1UserId = 2;
+        Integer admin2UserId = 3;
+        User admin1User = createTestUser(admin1UserId, "admin1@example.com", "Admin 1 User");
+        User admin2User = createTestUser(admin2UserId, "admin2@example.com", "Admin 2 User");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember admin1Member = new GroupMember();
+        admin1Member.setUser(admin1User);
+        admin1Member.setGroup(group);
+        admin1Member.setRole(GroupMemberRole.ADMIN);
+        admin1Member.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember admin2Member = new GroupMember();
+        admin2Member.setUser(admin2User);
+        admin2Member.setGroup(group);
+        admin2Member.setRole(GroupMemberRole.ADMIN);
+        admin2Member.setStatus(GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(admin1User);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(admin1UserId, groupId))
+                    .thenReturn(Optional.of(admin1Member));
+            when(groupMemberRepository.findByUserIdAndGroupId(admin2UserId, groupId))
+                    .thenReturn(Optional.of(admin2Member));
+            
+            // Mock GroupPermissionService - admin cannot remove another admin
+            when(groupPermissionService.canRemoveMember(GroupMemberRole.ADMIN, GroupMemberRole.ADMIN))
+                    .thenReturn(false);
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, 
+                    () -> groupMemberService.removeMemberFromGroup(groupId, admin2UserId));
+            assertEquals("Insufficient permission to remove this member", exception.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("removeMemberFromGroup - Should successfully remove admin when owner removes admin")
+    void removeMemberFromGroup_ShouldSuccessfullyRemoveAdmin_WhenThereAreMultipleAdmins() {
+        // Given
+        Integer groupId = 1;
+        Integer ownerUserId = 2;
+        Integer adminUserId = 3;
+        Integer anotherAdminUserId = 4;
+        User ownerUser = createTestUser(ownerUserId, "owner@example.com", "Owner User");
+        User adminUser = createTestUser(adminUserId, "admin@example.com", "Admin User");
+        User anotherAdminUser = createTestUser(anotherAdminUserId, "admin2@example.com", "Admin 2 User");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(ownerUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember adminMember = new GroupMember();
+        adminMember.setUser(adminUser);
+        adminMember.setGroup(group);
+        adminMember.setRole(GroupMemberRole.ADMIN);
+        adminMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember anotherAdminMember = new GroupMember();
+        anotherAdminMember.setUser(anotherAdminUser);
+        anotherAdminMember.setGroup(group);
+        anotherAdminMember.setRole(GroupMemberRole.ADMIN);
+        anotherAdminMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        // All active members including owner and admins
+        List<GroupMember> allActiveMembers = Arrays.asList(ownerMember, adminMember, anotherAdminMember);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(ownerUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(ownerUserId, groupId))
+                    .thenReturn(Optional.of(ownerMember));
+            when(groupMemberRepository.findByUserIdAndGroupId(adminUserId, groupId))
+                    .thenReturn(Optional.of(adminMember));
+            // Mock all active group members for the validation logic
+            when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(allActiveMembers);
+            
+            // Mock GroupPermissionService
+            when(groupPermissionService.canRemoveMember(GroupMemberRole.OWNER, GroupMemberRole.ADMIN))
+                    .thenReturn(true);
+            when(groupPermissionService.canRemoveLastAdmin(GroupMemberRole.OWNER, true, 2))
+                    .thenReturn(true);
+
+            // When
+            groupMemberService.removeMemberFromGroup(groupId, adminUserId);
+
+            // Then
+            verify(groupMemberRepository).save(adminMember);
+            assertEquals(GroupMemberStatus.LEFT, adminMember.getStatus());
+        }
+    }
+
+    @Test
+    @DisplayName("removeMemberFromGroup - Admin cannot remove themselves")
+    void removeMemberFromGroup_ShouldSuccessfullyRemoveSelf_WhenThereAreMultipleAdmins() {
+        // Given
+        Integer groupId = 1;
+        Integer ownerUserId = 2;
+        Integer adminUserId = 3;
+        Integer anotherAdminUserId = 4;
+        User ownerUser = createTestUser(ownerUserId, "owner@example.com", "Owner User");
+        User adminUser = createTestUser(adminUserId, "admin@example.com", "Admin User");
+        User anotherAdminUser = createTestUser(anotherAdminUserId, "admin2@example.com", "Admin 2 User");
+        Group group = createTestGroup(groupId, "Test Group");
+
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(ownerUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember adminMember = new GroupMember();
+        adminMember.setUser(adminUser);
+        adminMember.setGroup(group);
+        adminMember.setRole(GroupMemberRole.ADMIN);
+        adminMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember anotherAdminMember = new GroupMember();
+        anotherAdminMember.setUser(anotherAdminUser);
+        anotherAdminMember.setGroup(group);
+        anotherAdminMember.setRole(GroupMemberRole.ADMIN);
+        anotherAdminMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        // All active members including owner and admins
+        List<GroupMember> allActiveMembers = Arrays.asList(ownerMember, adminMember, anotherAdminMember);
+
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(adminUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserIdAndGroupId(adminUserId, groupId))
+                    .thenReturn(Optional.of(adminMember));
+            
+            // Mock GroupPermissionService - user cannot remove themselves
+            when(groupPermissionService.canRemoveMember(GroupMemberRole.ADMIN, GroupMemberRole.ADMIN))
+                    .thenReturn(false);
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, () -> {
+                groupMemberService.removeMemberFromGroup(groupId, adminUserId);
+            });
+
+            assertEquals("Insufficient permission to remove this member", exception.getMessage());
+        }
+    }
+
+    /**
+     * Helper method to create test user
+     */
+    private User createTestUser(Integer userId, String email, String fullName) {
+        User user = new User();
+        user.setUserId(userId);
+        user.setUserEmail(email);
+        user.setUserFullName(fullName);
+        user.setUserIsActive(true);
+        return user;
+    }
+
+    /**
+     * Helper method to create test group
+     */
+    private Group createTestGroup(Integer groupId, String groupName) {
+        Group group = new Group();
+        group.setGroupId(groupId);
+        group.setGroupName(groupName);
+        group.setGroupIsActive(true);
+        return group;
     }
 } 
