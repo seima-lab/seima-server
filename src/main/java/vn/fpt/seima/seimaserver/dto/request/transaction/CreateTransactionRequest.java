@@ -16,9 +16,6 @@ public class CreateTransactionRequest {
     private Integer walletId;
     private Integer categoryId;
     private Integer groupId; // optional
-
-    private TransactionType transactionType; // INCOME, EXPENSE, TRANSFER
-
     private BigDecimal amount;
     private String currencyCode;
     private LocalDateTime transactionDate;

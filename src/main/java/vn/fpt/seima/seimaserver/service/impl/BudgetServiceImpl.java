@@ -149,7 +149,7 @@ public class BudgetServiceImpl implements BudgetService {
                 throw new IllegalArgumentException("Budget category limit not found");
             }
             if (transactionDate.isBefore(budget.getEndDate()) && transactionDate.isAfter(budget.getStartDate())) {
-                BigDecimal newAmount = budget.getOverallAmountLimit().subtract(amount);
+                BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
                 budget.setBudgetRemainingAmount(newAmount);
             }
 

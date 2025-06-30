@@ -6,6 +6,7 @@ import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 
 public interface TransactionService {
@@ -27,5 +28,9 @@ public interface TransactionService {
     TransactionResponse transferTransaction(CreateTransactionRequest request);
 
     TransactionOverviewResponse getTransactionOverview(Integer userId, YearMonth month);
+
+    Page<TransactionResponse> viewHistoryTransactionsGroup(Pageable pageable, Integer groupId);
+
+    Page<TransactionResponse> viewHistoryTransactionsDate(Pageable pageable, LocalDate startDate, LocalDate endDate);
 
 }

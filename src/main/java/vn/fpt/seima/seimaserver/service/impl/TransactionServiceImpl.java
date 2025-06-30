@@ -1,6 +1,8 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.AllArgsConstructor;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -11,6 +13,7 @@ import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 import vn.fpt.seima.seimaserver.entity.*;
+import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.mapper.TransactionMapper;
 import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.BudgetService;
@@ -34,10 +37,13 @@ public class TransactionServiceImpl implements TransactionService {
     private final TransactionMapper transactionMapper;
     private final WalletService walletService;
     private final BudgetService budgetService;
+    private final CacheManager cacheManager;
+    private final GroupRepository groupRepository;
+    private final GroupMemberRepository groupMemberRepository;
 
     @Override
-    public Page<TransactionResponse> getAllTransaction(Pageable pageable) {
-        Page<Transaction> transactions = transactionRepository.findAll(pageable);
+    public Page<TransactionResponse> getAllTransaction( Pageable pageable) {
+        Page<Transaction> transactions = transactionRepository.findByType(TransactionType.INACTIVE,pageable);
 
         return transactions.map(transactionMapper::toResponse);
     }
@@ -56,7 +62,6 @@ public class TransactionServiceImpl implements TransactionService {
             if (request == null) {
                 throw new IllegalArgumentException("Request must not be null");
             }
-
             User user = UserUtils.getCurrentUser();
             if (user == null) {
                 throw new IllegalArgumentException("User must not be null");
@@ -75,12 +80,20 @@ public class TransactionServiceImpl implements TransactionService {
             Category category = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new IllegalArgumentException("Category not found"));
 
-            if(request.getAmount().equals(BigDecimal.ZERO)){
+            if(request.getAmount() == null || request.getAmount().equals(BigDecimal.ZERO)){
                 throw new IllegalArgumentException("Amount must not be zero");
             }
 
             Transaction transaction = transactionMapper.toEntity(request);
+            if(request.getGroupId()!= null) {
+                Group  group = groupRepository.findById(request.getGroupId())
+                        .orElseThrow(() -> new IllegalArgumentException("Group not found with id: " + request.getGroupId()));
 
+                if (!groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), group.getGroupId())) {
+                    throw new IllegalArgumentException("You are not authorized to create this group category.");
+                }
+                transaction.setGroup(group);
+            }
             transaction.setUser(user);
             transaction.setCategory(category);
             transaction.setWallet(wallet);
@@ -90,6 +103,12 @@ public class TransactionServiceImpl implements TransactionService {
             walletService.reduceAmount(request.getWalletId(),transaction.getAmount());
             Transaction savedTransaction = transactionRepository.save(transaction);
 
+            YearMonth month = YearMonth.from(transaction.getTransactionDate());
+            String cacheKey = transaction.getUser().getUserId() + "-" + month;
+            Cache cache = cacheManager.getCache("transactionOverview");
+            if (cache != null) {
+                cache.evict(cacheKey);
+            }
             return transactionMapper.toResponse(savedTransaction);
         }
         catch (Exception e) {
@@ -100,7 +119,6 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "overview", key = "#request.transactionDate.toLocalDate().withDayOfMonth(1).toString()")
     public TransactionResponse updateTransaction(Integer id, CreateTransactionRequest request) {
         try {
             if (request == null) {
@@ -128,14 +146,29 @@ public class TransactionServiceImpl implements TransactionService {
                     .orElseThrow(() -> new IllegalArgumentException("Category not found"));
             transaction.setCategory(category);
 
-            if(request.getAmount().equals(BigDecimal.ZERO)){
+            if(request.getAmount() == null || request.getAmount().equals(BigDecimal.ZERO)){
                 throw new IllegalArgumentException("Amount must not be zero");
             }
+            if(request.getGroupId()!= null) {
+                Group  group = groupRepository.findById(request.getGroupId())
+                        .orElseThrow(() -> new IllegalArgumentException("Group not found with id: " + request.getGroupId()));
 
+                if (!groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), group.getGroupId())) {
+                    throw new IllegalArgumentException("You are not authorized to create this group category.");
+                }
+                transaction.setGroup(group);
+            }
             transactionMapper.updateTransactionFromDto(request, transaction);
             budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate());
             walletService.reduceAmount(request.getWalletId(),transaction.getAmount());
             Transaction updatedTransaction = transactionRepository.save(transaction);
+
+            YearMonth month = YearMonth.from(transaction.getTransactionDate());
+            String cacheKey = transaction.getUser().getUserId() + "-" + month;
+            Cache cache = cacheManager.getCache("transactionOverview");
+            if (cache != null) {
+                cache.evict(cacheKey);
+            }
 
             return transactionMapper.toResponse(updatedTransaction);
 
@@ -146,7 +179,6 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
-    @CacheEvict(value = "transactionOverview", key = "#userId + '-' + #month.toString()")
     public void deleteTransaction(int id) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found with ID: " + id));
@@ -157,14 +189,12 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "transactionOverview", key = "#userId + '-' + #month.toString()")
     public TransactionResponse recordExpense(CreateTransactionRequest request) {
         return saveTransaction(request, TransactionType.EXPENSE);
     }
 
     @Override
     @Transactional
-    @CacheEvict(value = "transactionOverview", key = "#userId + '-' + #month.toString()")
     public TransactionResponse recordIncome(CreateTransactionRequest request) {
         return saveTransaction(request, TransactionType.INCOME);
     }
@@ -226,5 +256,23 @@ public class TransactionServiceImpl implements TransactionService {
                 .summary(summary)
                 .byDate(byDate)
                 .build();
+    }
+
+    @Override
+    public Page<TransactionResponse> viewHistoryTransactionsGroup(Pageable pageable, Integer groupId) {
+        Page<Transaction> transactions = transactionRepository.findByTypeGroup(TransactionType.INACTIVE,groupId,pageable);
+
+        return transactions.map(transactionMapper::toResponse);
+    }
+
+    @Override
+    public Page<TransactionResponse> viewHistoryTransactionsDate(Pageable pageable, LocalDate startDate, LocalDate endDate) {
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        Page<Transaction> transactions = transactionRepository.findByDate(TransactionType.INACTIVE,startDateTime, endDateTime,pageable);
+
+        return transactions.map(transactionMapper::toResponse);
     }
 }
