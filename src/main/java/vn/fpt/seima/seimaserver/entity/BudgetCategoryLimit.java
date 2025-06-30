@@ -1,14 +1,14 @@
 package vn.fpt.seima.seimaserver.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.ToString;
+import lombok.*;
 
-import java.math.BigDecimal;
-
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
-@ToString
 @Table(name = "budget_category_limit")
 public class BudgetCategoryLimit {
     @Id
@@ -18,12 +18,14 @@ public class BudgetCategoryLimit {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "budget_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @JsonIgnore
     private Budget budget;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
-    @Column(name = "amount_limit", precision = 18, scale = 2, nullable = false)
-    private BigDecimal amountLimit;
 }

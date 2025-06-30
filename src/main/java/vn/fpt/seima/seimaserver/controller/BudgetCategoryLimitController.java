@@ -59,7 +59,7 @@ public class BudgetCategoryLimitController {
     }
 
     @PutMapping("/update/{id}")
-    public ApiResponse<BudgetCategoryLimitResponse> createBudgetCategoryLimit(@RequestBody CreateBudgetCategoryLimitRequest request, @PathVariable int id) {
+    public ApiResponse<BudgetCategoryLimitResponse> updateBudgetCategoryLimit(@RequestBody CreateBudgetCategoryLimitRequest request, @PathVariable int id) {
         try {
             BudgetCategoryLimitResponse budgetUpdate = budgetCategoryLimitService.updateBudgetCategoryLimit(id, request);
 

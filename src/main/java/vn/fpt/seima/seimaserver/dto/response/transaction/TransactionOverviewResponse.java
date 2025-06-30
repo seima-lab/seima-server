@@ -48,6 +48,7 @@ public class TransactionOverviewResponse {
     public static class TransactionItem {
         private Integer transactionId;
         private String categoryName;
+        private String categoryIconUrl;
         private BigDecimal amount;
         private String transactionType;
         private String description;

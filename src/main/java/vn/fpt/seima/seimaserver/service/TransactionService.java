@@ -2,13 +2,11 @@ package vn.fpt.seima.seimaserver.service;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.web.multipart.MultipartFile;
-import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
-import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 
 public interface TransactionService {
@@ -29,6 +27,10 @@ public interface TransactionService {
 
     TransactionResponse transferTransaction(CreateTransactionRequest request);
 
-    TransactionOverviewResponse getTransactionOverview(YearMonth month);
+    TransactionOverviewResponse getTransactionOverview(Integer userId, YearMonth month);
+
+    Page<TransactionResponse> viewHistoryTransactionsGroup(Pageable pageable, Integer groupId);
+
+    Page<TransactionResponse> viewHistoryTransactionsDate(Pageable pageable, LocalDate startDate, LocalDate endDate);
 
 }

@@ -1,6 +1,7 @@
 package vn.fpt.seima.seimaserver.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -54,6 +55,7 @@ public class Category {
 
 
     @OneToMany(mappedBy = "category")
+    @JsonIgnore
     private Set<BudgetCategoryLimit> budgetCategoryLimits;
 
 

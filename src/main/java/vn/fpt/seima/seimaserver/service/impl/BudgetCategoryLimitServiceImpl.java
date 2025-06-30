@@ -57,10 +57,6 @@ public class BudgetCategoryLimitServiceImpl implements BudgetCategoryLimitServic
         Budget budget = budgetRepository.findById(request.getBudgetId())
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found with id: " + request.getBudgetId()));
 
-        if(request.getAmountLimit().compareTo(BigDecimal.ZERO) <= 0){
-            throw new IllegalArgumentException("Overall amount limit must be greater than zero");
-        }
-
         BudgetCategoryLimit budgetCategoryLimit = budgetCategoryLimitMapper.toEntity(request);
         budgetCategoryLimit.setCategory(category);
         budgetCategoryLimit.setBudget(budget);
@@ -81,10 +77,6 @@ public class BudgetCategoryLimitServiceImpl implements BudgetCategoryLimitServic
         Budget budget = budgetRepository.findById(request.getBudgetId())
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found with id: " + request.getBudgetId()));
 
-        if(request.getAmountLimit().compareTo(BigDecimal.ZERO) <= 0){
-            throw new IllegalArgumentException("Overall amount limit must be greater than zero");
-        }
-
         budgetCategoryLimitMapper.updateBudgetFromDto(request, existingBudget);
         existingBudget.setBudget(budget);
         existingBudget.setCategory(category);
@@ -100,4 +92,5 @@ public class BudgetCategoryLimitServiceImpl implements BudgetCategoryLimitServic
 
         budgetCategoryLimitRepository.deleteById(id);
     }
+
 }
