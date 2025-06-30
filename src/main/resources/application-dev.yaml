@@ -15,17 +15,20 @@ app:
   datasource:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-    url: jdbc:mysql://localhost:3306/seima_database_v1.4?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/seima_database_official?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     driver-class-name: com.mysql.cj.jdbc.Driver
   oauth2:
     redirect-uri: seimaapp://auth/success
   email:
     otp-register:
       html-template: "user-otp-verify"
-      subject: "Seima - OTP Registration"
+      subject: "Seima - Account Verification"
     password-reset:
       html-template: "password-reset-otp"
-      subject: "Seima - Đặt Lại Mật Khẩu"
+      subject: "Seima - Password Reset"
+    group-invitation:
+      html-template: "group-invitation"
+      subject: "Seima - Group Invitation"
 
 # Server configuration
 server:

@@ -5,8 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.thymeleaf.context.Context;
 import vn.fpt.seima.seimaserver.config.base.AppProperties;
+import vn.fpt.seima.seimaserver.dto.request.group.EmailInvitationRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.JoinGroupRequest;
+import vn.fpt.seima.seimaserver.dto.response.group.EmailInvitationResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.InvitationDetailsResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.JoinGroupResponse;
@@ -18,7 +21,10 @@ import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.exception.GroupException;
 import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
 import vn.fpt.seima.seimaserver.repository.GroupRepository;
+import vn.fpt.seima.seimaserver.repository.UserRepository;
+import vn.fpt.seima.seimaserver.service.EmailService;
 import vn.fpt.seima.seimaserver.service.GroupInvitationService;
+import vn.fpt.seima.seimaserver.service.GroupPermissionService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.time.LocalDateTime;
@@ -35,6 +41,9 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
     
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
+    private final UserRepository userRepository;
+    private final EmailService emailService;
+    private final GroupPermissionService groupPermissionService;
     private final AppProperties appProperties;
     
     @Override
@@ -306,5 +315,188 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
         response.setUserAvatarUrl(user.getUserAvatarUrl());
         response.setRole(groupMember.getRole());
         return response;
+    }
+    
+    @Override
+    @Transactional
+    public EmailInvitationResponse sendEmailInvitation(EmailInvitationRequest request) {
+        log.info("Processing email invitation for group: {} to email: {}", request.getGroupId(), request.getEmail());
+        
+        // Validate request
+        validateEmailInvitationRequest(request);
+        
+        // Get current user (inviter)
+        User currentUser = getCurrentUser();
+        
+        // Validate group and inviter permissions
+        Group group = validateGroupAndInviterPermissions(request.getGroupId(), currentUser);
+        
+        // Check if target user exists
+        Optional<User> targetUserOpt = userRepository.findByUserEmailAndUserIsActiveTrue(request.getEmail());
+        
+        if (targetUserOpt.isEmpty()) {
+            log.warn("User with email {} not found or inactive", request.getEmail());
+            return buildUserNotExistsResponse(request, group);
+        }
+        
+        User targetUser = targetUserOpt.get();
+        
+        // Check if user is already a member
+        validateTargetUserMembership(targetUser.getUserId(), group.getGroupId());
+        
+        // Send email invitation
+        boolean emailSent = sendInvitationEmail(request, group, currentUser, targetUser);
+        
+        // Build response
+        String inviteLink = buildInviteLink(group.getGroupInviteCode());
+        
+        EmailInvitationResponse response = EmailInvitationResponse.builder()
+                .groupId(group.getGroupId())
+                .groupName(group.getGroupName())
+                .invitedEmail(request.getEmail())
+                .inviteLink(inviteLink)
+                .emailSent(emailSent)
+                .userExists(true)
+                .message(emailSent ? "Invitation sent successfully" : "Failed to send invitation email")
+                .build();
+        
+        log.info("Email invitation processed for group: {} to email: {} - emailSent: {}", 
+                request.getGroupId(), request.getEmail(), emailSent);
+        
+        return response;
+    }
+    
+    /**
+     * Validate email invitation request
+     */
+    private void validateEmailInvitationRequest(EmailInvitationRequest request) {
+        if (request == null) {
+            throw new GroupException("Email invitation request cannot be null");
+        }
+        
+        if (request.getGroupId() == null) {
+            throw new GroupException("Group ID is required");
+        }
+        
+        if (!StringUtils.hasText(request.getEmail())) {
+            throw new GroupException("Email is required");
+        }
+        
+        // Basic email format validation (additional to @Email annotation)
+        String email = request.getEmail().trim().toLowerCase();
+        if (!email.matches("^[A-Za-z0-9+_.-]+@([A-Za-z0-9.-]+\\.[A-Za-z]{2,})$")) {
+            throw new GroupException("Invalid email format");
+        }
+    }
+    
+    /**
+     * Validate group exists, is active, and current user has permission to invite
+     */
+    private Group validateGroupAndInviterPermissions(Integer groupId, User currentUser) {
+        // Find and validate group
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new GroupException("Group not found"));
+        
+        // Check if group is active
+        if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+            throw new GroupException("Group not found");
+        }
+        
+        // Check current user's membership and role
+        Optional<GroupMember> currentUserMembership = groupMemberRepository.findByUserIdAndGroupId(
+                currentUser.getUserId(), groupId);
+        
+        if (currentUserMembership.isEmpty() || 
+            currentUserMembership.get().getStatus() != GroupMemberStatus.ACTIVE) {
+            throw new GroupException("You are not an active member of this group");
+        }
+        
+        GroupMemberRole currentUserRole = currentUserMembership.get().getRole();
+        
+        // Use permission service to check if user can invite members
+        if (!groupPermissionService.canInviteMembers(currentUserRole)) {
+            throw new GroupException("You don't have permission to invite members to this group");
+        }
+        
+        return group;
+    }
+    
+    /**
+     * Validate target user is not already a member
+     */
+    private void validateTargetUserMembership(Integer targetUserId, Integer groupId) {
+        // Check if user is already an active member
+        if (groupMemberRepository.existsByUserAndGroupAndStatus(targetUserId, groupId, GroupMemberStatus.ACTIVE)) {
+            throw new GroupException("User is already a member of this group");
+        }
+        
+        // Check if user was previously a member and handle gracefully
+        Optional<GroupMember> existingMembership = groupMemberRepository.findByUserIdAndGroupId(targetUserId, groupId);
+        if (existingMembership.isPresent()) {
+            GroupMemberStatus status = existingMembership.get().getStatus();
+            if (status == GroupMemberStatus.PENDING) {
+                throw new GroupException("User already has a pending invitation to this group");
+            }
+            // If status is LEFT or REMOVED, they can be invited again
+        }
+    }
+    
+    /**
+     * Send invitation email to target user
+     */
+    private boolean sendInvitationEmail(EmailInvitationRequest request, Group group, User inviter, User targetUser) {
+        try {
+            // Get member count
+            Long memberCount = groupMemberRepository.countActiveGroupMembers(
+                    group.getGroupId(), GroupMemberStatus.ACTIVE);
+            
+            // Build invite link
+            String inviteLink = buildInviteLink(group.getGroupInviteCode());
+            
+            // Prepare email context
+            Context context = new Context();
+            context.setVariable("inviterName", inviter.getUserFullName());
+            context.setVariable("groupName", group.getGroupName());
+            context.setVariable("groupAvatarUrl", group.getGroupAvatarUrl());
+            context.setVariable("memberCount", memberCount.intValue());
+            context.setVariable("inviteLink", inviteLink);
+            context.setVariable("appName", appProperties.getLabName());
+            
+
+            
+            // Send email
+            String subject = String.format("Group invitation to '%s' on %s", 
+                    group.getGroupName(), appProperties.getLabName());
+            
+            emailService.sendEmailWithHtmlTemplate(
+                    targetUser.getUserEmail(),
+                    subject,
+                    "group-invitation",
+                    context
+            );
+            
+            log.info("Invitation email sent successfully to: {}", targetUser.getUserEmail());
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Failed to send invitation email to: {} for group: {}", 
+                    targetUser.getUserEmail(), group.getGroupId(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * Build response when user doesn't exist
+     */
+    private EmailInvitationResponse buildUserNotExistsResponse(EmailInvitationRequest request, Group group) {
+        return EmailInvitationResponse.builder()
+                .groupId(group.getGroupId())
+                .groupName(group.getGroupName())
+                .invitedEmail(request.getEmail())
+                .inviteLink(null)
+                .emailSent(false)
+                .userExists(false)
+                .message("User account does not exist. User needs to register an account before joining the group.")
+                .build();
     }
 } 

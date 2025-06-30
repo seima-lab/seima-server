@@ -23,10 +23,13 @@ app:
   email:
     otp-register:
       html-template: "user-otp-verify"
-      subject: "Seima - OTP Registration"
+      subject: "Seima - Account Verification"
     password-reset:
       html-template: "password-reset-otp"
-      subject: "Seima - Đặt Lại Mật Khẩu"
+      subject: "Seima - Password Reset"
+    group-invitation:
+      html-template: "group-invitation"
+      subject: "Seima - Group Invitation"
 
 # Server configuration
 server:

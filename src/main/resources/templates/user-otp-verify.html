@@ -59,33 +59,33 @@
 </head>
 <body>
 <div class="container">
-    <h1>🎉 Xác Thực Tài Khoản</h1>
+    <h1>🎉 Account Verification</h1>
     
-    <p>Xin chào <strong th:text="${userName}">User</strong>,</p>
+    <p>Hello <strong th:text="${userName}">User</strong>,</p>
     
-    <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong th:text="${appName}">Seima Lab</strong>.</p>
+    <p>Thank you for registering an account at <strong th:text="${appName}">Seima Lab</strong>.</p>
     
-    <p>Để hoàn tất quá trình đăng ký, vui lòng sử dụng mã OTP sau:</p>
+    <p>To complete the registration process, please use the following OTP code:</p>
     
     <div class="otp-code">
         <span th:text="${otpRegister}">123456</span>
     </div>
     
     <div class="warning">
-        <strong>ℹ️ Lưu ý quan trọng:</strong>
+        <strong>ℹ️ Important Notes:</strong>
         <ul style="margin: 5px 0; padding-left: 20px;">
-            <li>Mã OTP này chỉ có hiệu lực trong <strong>3 phút</strong></li>
-            <li>Không chia sẻ mã này với bất kỳ ai</li>
-            <li>Nếu bạn không thực hiện đăng ký này, vui lòng bỏ qua email</li>
+            <li>This OTP code is only valid for <strong>3 minutes</strong></li>
+            <li>Do not share this code with anyone</li>
+            <li>If you did not register this account, please ignore this email</li>
         </ul>
     </div>
     
-    <p>Sau khi nhập mã OTP, tài khoản của bạn sẽ được kích hoạt và bạn có thể bắt đầu sử dụng dịch vụ của chúng tôi.</p>
+    <p>After entering the OTP code, your account will be activated and you can start using our services.</p>
     
     <div class="footer">
-        <p>Nếu bạn có bất kỳ câu hỏi nào, đừng ngần ngại liên hệ với chúng tôi.</p>
-        <p>Trân trọng,<br/>
-        <strong>Đội ngũ <span th:text="${appName}">Seima Lab</span></strong></p>
+        <p>If you have any questions, don't hesitate to contact us.</p>
+        <p>Best regards,<br/>
+        <strong>The <span th:text="${appName}">Seima Lab</span> Team</strong></p>
     </div>
 </div>
 </body>
