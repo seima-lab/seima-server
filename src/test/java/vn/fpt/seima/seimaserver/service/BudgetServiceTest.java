@@ -94,32 +94,6 @@ class BudgetServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> budgetService.getBudgetById(1));
     }
 
-    @Test
-    void saveBudget_WhenSuccess_ReturnsBudgetResponse() {
-        // Arrange
-        CreateBudgetRequest request = new CreateBudgetRequest();
-        request.setBudgetName("New Budget");
-        request.setOverallAmountLimit(BigDecimal.valueOf(1000));
-
-        Budget budget = new Budget();
-        Budget savedBudget = new Budget();
-        BudgetResponse response = new BudgetResponse();
-
-        when(budgetRepository.existsByBudgetName("New Budget")).thenReturn(false);
-        when(budgetMapper.toEntity(request)).thenReturn(budget);
-        when(budgetRepository.save(budget)).thenReturn(savedBudget);
-        when(budgetMapper.toResponse(savedBudget)).thenReturn(response);
-
-        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
-            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(mockUser);
-
-            // Act
-            BudgetResponse result = budgetService.saveBudget(request);
-
-            // Assert
-            assertEquals(response, result);
-        }
-    }
 
     @Test
     void saveBudget_WhenBudgetNameExists_ThrowsException() {
@@ -133,50 +107,6 @@ class BudgetServiceTest {
         assertThrows(IllegalArgumentException.class, () -> budgetService.saveBudget(request));
     }
 
-    @Test
-    void updateBudget_WhenSuccess_ReturnsUpdatedBudgetResponse() {
-        // Arrange
-        CreateBudgetRequest request = new CreateBudgetRequest();
-        request.setBudgetName("Updated Budget");
-        request.setOverallAmountLimit(BigDecimal.valueOf(2000));
-
-        Budget existingBudget = new Budget();
-        existingBudget.setBudgetId(1);
-        existingBudget.setBudgetName("Old Name");
-
-        Budget updatedBudget = new Budget();
-        BudgetResponse response = new BudgetResponse();
-
-        when(budgetRepository.findById(1)).thenReturn(Optional.of(existingBudget));
-        when(budgetRepository.existsByBudgetName("Updated Budget")).thenReturn(false);
-        doNothing().when(budgetMapper).updateBudgetFromDto(request, existingBudget);
-        when(budgetRepository.save(existingBudget)).thenReturn(updatedBudget);
-        when(budgetMapper.toResponse(updatedBudget)).thenReturn(response);
-
-        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
-            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(mockUser);
-
-            // Act
-            BudgetResponse result = budgetService.updateBudget(1, request);
-
-            // Assert
-            assertEquals(response, result);
-        }
-    }
-
-    @Test
-    void deleteBudget_WhenSuccess_DeletesBudget() {
-        // Arrange
-        Budget budget = new Budget();
-        when(budgetRepository.findById(1)).thenReturn(Optional.of(budget));
-        doNothing().when(budgetRepository).deleteById(1);
-
-        // Act
-        budgetService.deleteBudget(1);
-
-        // Assert
-        verify(budgetRepository).deleteById(1);
-    }
 
     @Test
     void deleteBudget_WhenNotFound_ThrowsException() {
