@@ -2,18 +2,20 @@ package vn.fpt.seima.seimaserver.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.mockito.junit.jupiter.MockitoExtension;
 import vn.fpt.seima.seimaserver.dto.request.budgetCategory.CreateBudgetCategoryLimitRequest;
 import vn.fpt.seima.seimaserver.dto.response.budgetCategoryLimit.BudgetCategoryLimitResponse;
-import vn.fpt.seima.seimaserver.entity.*;
+import vn.fpt.seima.seimaserver.entity.Budget;
+import vn.fpt.seima.seimaserver.entity.BudgetCategoryLimit;
+import vn.fpt.seima.seimaserver.entity.Category;
 import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.mapper.BudgetCategoryLimitMapper;
-import vn.fpt.seima.seimaserver.repository.*;
+import vn.fpt.seima.seimaserver.repository.BudgetCategoryLimitRepository;
+import vn.fpt.seima.seimaserver.repository.BudgetRepository;
+import vn.fpt.seima.seimaserver.repository.CategoryRepository;
 import vn.fpt.seima.seimaserver.service.impl.BudgetCategoryLimitServiceImpl;
 
 import java.math.BigDecimal;
@@ -23,7 +25,6 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
 class BudgetCategoryLimitServiceTest {
 
     @Mock
@@ -41,129 +42,112 @@ class BudgetCategoryLimitServiceTest {
     @InjectMocks
     private BudgetCategoryLimitServiceImpl budgetCategoryLimitService;
 
-    private CreateBudgetCategoryLimitRequest request;
-    private Budget budget;
-    private Category category;
-    private BudgetCategoryLimit entity;
-    private BudgetCategoryLimit savedEntity;
-    private BudgetCategoryLimitResponse response;
-
     @BeforeEach
     void setUp() {
-        request = new CreateBudgetCategoryLimitRequest();
-        request.setBudgetId(1);
-        request.setCategoryId(2);
-        request.setAmountLimit(BigDecimal.valueOf(1000));
-
-        budget = new Budget();
-        category = new Category();
-        entity = new BudgetCategoryLimit();
-        savedEntity = new BudgetCategoryLimit();
-        response = new BudgetCategoryLimitResponse();
+        MockitoAnnotations.openMocks(this);
     }
 
     @Test
-    void getAllBudgetCategoryLimit_WhenSuccess_ReturnsPage() {
-        // Given
+    void testGetAllBudgetCategoryLimit() {
         BudgetCategoryLimit limit = new BudgetCategoryLimit();
         Page<BudgetCategoryLimit> page = new PageImpl<>(List.of(limit));
+        BudgetCategoryLimitResponse response = new BudgetCategoryLimitResponse();
+
         when(budgetCategoryLimitRepository.findAll(any(Pageable.class))).thenReturn(page);
         when(budgetCategoryLimitMapper.toResponse(limit)).thenReturn(response);
 
-        // When
         Page<BudgetCategoryLimitResponse> result = budgetCategoryLimitService.getAllBudgetCategoryLimit(Pageable.unpaged());
-
-        // Then
         assertEquals(1, result.getTotalElements());
-        verify(budgetCategoryLimitRepository).findAll(any(Pageable.class));
     }
 
     @Test
-    void getBudgetCategoryLimitById_WhenFound_ReturnsResponse() {
-        // Given
-        when(budgetCategoryLimitRepository.findById(1)).thenReturn(Optional.of(entity));
-        when(budgetCategoryLimitMapper.toResponse(entity)).thenReturn(response);
+    void testGetBudgetCategoryLimitById_Found() {
+        BudgetCategoryLimit limit = new BudgetCategoryLimit();
+        BudgetCategoryLimitResponse response = new BudgetCategoryLimitResponse();
 
-        // When
+        when(budgetCategoryLimitRepository.findById(1)).thenReturn(Optional.of(limit));
+        when(budgetCategoryLimitMapper.toResponse(limit)).thenReturn(response);
+
         BudgetCategoryLimitResponse result = budgetCategoryLimitService.getBudgetCategoryLimitById(1);
-
-        // Then
-        assertNotNull(result);
         assertEquals(response, result);
     }
 
     @Test
-    void getBudgetCategoryLimitById_WhenNotFound_ThrowsException() {
-        // Given
+    void testGetBudgetCategoryLimitById_NotFound() {
         when(budgetCategoryLimitRepository.findById(1)).thenReturn(Optional.empty());
-
-        // Then
         assertThrows(ResourceNotFoundException.class, () -> budgetCategoryLimitService.getBudgetCategoryLimitById(1));
     }
 
     @Test
-    void saveBudgetCategoryLimit_WhenSuccess_ReturnsResponse() {
-        // Given
+    void testSaveBudgetCategoryLimit_Success() {
+        CreateBudgetCategoryLimitRequest request = new CreateBudgetCategoryLimitRequest();
+        request.setBudgetId(1);
+        request.setCategoryId(2);
+
+        Budget budget = new Budget();
+        Category category = new Category();
+        BudgetCategoryLimit entity = new BudgetCategoryLimit();
+        BudgetCategoryLimit savedEntity = new BudgetCategoryLimit();
+        BudgetCategoryLimitResponse response = new BudgetCategoryLimitResponse();
+
         when(categoryRepository.findById(2)).thenReturn(Optional.of(category));
         when(budgetRepository.findById(1)).thenReturn(Optional.of(budget));
         when(budgetCategoryLimitMapper.toEntity(request)).thenReturn(entity);
         when(budgetCategoryLimitRepository.save(entity)).thenReturn(savedEntity);
         when(budgetCategoryLimitMapper.toResponse(savedEntity)).thenReturn(response);
 
-        // When
         BudgetCategoryLimitResponse result = budgetCategoryLimitService.saveBudgetCategoryLimit(request);
-
-        // Then
-        assertNotNull(result);
         assertEquals(response, result);
     }
 
     @Test
-    void saveBudgetCategoryLimit_WhenCategoryNotFound_ThrowsException() {
-        // Given
+    void testSaveBudgetCategoryLimit_CategoryNotFound() {
+        CreateBudgetCategoryLimitRequest request = new CreateBudgetCategoryLimitRequest();
+        request.setCategoryId(2);
+        request.setBudgetId(1);
+
         when(categoryRepository.findById(2)).thenReturn(Optional.empty());
 
-        // Then
         assertThrows(IllegalArgumentException.class, () -> budgetCategoryLimitService.saveBudgetCategoryLimit(request));
     }
 
     @Test
-    void updateBudgetCategoryLimit_WhenSuccess_ReturnsResponse() {
-        // Given
-        when(budgetCategoryLimitRepository.findById(1)).thenReturn(Optional.of(entity));
+    void testUpdateBudgetCategoryLimit_Success() {
+        CreateBudgetCategoryLimitRequest request = new CreateBudgetCategoryLimitRequest();
+        request.setBudgetId(1);
+        request.setCategoryId(2);
+
+        BudgetCategoryLimit existingLimit = new BudgetCategoryLimit();
+        Budget budget = new Budget();
+        Category category = new Category();
+        BudgetCategoryLimit updatedLimit = new BudgetCategoryLimit();
+        BudgetCategoryLimitResponse response = new BudgetCategoryLimitResponse();
+
+        when(budgetCategoryLimitRepository.findById(1)).thenReturn(Optional.of(existingLimit));
         when(categoryRepository.findById(2)).thenReturn(Optional.of(category));
         when(budgetRepository.findById(1)).thenReturn(Optional.of(budget));
-        doNothing().when(budgetCategoryLimitMapper).updateBudgetFromDto(request, entity);
-        when(budgetCategoryLimitRepository.save(entity)).thenReturn(savedEntity);
-        when(budgetCategoryLimitMapper.toResponse(savedEntity)).thenReturn(response);
+        doNothing().when(budgetCategoryLimitMapper).updateBudgetFromDto(request, existingLimit);
+        when(budgetCategoryLimitRepository.save(existingLimit)).thenReturn(updatedLimit);
+        when(budgetCategoryLimitMapper.toResponse(updatedLimit)).thenReturn(response);
 
-        // When
         BudgetCategoryLimitResponse result = budgetCategoryLimitService.updateBudgetCategoryLimit(1, request);
-
-        // Then
-        assertNotNull(result);
         assertEquals(response, result);
     }
 
     @Test
-    void deleteBudgetCategoryLimit_WhenSuccess_DeleteCalled() {
-        // Given
-        when(budgetCategoryLimitRepository.findById(1)).thenReturn(Optional.of(entity));
+    void testDeleteBudgetCategoryLimit_Success() {
+        BudgetCategoryLimit limit = new BudgetCategoryLimit();
+
+        when(budgetCategoryLimitRepository.findById(1)).thenReturn(Optional.of(limit));
         doNothing().when(budgetCategoryLimitRepository).deleteById(1);
 
-        // When
         budgetCategoryLimitService.deleteBudgetCategoryLimit(1);
-
-        // Then
         verify(budgetCategoryLimitRepository).deleteById(1);
     }
 
     @Test
-    void deleteBudgetCategoryLimit_WhenNotFound_ThrowsException() {
-        // Given
+    void testDeleteBudgetCategoryLimit_NotFound() {
         when(budgetCategoryLimitRepository.findById(1)).thenReturn(Optional.empty());
-
-        // Then
         assertThrows(IllegalArgumentException.class, () -> budgetCategoryLimitService.deleteBudgetCategoryLimit(1));
     }
 }

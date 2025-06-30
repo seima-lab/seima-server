@@ -59,7 +59,7 @@ public class BudgetController {
     }
 
     @PutMapping("/update/{id}")
-    public ApiResponse<BudgetResponse> createBudget(@RequestBody CreateBudgetRequest request, @PathVariable int id) {
+    public ApiResponse<BudgetResponse> updateBudget(@RequestBody CreateBudgetRequest request, @PathVariable int id) {
         try {
             BudgetResponse budgetUpdate = budgetService.updateBudget(id, request);
 
@@ -75,12 +75,11 @@ public class BudgetController {
     public ApiResponse<BudgetResponse> deleteBudget(@PathVariable("id") int id) {
         try {
             budgetService.deleteBudget(id);
-
             return new ApiResponse<>(200, "Budget deleted successfully", null);
         } catch (IllegalArgumentException ex) {
             return new ApiResponse<>(404, ex.getMessage(), null);
         } catch (Exception ex) {
-            return new ApiResponse<>(500, "An unexpected error occurred", null);
+            return new ApiResponse<>(500, ex.getMessage(), null);
         }
     }
 } 

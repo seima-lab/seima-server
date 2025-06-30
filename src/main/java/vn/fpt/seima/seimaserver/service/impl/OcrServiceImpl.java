@@ -8,11 +8,16 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import vn.fpt.seima.seimaserver.config.ocr.AzureFormRecognizerConfig;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOcrResponse;
+import vn.fpt.seima.seimaserver.exception.GroupException;
 import vn.fpt.seima.seimaserver.service.CloudinaryService;
 import vn.fpt.seima.seimaserver.service.GeminiService;
 import vn.fpt.seima.seimaserver.service.OcrService;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+
+import static com.google.common.io.Files.getFileExtension;
 
 @Service
 @AllArgsConstructor
@@ -24,9 +29,11 @@ public class OcrServiceImpl implements OcrService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final HttpHeaders headers = new HttpHeaders();
     private final static String endPointUrl = "formrecognizer/documentModels/prebuilt-invoice:analyze?api-version=2023-07-31";
+    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    private static final List<String> SUPPORTED_FORMATS = Arrays.asList("jpg", "jpeg", "png");
     @Override
     public TransactionOcrResponse extractTextFromFile(MultipartFile file) throws Exception {
-
+        validateImageFile(file);
         String analyzeUrl = config.getEndpoint() +endPointUrl;
 
         headers.set("Ocp-Apim-Subscription-Key", config.getApiKey());
@@ -57,6 +64,34 @@ public class OcrServiceImpl implements OcrService {
         );
       return  geminiService.analyzeInvoiceFromOcrText(resultResponse.getBody(), imageUrl);
 
+    }
+
+    private void validateImageFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new GroupException("Image file cannot be null or empty");
+        }
+
+        // Check file size
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new GroupException("Image file size must be less than 5MB");
+        }
+
+        // Check file format
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null) {
+            throw new GroupException("Invalid image file");
+        }
+
+        String fileExtension = getFileExtension(originalFilename).toLowerCase();
+        if (!SUPPORTED_FORMATS.contains(fileExtension)) {
+            throw new GroupException("Unsupported image format. Supported formats: " + String.join(", ", SUPPORTED_FORMATS));
+        }
+
+        // Check MIME type
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new GroupException("File must be an image");
+        }
     }
 
 }

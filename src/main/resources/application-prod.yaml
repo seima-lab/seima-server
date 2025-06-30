@@ -94,7 +94,7 @@ jwt:
   secret: aVeryLongAndRandomStringForHS512IsNeededHerePleaseMakeItSecure1234567890!@#$%^&*()_+
   access:
     token:
-      expiration: 7200 # in seconds (2 hours)
+      expiration: 3600 # in seconds
   refresh:
     token:
       expiration: 604800 # in seconds (7 days)
