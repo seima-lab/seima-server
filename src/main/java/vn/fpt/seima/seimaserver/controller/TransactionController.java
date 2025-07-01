@@ -13,6 +13,7 @@ import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOcrResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionReportResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.service.OcrService;
@@ -150,6 +151,20 @@ public class TransactionController {
             Pageable pageable = PageRequest.of(page, size);
             Page<TransactionResponse> transactions = transactionService.viewHistoryTransactionsDate(pageable, startDate,endDate);
 
+            return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
+        } catch (Exception ex) {
+            return new ApiResponse<>(500, ex.getMessage(), null);
+        }
+    }
+
+    @GetMapping("/view-report")
+    public ApiResponse<TransactionReportResponse> viewReportTransactions(
+            @RequestParam(required = false) Integer categoryId,
+            @RequestParam(value = "startDate") LocalDate startDate,
+            @RequestParam(value = "endDate") LocalDate endDate
+    ) {
+        try {
+            TransactionReportResponse transactions = transactionService.getTransactionReport(categoryId,startDate,endDate);
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
         } catch (Exception ex) {
             return new ApiResponse<>(500, ex.getMessage(), null);

@@ -9,6 +9,7 @@ import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOcrResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionReportResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 import vn.fpt.seima.seimaserver.entity.Budget;
 import vn.fpt.seima.seimaserver.entity.Transaction;
@@ -39,7 +40,9 @@ public interface TransactionMapper {
     @Mapping(target = "transactionDate", source = "transactionDate")
     TransactionOverviewResponse.TransactionItem toTransactionItem(Transaction transaction);
 
-    List<TransactionOverviewResponse.TransactionItem> toTransactionItems(List<Transaction> transactions);
 
-    TransactionOcrResponse toTransactionOcrResponse(Transaction transaction);
+    @Mapping(target = "categoryName", source = "category.categoryName")
+    @Mapping(target = "categoryIconUrl", source = "category.categoryIconUrl")
+    @Mapping(target = "amount", source = "amount")
+    TransactionReportResponse.ReportByCategory toTransactionReportByCategory(Transaction transaction);
 }
