@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionReportResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
@@ -22,6 +23,7 @@ import vn.fpt.seima.seimaserver.service.WalletService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -274,5 +276,77 @@ public class TransactionServiceImpl implements TransactionService {
         Page<Transaction> transactions = transactionRepository.findByDate(TransactionType.INACTIVE,startDateTime, endDateTime,pageable);
 
         return transactions.map(transactionMapper::toResponse);
+    }
+
+    @Override
+    public TransactionReportResponse getTransactionReport(Integer categoryId,LocalDate startDate, LocalDate endDate) {
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        List<Transaction> transactions =
+                transactionRepository.listReportByUserAndCategoryAndTransactionDateBetween(currentUser,categoryId, startDateTime, endDateTime );
+
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        BigDecimal totalExpense = BigDecimal.ZERO;
+
+        Map<String, Map<Integer, TransactionReportResponse.ReportByCategory>> groupedByTypeAndCategory = new HashMap<>();
+        groupedByTypeAndCategory.put("income", new HashMap<>());
+        groupedByTypeAndCategory.put("expense", new HashMap<>());
+
+        for (Transaction t : transactions) {
+            String typeKey = t.getTransactionType().name().toLowerCase();
+            BigDecimal amount = t.getAmount();
+            Integer categoryIdKey = t.getCategory().getCategoryId();
+
+            if (t.getTransactionType() == TransactionType.EXPENSE) {
+                totalExpense = totalExpense.add(amount);
+            } else if (t.getTransactionType() == TransactionType.INCOME) {
+                totalIncome = totalIncome.add(amount);
+            }
+
+            Map<Integer, TransactionReportResponse.ReportByCategory> mapByCategory = groupedByTypeAndCategory.get(typeKey);
+            TransactionReportResponse.ReportByCategory report = mapByCategory.get(categoryIdKey);
+
+            if (report == null) {
+                report = TransactionReportResponse.ReportByCategory.builder()
+                        .categoryName(t.getCategory().getCategoryName())
+                        .categoryIconUrl(t.getCategory().getCategoryIconUrl())
+                        .amount(amount)
+                        .build();
+                mapByCategory.put(categoryIdKey, report);
+            } else {
+                report.setAmount(report.getAmount().add(amount));
+            }
+        }
+        Map<String, List<TransactionReportResponse.ReportByCategory>> transactionTypeMap = new HashMap<>();
+        for (String type : groupedByTypeAndCategory.keySet()) {
+            BigDecimal total = type.equals("expense") ? totalExpense : totalIncome;
+            List<TransactionReportResponse.ReportByCategory> reportList = new ArrayList<>();
+
+            for (TransactionReportResponse.ReportByCategory report : groupedByTypeAndCategory.get(type).values()) {
+                double percent = total.compareTo(BigDecimal.ZERO) == 0 ? 0 :
+                        report.getAmount().multiply(BigDecimal.valueOf(100))
+                                .divide(total, 1, RoundingMode.HALF_UP)
+                                .doubleValue();
+                report.setPercentage(percent);
+                reportList.add(report);
+            }
+
+            transactionTypeMap.put(type, reportList);
+        }
+        TransactionReportResponse.Summary summary = TransactionReportResponse.Summary.builder()
+                .totalIncome(totalIncome)
+                .totalExpense(totalExpense)
+                .balance(totalIncome.subtract(totalExpense))
+                .build();
+
+        return TransactionReportResponse.builder()
+                .summary(summary)
+                .transactionsByCategory(transactionTypeMap)
+                .build();
     }
 }
