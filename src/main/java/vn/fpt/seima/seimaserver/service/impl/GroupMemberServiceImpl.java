@@ -4,9 +4,13 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.fpt.seima.seimaserver.dto.request.group.AcceptGroupMemberRequest;
+import vn.fpt.seima.seimaserver.dto.request.group.RejectGroupMemberRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.UpdateMemberRoleRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberListResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.PendingGroupMemberListResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.PendingGroupMemberResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.GroupException;
 import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
@@ -102,6 +106,181 @@ public class GroupMemberServiceImpl implements GroupMemberService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PendingGroupMemberListResponse getPendingGroupMembers(Integer groupId) {
+        log.info("Getting pending member requests for group ID: {}", groupId);
+
+        // Validate input
+        if (groupId == null) {
+            throw new GroupException("Group ID cannot be null");
+        }
+
+        // Get current user
+        User currentUser = getCurrentUser();
+
+        // Find and validate group
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new GroupException("Group not found"));
+
+        // Check if group is active
+        if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+            throw new GroupException("Group not found");
+        }
+
+        // Get current user's membership and role
+        GroupMember currentMember = groupMemberRepository.findByUserAndGroupAndStatus(
+                        currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE)
+                .orElseThrow(() -> new GroupException("You are not a member of this group"));
+
+        // Check if current user has permission to view pending requests (only OWNER and ADMIN)
+        if (!groupPermissionService.canViewPendingRequests(currentMember.getRole())) {
+            throw new GroupException("You don't have permission to view pending member requests. Only admins and owners can view pending requests.");
+        }
+
+        // Get all pending members
+        List<GroupMember> pendingMembers = groupMemberRepository.findPendingGroupMembers(
+                groupId, GroupMemberStatus.PENDING_APPROVAL);
+
+        // Map to response DTOs
+        List<PendingGroupMemberResponse> pendingResponses = pendingMembers.stream()
+                .map(this::mapToPendingGroupMemberResponse)
+                .collect(Collectors.toList());
+
+        // Get total pending count
+        Long totalPendingCount = groupMemberRepository.countPendingGroupMembers(
+                groupId, GroupMemberStatus.PENDING_APPROVAL);
+
+        return PendingGroupMemberListResponse.builder()
+                .groupId(group.getGroupId())
+                .groupName(group.getGroupName())
+                .totalPendingCount(totalPendingCount.intValue())
+                .pendingMembers(pendingResponses)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void acceptGroupMemberRequest(Integer groupId, AcceptGroupMemberRequest request) {
+        // Validate input first
+        validateAcceptRequestInput(groupId, request);
+        
+        log.info("Accepting group member request for group ID: {}, user ID: {}", groupId, request.getUserId());
+
+        // Get current user
+        User currentUser = getCurrentUser();
+
+        // Find and validate group
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new GroupException("Group not found"));
+
+        // Check if group is active
+        if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+            throw new GroupException("Group not found");
+        }
+
+        // Get current user's membership and validate permission
+        GroupMember currentMember = groupMemberRepository.findByUserAndGroupAndStatus(
+                        currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE)
+                .orElseThrow(() -> new GroupException("You are not a member of this group"));
+
+        // Check permission
+        if (!groupPermissionService.canAcceptGroupMemberRequests(currentMember.getRole())) {
+            throw new GroupException("You don't have permission to accept member requests. Only admins and owners can accept requests.");
+        }
+
+        // Find pending member request
+        GroupMember pendingMember = groupMemberRepository.findByUserAndGroupAndStatus(
+                        request.getUserId(), groupId, GroupMemberStatus.PENDING_APPROVAL)
+                .orElseThrow(() -> new GroupException("No pending request found for this user"));
+
+        // Validate user account is still active
+        if (!Boolean.TRUE.equals(pendingMember.getUser().getUserIsActive())) {
+            throw new GroupException("User account is no longer active");
+        }
+
+        // Accept the request: change status to ACTIVE
+        pendingMember.setStatus(GroupMemberStatus.ACTIVE);
+        pendingMember.setRole(GroupMemberRole.MEMBER); // Ensure role is set to MEMBER
+        groupMemberRepository.save(pendingMember);
+
+        log.info("Successfully accepted group member request for user {} in group {}", 
+                request.getUserId(), groupId);
+    }
+
+    @Override
+    @Transactional
+    public void rejectGroupMemberRequest(Integer groupId, RejectGroupMemberRequest request) {
+        // Validate input first
+        validateRejectRequestInput(groupId, request);
+        
+        log.info("Rejecting group member request for group ID: {}, user ID: {}", groupId, request.getUserId());
+
+        // Get current user
+        User currentUser = getCurrentUser();
+
+        // Find and validate group
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new GroupException("Group not found"));
+
+        // Check if group is active
+        if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+            throw new GroupException("Group not found");
+        }
+
+        // Get current user's membership and validate permission
+        GroupMember currentMember = groupMemberRepository.findByUserAndGroupAndStatus(
+                        currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE)
+                .orElseThrow(() -> new GroupException("You are not a member of this group"));
+
+        // Check permission
+        if (!groupPermissionService.canRejectGroupMemberRequests(currentMember.getRole())) {
+            throw new GroupException("You don't have permission to reject member requests. Only admins and owners can reject requests.");
+        }
+
+        // Find pending member request
+        GroupMember pendingMember = groupMemberRepository.findByUserAndGroupAndStatus(
+                        request.getUserId(), groupId, GroupMemberStatus.PENDING_APPROVAL)
+                .orElseThrow(() -> new GroupException("No pending request found for this user"));
+
+        // Reject the request: change status to REJECTED
+        pendingMember.setStatus(GroupMemberStatus.REJECTED);
+        groupMemberRepository.save(pendingMember);
+
+        log.info("Successfully rejected group member request for user {} in group {}", 
+                request.getUserId(), groupId);
+    }
+
+    /**
+     * Validate accept request input parameters
+     */
+    private void validateAcceptRequestInput(Integer groupId, AcceptGroupMemberRequest request) {
+        if (groupId == null) {
+            throw new GroupException("Group ID cannot be null");
+        }
+        if (request == null) {
+            throw new GroupException("Request cannot be null");
+        }
+        if (request.getUserId() == null) {
+            throw new GroupException("User ID cannot be null");
+        }
+    }
+
+    /**
+     * Validate reject request input parameters
+     */
+    private void validateRejectRequestInput(Integer groupId, RejectGroupMemberRequest request) {
+        if (groupId == null) {
+            throw new GroupException("Group ID cannot be null");
+        }
+        if (request == null) {
+            throw new GroupException("Request cannot be null");
+        }
+        if (request.getUserId() == null) {
+            throw new GroupException("User ID cannot be null");
+        }
+    }
+
     /**
      * Map GroupMember entity to GroupMemberResponse DTO
      */
@@ -112,6 +291,20 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         response.setUserFullName(user.getUserFullName());
         response.setUserAvatarUrl(user.getUserAvatarUrl());
         response.setRole(groupMember.getRole());
+        return response;
+    }
+
+    /**
+     * Map GroupMember entity to PendingGroupMemberResponse DTO
+     */
+    private PendingGroupMemberResponse mapToPendingGroupMemberResponse(GroupMember groupMember) {
+        User user = groupMember.getUser();
+        PendingGroupMemberResponse response = new PendingGroupMemberResponse();
+        response.setUserId(user.getUserId());
+        response.setUserFullName(user.getUserFullName());
+        response.setUserAvatarUrl(user.getUserAvatarUrl());
+        response.setUserEmail(user.getUserEmail());
+        response.setRequestedAt(groupMember.getJoinDate());
         return response;
     }
 
