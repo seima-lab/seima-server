@@ -3,6 +3,7 @@ package vn.fpt.seima.seimaserver.service;
 import vn.fpt.seima.seimaserver.dto.request.group.EmailInvitationRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.JoinGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.EmailInvitationResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.GroupInvitationLandingResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.InvitationDetailsResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.JoinGroupResponse;
 
@@ -27,4 +28,12 @@ public interface GroupInvitationService {
      * @return EmailInvitationResponse with invitation details and status
      */
     EmailInvitationResponse sendEmailInvitation(EmailInvitationRequest request);
+    
+    /**
+     * Get landing page data for group invitation
+     * Used for web page: seima.app.com/invite/{inviteCode}
+     * @param inviteCode the invitation code
+     * @return GroupInvitationLandingResponse with group details and Firebase Dynamic Link for join button
+     */
+    GroupInvitationLandingResponse getInvitationLandingPage(String inviteCode);
 } 

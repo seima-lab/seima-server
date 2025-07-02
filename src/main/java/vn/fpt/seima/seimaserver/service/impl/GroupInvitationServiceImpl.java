@@ -7,9 +7,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.thymeleaf.context.Context;
 import vn.fpt.seima.seimaserver.config.base.AppProperties;
+import vn.fpt.seima.seimaserver.dto.request.group.DynamicLinkRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.EmailInvitationRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.JoinGroupRequest;
+import vn.fpt.seima.seimaserver.dto.response.group.DynamicLinkResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.EmailInvitationResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.GroupInvitationLandingResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.InvitationDetailsResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.JoinGroupResponse;
@@ -23,6 +26,7 @@ import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
 import vn.fpt.seima.seimaserver.repository.GroupRepository;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.EmailService;
+import vn.fpt.seima.seimaserver.service.FirebaseDynamicLinkService;
 import vn.fpt.seima.seimaserver.service.GroupInvitationService;
 import vn.fpt.seima.seimaserver.service.GroupPermissionService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
@@ -44,6 +48,7 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final GroupPermissionService groupPermissionService;
+    private final FirebaseDynamicLinkService firebaseDynamicLinkService;
     private final AppProperties appProperties;
     
     @Override
@@ -285,8 +290,9 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
     
     /**
      * Build full invite link from invite code
+     * Now returns landing page URL: domain/invite/{inviteCode}
      * @param inviteCode the invitation code
-     * @return full invite link
+     * @return full invite link to landing page
      */
     private String buildInviteLink(String inviteCode) {
         if (inviteCode == null) {
@@ -304,7 +310,8 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
             baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
         }
         
-        return baseUrl + "/" + inviteCode;
+        // Return landing page URL: domain/invite/{inviteCode}
+        return String.format("%s/invite/%s", baseUrl, inviteCode);
     }
     
     private GroupMemberResponse mapToGroupMemberResponse(GroupMember groupMember) {
@@ -434,7 +441,7 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
         Optional<GroupMember> existingMembership = groupMemberRepository.findByUserIdAndGroupId(targetUserId, groupId);
         if (existingMembership.isPresent()) {
             GroupMemberStatus status = existingMembership.get().getStatus();
-            if (status == GroupMemberStatus.PENDING) {
+            if (status == GroupMemberStatus.PENDING_APPROVAL) {
                 throw new GroupException("User already has a pending invitation to this group");
             }
             // If status is LEFT or REMOVED, they can be invited again
@@ -497,6 +504,129 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
                 .emailSent(false)
                 .userExists(false)
                 .message("User account does not exist. User needs to register an account before joining the group.")
+                .build();
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public GroupInvitationLandingResponse getInvitationLandingPage(String inviteCode) {
+        log.info("Getting landing page data for invite code: {}", inviteCode);
+        
+        try {
+            // Validate input
+            validateInviteCode(inviteCode);
+            
+            // Find group by invite code
+            Optional<Group> groupOpt = groupRepository.findByGroupInviteCodeAndGroupIsActive(inviteCode, true);
+            
+            if (groupOpt.isEmpty()) {
+                log.warn("Group not found or inactive with invite code: {}", inviteCode);
+                return buildInvalidLandingResponse(inviteCode, "Invitation not found or expired");
+            }
+            
+            Group group = groupOpt.get();
+            
+            // Get group leader info
+            Optional<GroupMember> leaderOpt = groupMemberRepository.findGroupOwner(
+                group.getGroupId(), GroupMemberStatus.ACTIVE);
+            
+            GroupMemberResponse leaderResponse = null;
+            if (leaderOpt.isPresent()) {
+                leaderResponse = mapToGroupMemberResponse(leaderOpt.get());
+            }
+            
+            // Get member count
+            Long memberCount = groupMemberRepository.countActiveGroupMembers(
+                group.getGroupId(), GroupMemberStatus.ACTIVE);
+            
+            // Create Firebase Dynamic Link for "Join Group" button
+            DynamicLinkResponse dynamicLinkResponse = createJoinButtonDynamicLink(group, leaderResponse);
+            
+            // Build landing page response
+            return GroupInvitationLandingResponse.builder()
+                    .groupId(group.getGroupId())
+                    .groupName(group.getGroupName())
+                    .groupAvatarUrl(group.getGroupAvatarUrl())
+                    .groupDescription(buildGroupDescription(group.getGroupName(), memberCount.intValue()))
+                    .groupCreatedDate(group.getGroupCreatedDate())
+                    .memberCount(memberCount.intValue())
+                    .groupLeader(leaderResponse)
+                    .inviteCode(inviteCode)
+                    .inviterName(leaderResponse != null ? leaderResponse.getUserFullName() : "Group Admin")
+                    .joinButtonLink(dynamicLinkResponse.getShortLink())
+                    .previewLink(dynamicLinkResponse.getPreviewLink())
+                    .appDownloadUrl("https://seima.app.com/download/android")
+                    .appName(appProperties.getLabName())
+                    .pageTitle(String.format("Join \"%s\" group on %s", group.getGroupName(), appProperties.getLabName()))
+                    .pageDescription(String.format("You've been invited to join \"%s\" group with %d members", 
+                                                  group.getGroupName(), memberCount.intValue()))
+                    .ogImageUrl(group.getGroupAvatarUrl())
+                    .isValidInvitation(true)
+                    .message("Invitation is valid")
+                    .build();
+                    
+        } catch (Exception e) {
+            log.error("Failed to get landing page data for invite code: {}", inviteCode, e);
+            return buildInvalidLandingResponse(inviteCode, "Failed to load invitation details");
+        }
+    }
+    
+    /**
+     * Create Firebase Dynamic Link for "Join Group" button
+     */
+    private DynamicLinkResponse createJoinButtonDynamicLink(Group group, GroupMemberResponse leader) {
+        try {
+            DynamicLinkRequest request = DynamicLinkRequest.builder()
+                    .groupId(group.getGroupId())
+                    .inviteCode(group.getGroupInviteCode())
+                    .groupName(group.getGroupName())
+                    .groupAvatarUrl(group.getGroupAvatarUrl())
+                    .inviterName(leader != null ? leader.getUserFullName() : "Group Admin")
+                    .socialTitle(String.format("Join \"%s\" group", group.getGroupName()))
+                    .socialDescription(String.format("You've been invited to join this group on %s", 
+                                                    appProperties.getLabName()))
+                    .socialImageUrl(group.getGroupAvatarUrl())
+                    .build();
+            
+            return firebaseDynamicLinkService.createGroupJoinLink(request);
+            
+        } catch (Exception e) {
+            log.error("Failed to create dynamic link for group: {}", group.getGroupId(), e);
+            
+            // Fallback to simple link
+            return DynamicLinkResponse.builder()
+                    .groupId(group.getGroupId())
+                    .groupName(group.getGroupName())
+                    .inviteCode(group.getGroupInviteCode())
+                    .shortLink(buildInviteLink(group.getGroupInviteCode()))
+                    .deepLinkUrl(String.format("seimaapp://group/join/%s", group.getGroupInviteCode()))
+                    .androidFallbackUrl("https://seima.app.com/download/android")
+                    .success(false)
+                    .message("Using fallback link")
+                    .build();
+        }
+    }
+    
+    /**
+     * Build group description for landing page
+     */
+    private String buildGroupDescription(String groupName, int memberCount) {
+        return String.format("Join \"%s\" and collaborate with %d other member%s", 
+                           groupName, memberCount, memberCount == 1 ? "" : "s");
+    }
+    
+    /**
+     * Build invalid landing page response
+     */
+    private GroupInvitationLandingResponse buildInvalidLandingResponse(String inviteCode, String message) {
+        return GroupInvitationLandingResponse.builder()
+                .inviteCode(inviteCode)
+                .appDownloadUrl("https://seima.app.com/download/android")
+                .appName(appProperties.getLabName())
+                .pageTitle("Invalid Invitation")
+                .pageDescription("This invitation link is not valid or has expired")
+                .isValidInvitation(false)
+                .message(message)
                 .build();
     }
 } 

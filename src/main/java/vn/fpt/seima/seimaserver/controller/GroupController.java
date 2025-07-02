@@ -30,7 +30,7 @@ public class GroupController {
     }
 
     @GetMapping("/{groupId}")
-    @ResponseStatus(HttpStatus.OK)
+    @ResponseStatus(HttpStatus.OK)       
     public ApiResponse<GroupDetailResponse> getGroupDetail(@PathVariable Integer groupId) {
         GroupDetailResponse groupDetail = groupService.getGroupDetail(groupId);
         return new ApiResponse<>(HttpStatus.OK.value(), "Group detail retrieved successfully", groupDetail);

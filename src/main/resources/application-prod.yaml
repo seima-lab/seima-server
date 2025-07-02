@@ -5,6 +5,8 @@ app:
   lab-name: Seima Lab
   name: seima-server-dev
   port: 8082
+  client:
+    baseUrl: ${BASE_URL_PROD}
   swagger:
     contact-name: Jason Nguyen
     contact-mail: syhaoc2dh@gmail.com
@@ -30,6 +32,7 @@ app:
     group-invitation:
       html-template: "group-invitation"
       subject: "Seima - Group Invitation"
+
 
 # Server configuration
 server:
@@ -124,3 +127,10 @@ azure:
 
 gemini:
   api-key: ${GEMINI_API_KEY}
+
+# Firebase configuration
+firebase:
+  service-account-file: datn-25c1e-firebase-adminsdk-fbsvc-d36df1db70.json
+  web-api-key: ${FIREBASE_WEB_API_KEY}
+  dynamic-links:
+    domain: seimaapp.page.link
