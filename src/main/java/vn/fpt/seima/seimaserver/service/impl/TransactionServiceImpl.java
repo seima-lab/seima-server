@@ -168,10 +168,9 @@ public class TransactionServiceImpl implements TransactionService {
                 }
                 transaction.setGroup(group);
             }
-            transactionMapper.updateTransactionFromDto(request, transaction);
             BigDecimal newAmount = BigDecimal.ZERO;
             String type = null;
-            System.out.println("123: " + transaction.getAmount().compareTo(request.getAmount()));
+
             //so sua lon hon cu
             if (transaction.getAmount().compareTo(request.getAmount()) < 0) {
                 type = "update-subtract";
@@ -190,6 +189,8 @@ public class TransactionServiceImpl implements TransactionService {
                 budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),newAmount, transaction.getTransactionDate(),type );
                 walletService.reduceAmount(request.getWalletId(),newAmount, type);
             }
+            transactionMapper.updateTransactionFromDto(request, transaction);
+
             Transaction updatedTransaction = transactionRepository.save(transaction);
 
             YearMonth month = YearMonth.from(transaction.getTransactionDate());

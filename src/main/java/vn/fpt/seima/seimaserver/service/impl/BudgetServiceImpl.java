@@ -165,7 +165,6 @@ public class BudgetServiceImpl implements BudgetService {
                     budget.setBudgetRemainingAmount(newAmount);
                 }
                 else{
-                    System.out.println("!@3" + amount);
                     budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount());
                 }
             }
