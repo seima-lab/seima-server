@@ -3,7 +3,6 @@ package vn.fpt.seima.seimaserver.service.impl;
 import lombok.AllArgsConstructor;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,7 +13,6 @@ import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResp
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionReportResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 import vn.fpt.seima.seimaserver.entity.*;
-import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.mapper.TransactionMapper;
 import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.BudgetService;
@@ -102,13 +100,13 @@ public class TransactionServiceImpl implements TransactionService {
             transaction.setTransactionType(type);
 
             if (type == TransactionType.EXPENSE) {
-                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "EXPENSE");
-                walletService.reduceAmount(request.getWalletId(),transaction.getAmount(), "EXPENSE");
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "EXPENSE", request.getCurrencyCode());
+                walletService.reduceAmount(request.getWalletId(),transaction.getAmount(), "EXPENSE", request.getCurrencyCode());
             }
 
             if (type == TransactionType.INCOME) {
-                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "INCOME");
-                walletService.reduceAmount(request.getWalletId(),transaction.getAmount(),"INCOME");
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "INCOME", request.getCurrencyCode());
+                walletService.reduceAmount(request.getWalletId(),transaction.getAmount(),"INCOME", request.getCurrencyCode());
             }
 
             Transaction savedTransaction = transactionRepository.save(transaction);
@@ -175,19 +173,19 @@ public class TransactionServiceImpl implements TransactionService {
             if (transaction.getAmount().compareTo(request.getAmount()) < 0) {
                 type = "update-subtract";
                 newAmount = request.getAmount().subtract(transaction.getAmount());
-                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type );
-                walletService.reduceAmount(request.getWalletId(),newAmount, type);
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type , request.getCurrencyCode());
+                walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
 
             } else if (transaction.getAmount().compareTo(request.getAmount()) > 0) {
                 type = "update-add";
                 newAmount = transaction.getAmount().subtract(request.getAmount());
-                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type );
-                walletService.reduceAmount(request.getWalletId(),newAmount, type);
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode() );
+                walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
             }
             else{
                 type = "no-update";
-                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),newAmount, transaction.getTransactionDate(),type );
-                walletService.reduceAmount(request.getWalletId(),newAmount, type);
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode() );
+                walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
             }
             transactionMapper.updateTransactionFromDto(request, transaction);
 

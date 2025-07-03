@@ -126,27 +126,29 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
-    public void reduceAmount(Integer id, BigDecimal amount, String type) {
+    public void reduceAmount(Integer id, BigDecimal amount, String type, String code) {
         Wallet existingWallet =  walletRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Wallet not found for this id: " + id));
         BigDecimal newAmount;
-        if (type.equals("EXPENSE")){
-            newAmount = existingWallet.getCurrentBalance().subtract(amount);
-        }
-        else if (type.equals("INCOME")){
-            newAmount = existingWallet.getCurrentBalance().add(amount);
-        }
-        else if (type.equals("update-subtract")){
-             newAmount = existingWallet.getCurrentBalance().subtract(amount);
-        }
-        else if (type.equals("update-add")) {
-             newAmount = existingWallet.getCurrentBalance().add(amount);
-        }
-        else{
-            newAmount = existingWallet.getCurrentBalance();
-        }
-        existingWallet.setCurrentBalance(newAmount);
+        if (existingWallet.getCurrencyCode().equals(code)) {
+            if (type.equals("EXPENSE")){
+                newAmount = existingWallet.getCurrentBalance().subtract(amount);
+            }
+            else if (type.equals("INCOME")){
+                newAmount = existingWallet.getCurrentBalance().add(amount);
+            }
+            else if (type.equals("update-subtract")){
+                newAmount = existingWallet.getCurrentBalance().subtract(amount);
+            }
+            else if (type.equals("update-add")) {
+                newAmount = existingWallet.getCurrentBalance().add(amount);
+            }
+            else{
+                newAmount = existingWallet.getCurrentBalance();
+            }
+            existingWallet.setCurrentBalance(newAmount);
 
-        walletRepository.save(existingWallet);
+            walletRepository.save(existingWallet);
+        }
     }
 } 

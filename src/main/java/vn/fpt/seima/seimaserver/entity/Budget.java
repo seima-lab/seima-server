@@ -2,6 +2,7 @@ package vn.fpt.seima.seimaserver.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
@@ -43,6 +44,10 @@ public class Budget {
 
     @Column(name = "budget_remaining_amount", precision = 18, scale = 2)
     private BigDecimal budgetRemainingAmount;
+
+    @Size(max = 3)
+    @Column(name = "currency_code", length = 3)
+    private String currencyCode;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

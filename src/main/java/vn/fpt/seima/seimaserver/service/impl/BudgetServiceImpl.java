@@ -133,13 +133,12 @@ public class BudgetServiceImpl implements BudgetService {
 
     @Override
     @Transactional
-    public void reduceAmount(Integer userId, Integer categoryId ,BigDecimal amount, LocalDateTime transactionDate, String type) {
+    public void reduceAmount(Integer userId, Integer categoryId ,BigDecimal amount, LocalDateTime transactionDate, String type, String code) {
         List<Budget> existingBudget =  budgetRepository.findByUserId(userId);
 
         if (existingBudget == null) {
           throw new IllegalArgumentException("Budget not found ");
         }
-
         for (Budget budget : existingBudget) {
 
             List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository
@@ -148,25 +147,28 @@ public class BudgetServiceImpl implements BudgetService {
             if (budgetCategoryLimits.isEmpty()) {
                 throw new IllegalArgumentException("Budget category limit not found");
             }
-            if (transactionDate.isBefore(budget.getEndDate()) && transactionDate.isAfter(budget.getStartDate())) {
-                if (type.equals("EXPENSE")) {
-                    BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
-                    budget.setBudgetRemainingAmount(newAmount);
+            if(budget.getCurrencyCode().equals(code)){
+                if (transactionDate.isBefore(budget.getEndDate()) && transactionDate.isAfter(budget.getStartDate())) {
+                    if (type.equals("EXPENSE")) {
+                        BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
+                        budget.setBudgetRemainingAmount(newAmount);
+                    }
+                    else if (type.equals("INCOME")) {
+                        budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount());
+                    }
+                    else if (type.equals("update-subtract")){
+                        BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
+                        budget.setBudgetRemainingAmount(newAmount);
+                    }
+                    else if (type.equals("update-add")) {
+                        BigDecimal newAmount = budget.getBudgetRemainingAmount().add(amount);
+                        budget.setBudgetRemainingAmount(newAmount);
+                    }
+                    else{
+                        budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount());
+                    }
                 }
-                else if (type.equals("INCOME")) {
-                    budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount());
-                }
-                else if (type.equals("update-subtract")){
-                    BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
-                    budget.setBudgetRemainingAmount(newAmount);
-                }
-                else if (type.equals("update-add")) {
-                    BigDecimal newAmount = budget.getBudgetRemainingAmount().add(amount);
-                    budget.setBudgetRemainingAmount(newAmount);
-                }
-                else{
-                    budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount());
-                }
+
             }
         }
         budgetRepository.saveAll(existingBudget);
