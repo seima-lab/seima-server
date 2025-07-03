@@ -128,9 +128,8 @@ azure:
 gemini:
   api-key: ${GEMINI_API_KEY}
 
-# Firebase configuration
-firebase:
-  service-account-file: datn-25c1e-firebase-adminsdk-fbsvc-d36df1db70.json
-  web-api-key: ${FIREBASE_WEB_API_KEY}
-  dynamic-links:
-    domain: seimaapp.page.link
+# Branch.io configuration  
+branch:
+  branch-key: ${BRANCH_IO_API_KEY}
+  branch-secret: ${BRANCH_IO_SECRET}
+  domain: ${BRANCH_IO_DOMAIN}

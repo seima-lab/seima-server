@@ -23,13 +23,6 @@ public class GroupAcceptanceController {
     
     private final GroupMemberService groupMemberService;
 
-    /**
-     * Get all pending member requests for a specific group
-     * Only admins and owners can view pending requests
-     * 
-     * @param groupId the ID of the group
-     * @return ApiResponse containing list of pending member requests
-     */
     @GetMapping("/group/{groupId}/pending-requests")
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<PendingGroupMemberListResponse> getPendingGroupMembers(@PathVariable Integer groupId) {
@@ -44,14 +37,7 @@ public class GroupAcceptanceController {
         );
     }
 
-    /**
-     * Accept a pending member request for a specific group
-     * Only admins and owners can accept requests
-     * 
-     * @param groupId the ID of the group
-     * @param request the request containing user ID to accept
-     * @return ApiResponse with success message
-     */
+
     @PostMapping("/group/{groupId}/accept-request")
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<Object> acceptGroupMemberRequest(
@@ -68,14 +54,7 @@ public class GroupAcceptanceController {
         );
     }
 
-    /**
-     * Reject a pending member request for a specific group
-     * Only admins and owners can reject requests
-     * 
-     * @param groupId the ID of the group
-     * @param request the request containing user ID to reject
-     * @return ApiResponse with success message
-     */
+
     @PostMapping("/group/{groupId}/reject-request")
     @ResponseStatus(HttpStatus.OK)
     public ApiResponse<Object> rejectGroupMemberRequest(

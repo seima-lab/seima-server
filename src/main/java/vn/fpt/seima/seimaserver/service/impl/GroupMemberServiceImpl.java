@@ -17,6 +17,7 @@ import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
 import vn.fpt.seima.seimaserver.repository.GroupRepository;
 import vn.fpt.seima.seimaserver.service.GroupMemberService;
 import vn.fpt.seima.seimaserver.service.GroupPermissionService;
+import vn.fpt.seima.seimaserver.service.InvitationTokenService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.util.List;
@@ -31,6 +32,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
     private final GroupMemberRepository groupMemberRepository;
     private final GroupRepository groupRepository;
     private final GroupPermissionService groupPermissionService;
+    private final InvitationTokenService invitationTokenService;
 
     @Override
     @Transactional(readOnly = true)
@@ -204,6 +206,17 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         pendingMember.setRole(GroupMemberRole.MEMBER); // Ensure role is set to MEMBER
         groupMemberRepository.save(pendingMember);
 
+        // Remove invitation token from Redis after successful acceptance
+        try {
+            boolean tokenRemoved = invitationTokenService.removeInvitationTokenByUserAndGroup(
+                    request.getUserId(), groupId);
+            log.info("Invitation token removal for user {} in group {}: {}", 
+                    request.getUserId(), groupId, tokenRemoved ? "success" : "not found");
+        } catch (Exception e) {
+            log.warn("Failed to remove invitation token for user {} in group {} - continuing with acceptance", 
+                    request.getUserId(), groupId, e);
+        }
+
         log.info("Successfully accepted group member request for user {} in group {}", 
                 request.getUserId(), groupId);
     }
@@ -246,6 +259,17 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         // Reject the request: change status to REJECTED
         pendingMember.setStatus(GroupMemberStatus.REJECTED);
         groupMemberRepository.save(pendingMember);
+
+        // Remove invitation token from Redis after successful rejection
+        try {
+            boolean tokenRemoved = invitationTokenService.removeInvitationTokenByUserAndGroup(
+                    request.getUserId(), groupId);
+            log.info("Invitation token removal for user {} in group {}: {}", 
+                    request.getUserId(), groupId, tokenRemoved ? "success" : "not found");
+        } catch (Exception e) {
+            log.warn("Failed to remove invitation token for user {} in group {} - continuing with rejection", 
+                    request.getUserId(), groupId, e);
+        }
 
         log.info("Successfully rejected group member request for user {} in group {}", 
                 request.getUserId(), groupId);

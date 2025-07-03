@@ -28,10 +28,12 @@ public class GroupInvitationLandingResponse {
     private String inviteCode;
     private String inviterName;
     private String invitationMessage;
-    
+    private String invitedEmail;
     // Dynamic link for "Join Group" button
     private String joinButtonLink;
-    private String previewLink;
+
+    // Sample property with simple enum
+    private ResultType resultType;
     
     // App download info
     private String appDownloadUrl;

@@ -1,6 +1,7 @@
 package vn.fpt.seima.seimaserver.controller;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
@@ -11,10 +12,12 @@ import vn.fpt.seima.seimaserver.dto.request.group.UpdateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.UserJoinedGroupResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberStatusResponse;
 import vn.fpt.seima.seimaserver.service.GroupService;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/groups")
@@ -57,5 +60,20 @@ public class GroupController {
     public ApiResponse<GroupResponse> archiveGroup(@PathVariable Integer groupId) {
         GroupResponse groupResponse = groupService.archiveGroup(groupId);
         return new ApiResponse<>(HttpStatus.OK.value(), "Group archived successfully", groupResponse);
+    }
+
+
+    @GetMapping("/{groupId}/my-status")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<GroupMemberStatusResponse> getMyGroupStatus(@PathVariable Integer groupId) {
+        log.info("Request to get user status for group ID: {}", groupId);
+        
+        GroupMemberStatusResponse statusResponse = groupService.getCurrentUserGroupStatus(groupId);
+        
+        return new ApiResponse<>(
+            HttpStatus.OK.value(),
+            "User group status retrieved successfully",
+            statusResponse
+        );
     }
 } 
