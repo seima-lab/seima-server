@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.group.EmailInvitationRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.EmailInvitationResponse;
+import vn.fpt.seima.seimaserver.exception.GroupException;
 import vn.fpt.seima.seimaserver.service.GroupInvitationService;
 
 /**
@@ -49,6 +50,13 @@ public class GroupInvitationController {
                 );
             }
             
+        } catch (GroupException e) {
+            log.warn("Group invitation business logic error: {}", e.getMessage());
+            return new ApiResponse<>(
+                HttpStatus.CONFLICT.value(),
+                e.getMessage(),
+                null
+            );
         } catch (Exception e) {
             log.error("Error sending email invitation: ", e);
             return new ApiResponse<>(
