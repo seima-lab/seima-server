@@ -1,21 +1,21 @@
 package vn.fpt.seima.seimaserver.dto.response.group;
 
-import lombok.Data;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-
-import java.time.LocalDateTime;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class JoinGroupResponse {
+public class EmailInvitationResponse {
+    
     private Integer groupId;
     private String groupName;
-    private String groupAvatarUrl;
-    private LocalDateTime joinedDate;
-    private Integer memberCount;
+    private String invitedEmail;
+    private String inviteLink;
     private String message;
+    private boolean emailSent;
+    private boolean userExists;
 } 

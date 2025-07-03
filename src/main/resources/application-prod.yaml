@@ -5,6 +5,8 @@ app:
   lab-name: Seima Lab
   name: seima-server-dev
   port: 8082
+  client:
+    baseUrl: ${BASE_URL_PROD}
   swagger:
     contact-name: Jason Nguyen
     contact-mail: syhaoc2dh@gmail.com
@@ -23,10 +25,14 @@ app:
   email:
     otp-register:
       html-template: "user-otp-verify"
-      subject: "Seima - OTP Registration"
+      subject: "Seima - Account Verification"
     password-reset:
       html-template: "password-reset-otp"
-      subject: "Seima - Đặt Lại Mật Khẩu"
+      subject: "Seima - Password Reset"
+    group-invitation:
+      html-template: "group-invitation"
+      subject: "Seima - Group Invitation"
+
 
 # Server configuration
 server:
@@ -121,3 +127,9 @@ azure:
 
 gemini:
   api-key: ${GEMINI_API_KEY}
+
+# Branch.io configuration  
+branch:
+  branch-key: ${BRANCH_IO_API_KEY}
+  branch-secret: ${BRANCH_IO_SECRET}
+  domain: ${BRANCH_IO_DOMAIN}

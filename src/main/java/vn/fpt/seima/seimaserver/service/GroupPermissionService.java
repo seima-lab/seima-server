@@ -85,6 +85,31 @@ public class GroupPermissionService {
         // All group members can send messages
         return role != null;
     }
+
+    /**
+     * Check if user can view pending group member requests
+     * Only OWNER and ADMIN can view pending requests
+     */
+    public boolean canViewPendingRequests(GroupMemberRole role) {
+        return role == GroupMemberRole.OWNER || role == GroupMemberRole.ADMIN;
+    }
+
+    /**
+     * Check if user can accept/reject pending group member requests
+     * Only OWNER and ADMIN can accept/reject requests
+     */
+    public boolean canAcceptGroupMemberRequests(GroupMemberRole role) {
+        return role == GroupMemberRole.OWNER || role == GroupMemberRole.ADMIN;
+    }
+
+    /**
+     * Check if user can reject pending group member requests
+     * Only OWNER and ADMIN can reject requests
+     */
+    public boolean canRejectGroupMemberRequests(GroupMemberRole role) {
+        return role == GroupMemberRole.OWNER || role == GroupMemberRole.ADMIN;
+    }
+    
     public String getPermissionDescription(String operation, GroupMemberRole currentRole, GroupMemberRole targetRole) {
         return String.format("Operation: %s, Current Role: %s, Target Role: %s", 
             operation, currentRole, targetRole);
