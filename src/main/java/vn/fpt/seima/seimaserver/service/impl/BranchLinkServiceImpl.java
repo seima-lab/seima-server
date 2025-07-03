@@ -104,36 +104,38 @@ public class BranchLinkServiceImpl implements BranchLinkService {
      * Build invitation deep link payload with specified action
      * Format: { "action": "{actionType}", "groupId": "..." , invitedUserId, inviterId}
      */
+    /**
+     * Build invitation deep link payload with specified action
+     * Format: { "branch_key": "...", "data": { "action": "{actionType}", "groupId": "..." , "invitedUserId": "...", "inviterId": "..." } }
+     */
     private Map<String, Object> buildInvitationDeepLinkPayload(Integer groupId, Integer invitedUserId, Integer inviterId, String actionType) {
-        Map<String, Object> payload = new HashMap<>();
-        
-        // Required Branch.io fields
-        payload.put("branch_key", branchProperties.getBranchKey());
-        
-        // Deep link data with specified action format
-        payload.put("action", actionType);
-        payload.put("groupId", groupId.toString());
-        
-        // Add user IDs only if provided (for RECHECK_PENDING_STATUS might not need them)
+
+        // 1. Tạo Map để chứa dữ liệu tùy chỉnh sẽ được gửi vào app
+        Map<String, Object> deepLinkData = new HashMap<>();
+        deepLinkData.put("action", actionType);
+        deepLinkData.put("groupId", groupId.toString());
+
+        // Thêm các ID vào payload
+        // Dùng if để đảm bảo không thêm giá trị null vào map
         if (invitedUserId != null) {
-            payload.put("invitedUserId", invitedUserId);
+            deepLinkData.put("invitedUserId", invitedUserId.toString());
         }
         if (inviterId != null) {
-            payload.put("inviterId", inviterId);
+            deepLinkData.put("inviterId", inviterId.toString());
         }
-        
-        // Deep link configuration
-        payload.put("$desktop_url", String.format("%s/groups/%s", appBaseUrl, groupId));
-        payload.put("$fallback_url", String.format("%s/groups/%s", appBaseUrl, groupId));
-        
-        // Deep link for mobile app
-        payload.put("$deeplink_path", String.format("group/%s", groupId));
-        payload.put("$android_deeplink_path", String.format("seimaapp://group/view/%s", groupId));
-        payload.put("$ios_deeplink_path", String.format("seimaapp://group/view/%s", groupId));
-        
-        log.info("Built invitation deep link payload: action={}, groupId={}, invitedUserId={}, inviterId={}", 
+
+        // 2. Tạo payload chính để gửi đến Branch
+        Map<String, Object> payload = new HashMap<>();
+
+        // Thêm Branch Key
+        payload.put("branch_key", branchProperties.getBranchKey());
+
+        // Thêm toàn bộ dữ liệu tùy chỉnh vào dưới key "data"
+        payload.put("data", deepLinkData);
+
+        log.info("Built deep link payload with IDs: action={}, groupId={}, invitedUserId={}, inviterId={}",
                 actionType, groupId, invitedUserId, inviterId);
-        
+
         return payload;
     }
 

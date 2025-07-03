@@ -1,6 +1,7 @@
 package vn.fpt.seima.seimaserver.config.base;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +17,7 @@ public class ObjectMapperConfig {
     /**
      * Configure ObjectMapper bean for JSON operations
      * Includes JavaTimeModule for LocalDateTime serialization
+     * Uses snake_case property naming strategy
      * 
      * @return configured ObjectMapper instance
      */
@@ -28,6 +30,9 @@ public class ObjectMapperConfig {
         
         // Configure serialization settings
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        
+        // Set property naming strategy to snake_case
+        objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         
         return objectMapper;
     }
