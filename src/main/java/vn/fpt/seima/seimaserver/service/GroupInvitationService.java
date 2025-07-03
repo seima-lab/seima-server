@@ -1,21 +1,15 @@
 package vn.fpt.seima.seimaserver.service;
 
-import vn.fpt.seima.seimaserver.dto.request.group.JoinGroupRequest;
-import vn.fpt.seima.seimaserver.dto.response.group.InvitationDetailsResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.JoinGroupResponse;
+import vn.fpt.seima.seimaserver.dto.request.group.EmailInvitationRequest;
+import vn.fpt.seima.seimaserver.dto.response.group.EmailInvitationResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.GroupInvitationLandingResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
 
-/**
- * Service interface for handling group invitations
- * Follows Single Responsibility Principle - only handles invitation-related operations
- */
+
 public interface GroupInvitationService {
-    
 
-    InvitationDetailsResponse getInvitationDetails(String inviteCode);
-    
 
-    JoinGroupResponse joinGroupByInviteCode(JoinGroupRequest request);
-    
+    EmailInvitationResponse sendEmailInvitation(EmailInvitationRequest request);
 
-    boolean isInvitationValid(String inviteCode);
+    GroupInvitationLandingResponse processInvitationToken(String invitationToken);
 } 
