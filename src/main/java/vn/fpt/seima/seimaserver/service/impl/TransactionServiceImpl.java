@@ -101,8 +101,16 @@ public class TransactionServiceImpl implements TransactionService {
             transaction.setWallet(wallet);
             transaction.setTransactionType(type);
 
-            budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate());
-            walletService.reduceAmount(request.getWalletId(),transaction.getAmount());
+            if (type == TransactionType.EXPENSE) {
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "EXPENSE");
+                walletService.reduceAmount(request.getWalletId(),transaction.getAmount(), "EXPENSE");
+            }
+
+            if (type == TransactionType.INCOME) {
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "INCOME");
+                walletService.reduceAmount(request.getWalletId(),transaction.getAmount(),"INCOME");
+            }
+
             Transaction savedTransaction = transactionRepository.save(transaction);
 
             YearMonth month = YearMonth.from(transaction.getTransactionDate());
@@ -161,8 +169,27 @@ public class TransactionServiceImpl implements TransactionService {
                 transaction.setGroup(group);
             }
             transactionMapper.updateTransactionFromDto(request, transaction);
-            budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate());
-            walletService.reduceAmount(request.getWalletId(),transaction.getAmount());
+            BigDecimal newAmount = BigDecimal.ZERO;
+            String type = null;
+            System.out.println("123: " + transaction.getAmount().compareTo(request.getAmount()));
+            //so sua lon hon cu
+            if (transaction.getAmount().compareTo(request.getAmount()) < 0) {
+                type = "update-subtract";
+                newAmount = request.getAmount().subtract(transaction.getAmount());
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type );
+                walletService.reduceAmount(request.getWalletId(),newAmount, type);
+
+            } else if (transaction.getAmount().compareTo(request.getAmount()) > 0) {
+                type = "update-add";
+                newAmount = transaction.getAmount().subtract(request.getAmount());
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type );
+                walletService.reduceAmount(request.getWalletId(),newAmount, type);
+            }
+            else{
+                type = "no-update";
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),newAmount, transaction.getTransactionDate(),type );
+                walletService.reduceAmount(request.getWalletId(),newAmount, type);
+            }
             Transaction updatedTransaction = transactionRepository.save(transaction);
 
             YearMonth month = YearMonth.from(transaction.getTransactionDate());

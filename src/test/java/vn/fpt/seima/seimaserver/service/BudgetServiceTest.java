@@ -153,7 +153,7 @@ class BudgetServiceTest {
         when(budgetCategoryLimitRepository.findByTransaction(anyInt()))
                 .thenReturn(List.of(new BudgetCategoryLimit()));
 
-        budgetService.reduceAmount(1, 1, BigDecimal.TEN, LocalDateTime.now());
+        budgetService.reduceAmount(1, 1, BigDecimal.TEN, LocalDateTime.now(), "update");
         verify(budgetRepository).saveAll(anyList());
     }
 }

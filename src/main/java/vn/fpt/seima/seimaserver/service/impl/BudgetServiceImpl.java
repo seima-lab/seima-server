@@ -133,7 +133,7 @@ public class BudgetServiceImpl implements BudgetService {
 
     @Override
     @Transactional
-    public void reduceAmount(Integer userId, Integer categoryId ,BigDecimal amount, LocalDateTime transactionDate) {
+    public void reduceAmount(Integer userId, Integer categoryId ,BigDecimal amount, LocalDateTime transactionDate, String type) {
         List<Budget> existingBudget =  budgetRepository.findByUserId(userId);
 
         if (existingBudget == null) {
@@ -149,10 +149,26 @@ public class BudgetServiceImpl implements BudgetService {
                 throw new IllegalArgumentException("Budget category limit not found");
             }
             if (transactionDate.isBefore(budget.getEndDate()) && transactionDate.isAfter(budget.getStartDate())) {
-                BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
-                budget.setBudgetRemainingAmount(newAmount);
+                if (type.equals("EXPENSE")) {
+                    BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
+                    budget.setBudgetRemainingAmount(newAmount);
+                }
+                else if (type.equals("INCOME")) {
+                    budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount());
+                }
+                else if (type.equals("update-subtract")){
+                    BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
+                    budget.setBudgetRemainingAmount(newAmount);
+                }
+                else if (type.equals("update-add")) {
+                    BigDecimal newAmount = budget.getBudgetRemainingAmount().add(amount);
+                    budget.setBudgetRemainingAmount(newAmount);
+                }
+                else{
+                    System.out.println("!@3" + amount);
+                    budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount());
+                }
             }
-
         }
         budgetRepository.saveAll(existingBudget);
     }

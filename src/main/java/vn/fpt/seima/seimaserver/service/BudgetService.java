@@ -19,5 +19,5 @@ public interface BudgetService {
 
     void deleteBudget(int id);
 
-    void reduceAmount(Integer userId, Integer categoryId, BigDecimal amount, LocalDateTime transactionDate);
+    void reduceAmount(Integer userId, Integer categoryId, BigDecimal amount, LocalDateTime transactionDate, String type);
 }
