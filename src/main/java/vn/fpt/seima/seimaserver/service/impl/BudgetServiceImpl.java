@@ -48,6 +48,7 @@ public class BudgetServiceImpl implements BudgetService {
     }
 
     @Override
+    @Transactional
     public BudgetResponse saveBudget(CreateBudgetRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("Request must not be null");
@@ -79,7 +80,7 @@ public class BudgetServiceImpl implements BudgetService {
 
             budgetCategoryLimitRepository.save(budgetCategoryLimit);
         }
-        return budgetMapper.INSTANCE.toResponse(savedBudget);
+        return budgetMapper.toResponse(savedBudget);
     }
 
     @Override
