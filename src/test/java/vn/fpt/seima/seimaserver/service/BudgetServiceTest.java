@@ -145,19 +145,28 @@ class BudgetServiceTest {
 
     @Test
     void reduceAmount_ShouldUpdateBudgets() {
+        // Prepare Budget
         Budget budget = new Budget();
         budget.setStartDate(LocalDateTime.now().minusDays(1));
         budget.setEndDate(LocalDateTime.now().plusDays(1));
         budget.setBudgetRemainingAmount(BigDecimal.valueOf(100));
-        budget.setCurrencyCode("VND"); // Fix lỗi NPE
+        budget.setCurrencyCode("VND");
 
+        // Prepare BudgetCategoryLimit
+        BudgetCategoryLimit budgetCategoryLimit = new BudgetCategoryLimit();
+        budgetCategoryLimit.setBudget(budget); // Gán budget đúng vào limit
+
+        // Mock repositories
         when(budgetRepository.findByUserId(1)).thenReturn(List.of(budget));
         when(budgetCategoryLimitRepository.findByTransaction(anyInt()))
-                .thenReturn(List.of(new BudgetCategoryLimit()));
+                .thenReturn(List.of(budgetCategoryLimit));
 
+        // Act
         budgetService.reduceAmount(1, 1, BigDecimal.TEN, LocalDateTime.now(), "update-subtract", "VND");
 
+        // Assert
         verify(budgetRepository).saveAll(anyList());
+        assertEquals(BigDecimal.valueOf(90), budget.getBudgetRemainingAmount());
     }
     @Test
     void testReduceAmount_expense_success() {
