@@ -6,18 +6,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
-import vn.fpt.seima.seimaserver.entity.Budget;
-import vn.fpt.seima.seimaserver.entity.BudgetCategoryLimit;
-import vn.fpt.seima.seimaserver.entity.Category;
-import vn.fpt.seima.seimaserver.entity.User;
-import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
+import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.mapper.BudgetMapper;
 import vn.fpt.seima.seimaserver.repository.BudgetCategoryLimitRepository;
 import vn.fpt.seima.seimaserver.repository.BudgetRepository;
@@ -26,10 +20,7 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -50,7 +41,6 @@ class BudgetServiceTest {
         user = new User();
         user.setUserId(1);
 
-        // Đảm bảo đóng mock trước khi tạo mới
         if (mockedUserUtils != null) {
             mockedUserUtils.close();
         }
@@ -87,28 +77,19 @@ class BudgetServiceTest {
 
     @Test
     void saveBudget_ShouldSaveAndReturnResponse() {
-        // Arrange
         CreateBudgetRequest request = new CreateBudgetRequest();
         request.setBudgetName("Test Budget");
         request.setOverallAmountLimit(BigDecimal.TEN);
-
-        // Tạo một danh sách Category giả
-        ArrayList<Category> categories = new ArrayList<>();
-        categories.add(new Category());
-        request.setCategoryList(categories);
+        request.setCategoryList(new ArrayList<>(List.of(new Category())));
 
         Budget budget = new Budget();
 
-        // Mock dữ liệu
         lenient().when(budgetRepository.existsByBudgetName(anyString())).thenReturn(false);
         lenient().when(budgetMapper.toEntity(request)).thenReturn(budget);
         lenient().when(budgetRepository.save(budget)).thenReturn(budget);
         lenient().when(budgetMapper.toResponse(budget)).thenReturn(new BudgetResponse());
 
-        // Act
         BudgetResponse result = budgetService.saveBudget(request);
-
-        // Assert
         assertNotNull(result);
     }
 
@@ -145,32 +126,26 @@ class BudgetServiceTest {
 
     @Test
     void reduceAmount_ShouldUpdateBudgets() {
-        // Prepare Budget
         Budget budget = new Budget();
         budget.setStartDate(LocalDateTime.now().minusDays(1));
         budget.setEndDate(LocalDateTime.now().plusDays(1));
         budget.setBudgetRemainingAmount(BigDecimal.valueOf(100));
         budget.setCurrencyCode("VND");
 
-        // Prepare BudgetCategoryLimit
-        BudgetCategoryLimit budgetCategoryLimit = new BudgetCategoryLimit();
-        budgetCategoryLimit.setBudget(budget); // Gán budget đúng vào limit
+        BudgetCategoryLimit limit = new BudgetCategoryLimit();
+        limit.setBudget(budget);
 
-        // Mock repositories
         when(budgetRepository.findByUserId(1)).thenReturn(List.of(budget));
-        when(budgetCategoryLimitRepository.findByTransaction(anyInt()))
-                .thenReturn(List.of(budgetCategoryLimit));
+        when(budgetCategoryLimitRepository.findByTransaction(anyInt())).thenReturn(List.of(limit));
 
-        // Act
         budgetService.reduceAmount(1, 1, BigDecimal.TEN, LocalDateTime.now(), "update-subtract", "VND");
 
-        // Assert
         verify(budgetRepository).saveAll(anyList());
         assertEquals(BigDecimal.valueOf(90), budget.getBudgetRemainingAmount());
     }
+
     @Test
     void testReduceAmount_expense_success() {
-        // Arrange
         Integer userId = 1;
         Integer categoryId = 10;
         BigDecimal amount = new BigDecimal("100");
@@ -186,6 +161,7 @@ class BudgetServiceTest {
         budget.setBudgetRemainingAmount(new BigDecimal("1000"));
 
         BudgetCategoryLimit limit = new BudgetCategoryLimit();
+        limit.setBudget(budget); // Gán để tránh lỗi null
         Category category = new Category();
         category.setCategoryId(categoryId);
         limit.setCategory(category);
@@ -193,10 +169,8 @@ class BudgetServiceTest {
         when(budgetRepository.findByUserId(userId)).thenReturn(List.of(budget));
         when(budgetCategoryLimitRepository.findByTransaction(categoryId)).thenReturn(List.of(limit));
 
-        // Act
         budgetService.reduceAmount(userId, categoryId, amount, now, type, currency);
 
-        // Assert
         assertEquals(new BigDecimal("900"), budget.getBudgetRemainingAmount());
         verify(budgetRepository, times(1)).saveAll(any());
     }
@@ -209,12 +183,11 @@ class BudgetServiceTest {
             budgetService.reduceAmount(1, 10, BigDecimal.TEN, LocalDateTime.now(), "EXPENSE", "VND");
         });
 
-        assertEquals("Budget not found", ex.getMessage().trim()); // dùng .trim() để tránh lỗi ký tự vô hình
+        assertEquals("Budget not found", ex.getMessage().trim());
     }
 
     @Test
     void testReduceAmount_budgetCategoryLimitNotFound_shouldThrowException() {
-        // Arrange
         Integer userId = 1;
         Integer categoryId = 10;
 
@@ -227,7 +200,6 @@ class BudgetServiceTest {
         when(budgetRepository.findByUserId(userId)).thenReturn(List.of(budget));
         when(budgetCategoryLimitRepository.findByTransaction(categoryId)).thenReturn(Collections.emptyList());
 
-        // Act & Assert
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
             budgetService.reduceAmount(userId, categoryId, BigDecimal.TEN, LocalDateTime.now(), "EXPENSE", "VND");
         });
