@@ -44,7 +44,7 @@ public class CacheConfig {
                 .disableCachingNullValues();
 
         Map<String, RedisCacheConfiguration> cacheConfigs = new HashMap<>();
-        cacheConfigs.put("transactionOverview", defaultConfig.entryTtl(Duration.ofDays(31)));
+        cacheConfigs.put("transactionOverview", defaultConfig.entryTtl(Duration.ofDays(1)));
 //        cacheConfigs.put("ocrResult", defaultConfig.entryTtl(Duration.ofMinutes(30)));
 //        cacheConfigs.put("countryList", defaultConfig.entryTtl(Duration.ofHours(12)));
 

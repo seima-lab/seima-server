@@ -212,6 +212,13 @@ public class TransactionServiceImpl implements TransactionService {
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found with ID: " + id));
 
         transaction.setTransactionType(TransactionType.INACTIVE);
+
+        YearMonth month = YearMonth.from(transaction.getTransactionDate());
+        String cacheKey = transaction.getUser().getUserId() + "-" + month;
+        Cache cache = cacheManager.getCache("transactionOverview");
+        if (cache != null) {
+            cache.evict(cacheKey);
+        }
         transactionRepository.save(transaction);
     }
 
