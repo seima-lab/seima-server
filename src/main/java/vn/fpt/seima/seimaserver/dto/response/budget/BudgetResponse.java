@@ -5,9 +5,14 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import vn.fpt.seima.seimaserver.dto.response.category.CategoryResponse;
+import vn.fpt.seima.seimaserver.entity.Category;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -27,4 +32,6 @@ public class BudgetResponse {
     private BigDecimal budgetRemainingAmount;
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
+
+    private List<CategoryResponse> categories;
 }
