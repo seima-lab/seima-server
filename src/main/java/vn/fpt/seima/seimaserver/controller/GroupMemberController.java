@@ -43,4 +43,11 @@ public class GroupMemberController {
         groupMemberService.updateMemberRole(groupId, memberUserId, request);
         return new ApiResponse<>(HttpStatus.OK.value(), "Member role updated successfully", null);
     }
+
+    @PostMapping("/group/{groupId}/exit")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<Object> exitGroup(@PathVariable Integer groupId) {
+        groupMemberService.exitGroup(groupId);
+        return new ApiResponse<>(HttpStatus.OK.value(), "Successfully exited the group", null);
+    }
 } 

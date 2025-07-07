@@ -18,4 +18,5 @@ public interface GroupMemberService {
     void removeMemberFromGroup(Integer groupId, Integer memberUserId);
     void handleUserAccountDeactivation(Integer userId);
     void updateMemberRole(Integer groupId, Integer memberUserId, UpdateMemberRoleRequest request);
+    void exitGroup(Integer groupId);
 } 

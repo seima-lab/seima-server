@@ -765,4 +765,87 @@ public class GroupMemberServiceImpl implements GroupMemberService {
             }
         }
     }
+
+    @Override
+    @Transactional
+    public void exitGroup(Integer groupId) {
+        log.info("User attempting to exit group ID: {}", groupId);
+
+        // Validate input
+        validateExitGroupInput(groupId);
+
+        // Get current user
+        User currentUser = getCurrentUser();
+
+        // Validate group and find member
+        Group group = validateGroupForExit(groupId);
+        GroupMember currentMember = findActiveMemberForExit(currentUser.getUserId(), group.getGroupId());
+
+        // Validate exit permissions
+        validateExitPermissions(currentMember);
+
+        // Update member status to LEFT
+        currentMember.setStatus(GroupMemberStatus.LEFT);
+        groupMemberRepository.save(currentMember);
+
+        log.info("User {} successfully exited group {}", currentUser.getUserId(), groupId);
+    }
+
+    /**
+     * Validate input for exit group operation
+     */
+    private void validateExitGroupInput(Integer groupId) {
+        if (groupId == null) {
+            throw new GroupException("Group ID cannot be null");
+        }
+    }
+
+    /**
+     * Validate group exists and is active for exit operation
+     */
+    private Group validateGroupForExit(Integer groupId) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new GroupException("Group not found"));
+
+        if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+            throw new GroupException("Group not found");
+        }
+
+        return group;
+    }
+
+    /**
+     * Find active member for exit operation
+     */
+    private GroupMember findActiveMemberForExit(Integer userId, Integer groupId) {
+        Optional<GroupMember> memberOptional = groupMemberRepository.findByUserIdAndGroupId(userId, groupId);
+
+        if (memberOptional.isEmpty()) {
+            throw new GroupException("You are not a member of this group");
+        }
+
+        GroupMember member = memberOptional.get();
+
+        if (member.getStatus() != GroupMemberStatus.ACTIVE) {
+            throw new GroupException("You are not currently active in this group");
+        }
+
+        return member;
+    }
+
+    /**
+     * Validate exit permissions - OWNER cannot exit, ADMIN and MEMBER can exit
+     */
+    private void validateExitPermissions(GroupMember currentMember) {
+        GroupMemberRole role = currentMember.getRole();
+        
+        if (role == GroupMemberRole.OWNER) {
+            throw new GroupException("Group owner cannot exit the group. Please transfer ownership before leaving.");
+        }
+        
+        // ADMIN and MEMBER can exit
+        if (role != GroupMemberRole.ADMIN && role != GroupMemberRole.MEMBER) {
+            throw new GroupException("Invalid role for exit operation");
+        }
+    }
 } 
