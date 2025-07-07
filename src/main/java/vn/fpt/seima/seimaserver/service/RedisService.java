@@ -32,6 +32,7 @@ public interface RedisService {
     void delete(Object key, String field);
 
     void delete(Object key, List<String> fields);
+    
     void hashMultiSet(Object key, Map<String, ?> map);
 
 }

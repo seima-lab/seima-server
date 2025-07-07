@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:remove="all">Group Invitation - Seima</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f5f5f5;">
+    
+    <!-- Main Container Table -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5; padding: 20px 0;">
+        <tr>
+            <td align="center">
+                
+                <!-- Email Content Table -->
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 600px;">
+                    
+                    <!-- Header Section -->
+                    <tr>
+                        <td style="padding: 40px 30px 30px 30px; text-align: center; border-bottom: 1px solid #e5e7eb;">
+                            <h1 style="margin: 0; color: #1f2937; font-size: 24px; font-weight: bold;">🎉 Group Invitation</h1>
+                            <p style="margin: 15px 0 0 0; color: #6b7280; font-size: 16px;">You've been invited to join a financial group!</p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Greeting Section -->
+                    <tr>
+                        <td style="padding: 30px 30px 20px 30px;">
+                            <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
+                                Hello there!
+                            </p>
+                            <p style="margin: 15px 0 0 0; color: #374151; font-size: 16px; line-height: 1.5;">
+                                <strong th:text="${inviterName}">Inviter</strong> has invited you to join their financial management group on <strong th:text="${appName}">Seima</strong>.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Group Info Section -->
+                    <tr>
+                        <td style="padding: 0 30px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border: 2px solid #e2e8f0; border-radius: 8px;">
+                                <tr>
+                                    <td style="padding: 25px; text-align: center;">
+                                        <!-- Group Avatar -->
+                                        <img th:if="${groupAvatarUrl != null and !#strings.isEmpty(groupAvatarUrl)}" 
+                                             th:src="${groupAvatarUrl}" 
+                                             alt="Group Avatar" 
+                                             style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid #e2e8f0; display: block; margin: 0 auto 15px;" />
+                                        
+                                        <!-- Group Name -->
+                                        <h2 style="margin: 0 0 10px 0; color: #2563eb; font-size: 20px; font-weight: bold;" th:text="${groupName}">Group Name</h2>
+                                        
+                                        <!-- Member Count -->
+                                        <p style="margin: 0; color: #6b7280; font-size: 14px;" th:text="'Members: ' + ${memberCount}">Members: 5</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Join Button Section -->
+                    <tr>
+                        <td style="padding: 30px; text-align: center;">
+                            <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                                <tr>
+                                    <td style="background-color: #2563eb; border-radius: 8px; padding: 0;">
+                                        <a th:href="${inviteLink}" 
+                                           style="display: block; padding: 15px 30px; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 16px;">
+                                            🤝 Join Group Now
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Important Notes Section -->
+                    <tr>
+                        <td style="padding: 0 30px 20px 30px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <p style="margin: 0 0 10px 0; color: #92400e; font-weight: bold; font-size: 14px;">ℹ️ Important Notes:</p>
+                                        <ul style="margin: 0; padding-left: 20px; color: #92400e; font-size: 14px;">
+                                            <li style="margin-bottom: 5px;">This invitation link is only valid while the group is active</li>
+                                            <li style="margin-bottom: 5px;">You need a <span th:text="${appName}">Seima</span> account to join</li>
+                                            <li style="margin-bottom: 0;">If you don't have an account, please register before using this link</li>
+                                        </ul>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Benefits Section -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <p style="margin: 0 0 15px 0; color: #374151; font-size: 16px; font-weight: bold;">After joining, you will be able to:</p>
+                            <ul style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                                <li style="margin-bottom: 8px;">💰 Track group expenses together</li>
+                                <li style="margin-bottom: 8px;">📊 Record shared transactions</li>
+                                <li style="margin-bottom: 8px;">📈 View collaborative financial reports</li>
+                                <li style="margin-bottom: 0;">👥 Manage budgets with group members</li>
+                            </ul>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer Section -->
+                    <tr>
+                        <td style="padding: 30px; border-top: 1px solid #e5e7eb; text-align: center; background-color: #f9fafb;">
+                            <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
+                                If you have any questions, don't hesitate to contact us at 
+                                <a href="mailto:support@seima.app" style="color: #2563eb; text-decoration: none;">support@seima.app</a>
+                            </p>
+                            <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                                Best regards,<br/>
+                                <strong>The <span th:text="${appName}">Seima</span> Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+                
+            </td>
+        </tr>
+    </table>
+    
+</body>
+</html> 
