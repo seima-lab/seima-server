@@ -4,10 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import vn.fpt.seima.seimaserver.dto.request.wallet.CreateWalletRequest;
 import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
-import vn.fpt.seima.seimaserver.entity.Budget;
-import vn.fpt.seima.seimaserver.entity.User;
-import vn.fpt.seima.seimaserver.entity.Wallet;
-import vn.fpt.seima.seimaserver.entity.WalletType;
+import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.WalletException;
 import vn.fpt.seima.seimaserver.mapper.WalletMapper;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
@@ -145,13 +142,29 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
-    public void reduceAmount(Integer id, BigDecimal amount) {
+    public void reduceAmount(Integer id, BigDecimal amount, String type, String code) {
         Wallet existingWallet =  walletRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Wallet not found for this id: " + id));
+        BigDecimal newAmount;
+        if (existingWallet.getCurrencyCode().equals(code)) {
+            if (type.equals("EXPENSE")){
+                newAmount = existingWallet.getCurrentBalance().subtract(amount);
+            }
+            else if (type.equals("INCOME")){
+                newAmount = existingWallet.getCurrentBalance().add(amount);
+            }
+            else if (type.equals("update-subtract")){
+                newAmount = existingWallet.getCurrentBalance().subtract(amount);
+            }
+            else if (type.equals("update-add")) {
+                newAmount = existingWallet.getCurrentBalance().add(amount);
+            }
+            else{
+                newAmount = existingWallet.getCurrentBalance();
+            }
+            existingWallet.setCurrentBalance(newAmount);
 
-        BigDecimal newAmount = existingWallet.getCurrentBalance().subtract(amount);
-        existingWallet.setCurrentBalance(newAmount);
-
-        walletRepository.save(existingWallet);
+            walletRepository.save(existingWallet);
+        }
     }
 } 
