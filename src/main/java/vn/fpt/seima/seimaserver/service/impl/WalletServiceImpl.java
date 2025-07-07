@@ -34,6 +34,17 @@ public class WalletServiceImpl implements WalletService {
     public WalletResponse createWallet(CreateWalletRequest request) {
         User currentUser = getCurrentUser();
         
+        // Check wallet limit (maximum 5 wallets per user)
+        List<Wallet> existingWallets = walletRepository.findAllActiveByUserId(currentUser.getUserId());
+        if (existingWallets.size() >= 5) {
+            throw new WalletException("Maximum wallet limit reached. You can only have up to 5 wallets.");
+        }
+        
+        // Check wallet name uniqueness
+        if (walletRepository.existsByUserIdAndWalletNameAndNotDeleted(currentUser.getUserId(), request.getWalletName())) {
+            throw new WalletException("Wallet name already exists. Please choose a different name.");
+        }
+        
         WalletType walletType = walletTypeRepository.findById(request.getWalletTypeId())
                 .orElseThrow(() -> new WalletException("Wallet type not found with id: " + request.getWalletTypeId()));
 
@@ -77,6 +88,11 @@ public class WalletServiceImpl implements WalletService {
         Wallet existingWallet = walletRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new WalletException("Wallet not found with id: " + id));
         validateUserOwnership(currentUser.getUserId(), existingWallet);
+        
+        // Check wallet name uniqueness (exclude current wallet)
+        if (walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(currentUser.getUserId(), request.getWalletName(), id)) {
+            throw new WalletException("Wallet name already exists. Please choose a different name.");
+        }
         
         if (Boolean.TRUE.equals(request.getIsDefault())) {
             updateOtherWalletsDefaultStatus(currentUser.getUserId(), false);
