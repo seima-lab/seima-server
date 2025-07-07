@@ -22,4 +22,10 @@ public interface WalletRepository extends JpaRepository<Wallet, Integer> {
 
     @Query("SELECT CASE WHEN COUNT(w) > 0 THEN true ELSE false END FROM Wallet w WHERE w.id = :id AND w.isDeleted = false")
     boolean existsByIdAndNotDeleted(@Param("id") Integer id);
+
+    @Query("SELECT CASE WHEN COUNT(w) > 0 THEN true ELSE false END FROM Wallet w WHERE w.user.userId = :userId AND w.walletName = :walletName AND w.isDeleted = false")
+    boolean existsByUserIdAndWalletNameAndNotDeleted(@Param("userId") Integer userId, @Param("walletName") String walletName);
+
+    @Query("SELECT CASE WHEN COUNT(w) > 0 THEN true ELSE false END FROM Wallet w WHERE w.user.userId = :userId AND w.walletName = :walletName AND w.id != :walletId AND w.isDeleted = false")
+    boolean existsByUserIdAndWalletNameAndNotDeletedAndIdNot(@Param("userId") Integer userId, @Param("walletName") String walletName, @Param("walletId") Integer walletId);
 }

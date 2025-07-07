@@ -118,6 +118,13 @@ class WalletServiceTest {
         // Given
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            // Mock for wallet limit validation (less than 5 wallets)
+            when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(Arrays.asList());
+            
+            // Mock for wallet name uniqueness validation (name doesn't exist)
+            when(walletRepository.existsByUserIdAndWalletNameAndNotDeleted(testUser.getUserId(), createWalletRequest.getWalletName())).thenReturn(false);
+            
             when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
             when(walletMapper.toEntity(createWalletRequest)).thenReturn(testWallet);
             when(walletRepository.save(any(Wallet.class))).thenReturn(testWallet);
@@ -132,6 +139,8 @@ class WalletServiceTest {
             assertEquals(walletResponse.getWalletName(), result.getWalletName());
             assertEquals(walletResponse.getCurrentBalance(), result.getCurrentBalance());
 
+            verify(walletRepository).findAllActiveByUserId(testUser.getUserId());
+            verify(walletRepository).existsByUserIdAndWalletNameAndNotDeleted(testUser.getUserId(), createWalletRequest.getWalletName());
             verify(walletTypeRepository).findById(1);
             verify(walletMapper).toEntity(createWalletRequest);
             verify(walletRepository).save(any(Wallet.class));
@@ -147,8 +156,14 @@ class WalletServiceTest {
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
-            when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
+            
+            // Mock for wallet limit validation (less than 5 wallets)
             when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(existingWallets);
+            
+            // Mock for wallet name uniqueness validation (name doesn't exist)
+            when(walletRepository.existsByUserIdAndWalletNameAndNotDeleted(testUser.getUserId(), createWalletRequest.getWalletName())).thenReturn(false);
+            
+            when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
             when(walletMapper.toEntity(createWalletRequest)).thenReturn(testWallet);
             when(walletRepository.save(any(Wallet.class))).thenReturn(testWallet);
             when(walletMapper.toResponse(testWallet)).thenReturn(walletResponse);
@@ -158,7 +173,8 @@ class WalletServiceTest {
 
             // Then
             assertNotNull(result);
-            verify(walletRepository).findAllActiveByUserId(testUser.getUserId());
+            verify(walletRepository, times(2)).findAllActiveByUserId(testUser.getUserId()); // Called twice: limit check + default status update
+            verify(walletRepository).existsByUserIdAndWalletNameAndNotDeleted(testUser.getUserId(), createWalletRequest.getWalletName());
             verify(walletRepository, times(2)).save(any(Wallet.class)); // Once for existing wallets, once for new wallet
         }
     }
@@ -183,6 +199,8 @@ class WalletServiceTest {
         // Given
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(Arrays.asList());
+            when(walletRepository.existsByUserIdAndWalletNameAndNotDeleted(testUser.getUserId(), createWalletRequest.getWalletName())).thenReturn(false);
             when(walletTypeRepository.findById(1)).thenReturn(Optional.empty());
 
             // When & Then
@@ -192,6 +210,45 @@ class WalletServiceTest {
             );
             assertEquals("Wallet type not found with id: 1", exception.getMessage());
             verify(walletTypeRepository).findById(1);
+        }
+    }
+
+    @Test
+    void createWallet_ThrowsException_WhenWalletLimitExceeded() {
+        // Given - Create 5 existing wallets to reach the limit
+        List<Wallet> existingWallets = Arrays.asList(
+                new Wallet(), new Wallet(), new Wallet(), new Wallet(), new Wallet()
+        );
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(existingWallets);
+
+            // When & Then
+            WalletException exception = assertThrows(
+                    WalletException.class,
+                    () -> walletService.createWallet(createWalletRequest)
+            );
+            assertEquals("Maximum wallet limit reached. You can only have up to 5 wallets.", exception.getMessage());
+            verify(walletRepository).findAllActiveByUserId(testUser.getUserId());
+        }
+    }
+
+    @Test
+    void createWallet_ThrowsException_WhenWalletNameAlreadyExists() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(Arrays.asList());
+            when(walletRepository.existsByUserIdAndWalletNameAndNotDeleted(testUser.getUserId(), createWalletRequest.getWalletName())).thenReturn(true);
+
+            // When & Then
+            WalletException exception = assertThrows(
+                    WalletException.class,
+                    () -> walletService.createWallet(createWalletRequest)
+            );
+            assertEquals("Wallet name already exists. Please choose a different name.", exception.getMessage());
+            verify(walletRepository).existsByUserIdAndWalletNameAndNotDeleted(testUser.getUserId(), createWalletRequest.getWalletName());
         }
     }
 
@@ -313,6 +370,10 @@ class WalletServiceTest {
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
+            
+            // Mock for wallet name uniqueness validation (name doesn't exist for other wallets)
+            when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(false);
+            
             when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
             when(walletRepository.save(testWallet)).thenReturn(testWallet);
             when(walletMapper.toResponse(testWallet)).thenReturn(walletResponse);
@@ -323,6 +384,7 @@ class WalletServiceTest {
             // Then
             assertNotNull(result);
             verify(walletRepository).findByIdAndNotDeleted(1);
+            verify(walletRepository).existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1);
             verify(walletTypeRepository).findById(1);
             verify(walletMapper).updateEntity(testWallet, updateRequest);
             verify(walletRepository).save(testWallet);
@@ -345,6 +407,10 @@ class WalletServiceTest {
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
+            
+            // Mock for wallet name uniqueness validation (name doesn't exist for other wallets)
+            when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(false);
+            
             when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
             when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(existingWallets);
             when(walletRepository.save(any(Wallet.class))).thenReturn(testWallet);
@@ -355,6 +421,7 @@ class WalletServiceTest {
 
             // Then
             assertNotNull(result);
+            verify(walletRepository).existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1);
             verify(walletRepository).findAllActiveByUserId(testUser.getUserId());
             verify(walletRepository, times(2)).save(any(Wallet.class)); // Once for existing wallets, once for updated wallet
         }
@@ -404,6 +471,7 @@ class WalletServiceTest {
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
+            when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), createWalletRequest.getWalletName(), 1)).thenReturn(false);
             when(walletTypeRepository.findById(1)).thenReturn(Optional.empty());
 
             // When & Then
@@ -412,6 +480,31 @@ class WalletServiceTest {
                     () -> walletService.updateWallet(1, createWalletRequest)
             );
             assertEquals("Wallet type not found with id: 1", exception.getMessage());
+        }
+    }
+
+    @Test
+    void updateWallet_ThrowsException_WhenWalletNameAlreadyExists() {
+        // Given
+        CreateWalletRequest updateRequest = CreateWalletRequest.builder()
+                .walletName("Existing Wallet Name")
+                .balance(new BigDecimal("2000.00"))
+                .walletTypeId(1)
+                .isDefault(false)
+                .build();
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
+            when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(true);
+
+            // When & Then
+            WalletException exception = assertThrows(
+                    WalletException.class,
+                    () -> walletService.updateWallet(1, updateRequest)
+            );
+            assertEquals("Wallet name already exists. Please choose a different name.", exception.getMessage());
+            verify(walletRepository).existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1);
         }
     }
 
