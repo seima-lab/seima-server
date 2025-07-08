@@ -3,6 +3,8 @@ package vn.fpt.seima.seimaserver.controller;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.user.UserCreationRequestDto;
@@ -66,9 +68,9 @@ public class UserController {
                 .build();
     }
 
-    @PutMapping("/update")
+    @PutMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<UserProfileResponseDto> updateCurrentUserProfile(
-            @Valid @RequestBody UserUpdateRequestDto userUpdateRequestDto
+            @ModelAttribute @Validated UserUpdateRequestDto userUpdateRequestDto
     ) {
         try {
             User currentUser = UserUtils.getCurrentUser();
@@ -78,7 +80,7 @@ public class UserController {
                         .message("User not authenticated.")
                         .build();
             }
-            User updatedUser = userService.updateUserProfile(currentUser.getUserId(), userUpdateRequestDto); // Truyền userId
+            User updatedUser = userService.updateUserProfileWithImage(currentUser.getUserId(), userUpdateRequestDto);
             UserProfileResponseDto userProfileDto = UserMapper.mapUserToProfileDto(updatedUser);
             return ApiResponse.<UserProfileResponseDto>builder()
                     .statusCode(HttpStatus.OK.value())
