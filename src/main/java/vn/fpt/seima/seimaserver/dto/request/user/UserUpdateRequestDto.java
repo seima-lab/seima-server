@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 
@@ -22,6 +23,18 @@ public class UserUpdateRequestDto {
     @Size(min=10, max = 11, message = "Phone number must be 10 or 11 digits")
     private String phoneNumber;
 
-    private String avatarUrl;
     private Boolean gender; // Cho phép null nếu không muốn cập nhật
+    
+    /**
+     * Image file for profile avatar upload (optional).
+     * If provided, will replace current user avatar.
+     * If not provided, current avatar will be kept.
+     */
+    private MultipartFile image;
+    
+    /**
+     * Flag to indicate if user wants to remove current avatar.
+     * Only applicable when no new image is provided.
+     */
+    private Boolean removeCurrentAvatar = false;
 }
