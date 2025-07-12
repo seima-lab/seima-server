@@ -106,7 +106,6 @@ public class BudgetServiceImpl implements BudgetService {
             throw new IllegalArgumentException("Category list must not be empty");
         }
         budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(existingBudget.getBudgetId());
-
         budgetMapper.updateBudgetFromDto(request, existingBudget);
         existingBudget.setUser(user);
 
