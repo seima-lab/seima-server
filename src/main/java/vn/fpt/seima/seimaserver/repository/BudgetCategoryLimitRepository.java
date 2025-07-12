@@ -13,7 +13,6 @@ import java.util.List;
 @Repository
 public interface BudgetCategoryLimitRepository extends JpaRepository<BudgetCategoryLimit, Integer> {
     @Modifying
-    @Transactional
     @Query(value = "DELETE FROM budget_category_limit WHERE budget_id = :budgetId", nativeQuery = true)
     void deleteBudgetCategoryLimitByBudget(@Param("budgetId") Integer budgetId);
 
