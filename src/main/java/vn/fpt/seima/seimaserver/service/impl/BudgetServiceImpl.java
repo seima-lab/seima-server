@@ -105,7 +105,7 @@ public class BudgetServiceImpl implements BudgetService {
         if (request.getCategoryList().isEmpty()) {
             throw new IllegalArgumentException("Category list must not be empty");
         }
-        budgetCategoryLimitRepository.deleteByBudget_BudgetId(existingBudget.getBudgetId());
+        budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(existingBudget.getBudgetId());
 
         budgetMapper.updateBudgetFromDto(request, existingBudget);
         existingBudget.setUser(user);
@@ -128,7 +128,7 @@ public class BudgetServiceImpl implements BudgetService {
         Budget budget = budgetRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found for this id: " + id));
 
-        budgetCategoryLimitRepository.deleteByBudget_BudgetId(budget.getBudgetId());
+        budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(budget.getBudgetId());
         budgetRepository.deleteById(id);
     }
 

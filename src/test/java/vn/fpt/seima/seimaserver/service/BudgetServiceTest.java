@@ -120,7 +120,7 @@ class BudgetServiceTest {
         when(budgetRepository.findById(1)).thenReturn(Optional.of(budget));
 
         budgetService.deleteBudget(1);
-        verify(budgetCategoryLimitRepository).deleteByBudget_BudgetId(1);
+        verify(budgetCategoryLimitRepository).deleteBudgetCategoryLimitByBudget(1);
         verify(budgetRepository).deleteById(1);
     }
 
