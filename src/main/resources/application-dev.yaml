@@ -137,3 +137,6 @@ branch:
   branch-key: ${BRANCH_IO_API_KEY}
   branch-secret: ${BRANCH_IO_SECRET}
   domain: ${BRANCH_IO_DOMAIN}
+# Firebase Config
+firebase:
+  credential-url: /home/jason12/Documents/seima-server/src/main/resources/firebase-file-config/datn-25c1e-firebase-adminsdk-fbsvc-a6704a16ff.json

@@ -77,4 +77,7 @@ public class User {
 
     @OneToMany(mappedBy = "user") // user_id trong WalletType cho các type do user định nghĩa
     private Set<WalletType> userDefinedWalletTypes;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<UserDevice> userDevices;
 }
