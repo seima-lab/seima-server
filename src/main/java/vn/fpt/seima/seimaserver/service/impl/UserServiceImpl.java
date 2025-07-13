@@ -3,6 +3,7 @@ package vn.fpt.seima.seimaserver.service.impl;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,14 +27,23 @@ import java.util.Map;
 // import java.util.Optional; // Có thể cần
 
 @Service
-@AllArgsConstructor
 public class UserServiceImpl implements UserService {
 
     private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
-    private UserRepository userRepository;
-    private CloudinaryService cloudinaryService;
-    private UserDeviceRepository userDeviceRepository;
-    private UserDeviceService userDeviceService;
+    private final UserRepository userRepository;
+    private final CloudinaryService cloudinaryService;
+    private final UserDeviceRepository userDeviceRepository;
+    private final UserDeviceService userDeviceService;
+    
+    public UserServiceImpl(UserRepository userRepository, 
+                          CloudinaryService cloudinaryService,
+                          UserDeviceRepository userDeviceRepository,
+                          @Lazy UserDeviceService userDeviceService) {
+        this.userRepository = userRepository;
+        this.cloudinaryService = cloudinaryService;
+        this.userDeviceRepository = userDeviceRepository;
+        this.userDeviceService = userDeviceService;
+    }
     
     // Constants for image validation
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
