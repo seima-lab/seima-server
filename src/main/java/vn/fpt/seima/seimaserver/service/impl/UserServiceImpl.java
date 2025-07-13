@@ -9,10 +9,13 @@ import org.springframework.web.multipart.MultipartFile;
 import vn.fpt.seima.seimaserver.dto.request.user.UserCreationRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.user.UserUpdateRequestDto;
 import vn.fpt.seima.seimaserver.entity.User;
+import vn.fpt.seima.seimaserver.entity.UserDevice;
 import vn.fpt.seima.seimaserver.exception.NotMatchCurrentGmailException;
 import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
+import vn.fpt.seima.seimaserver.repository.UserDeviceRepository;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.CloudinaryService;
+import vn.fpt.seima.seimaserver.service.UserDeviceService;
 import vn.fpt.seima.seimaserver.service.UserService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
@@ -29,10 +32,18 @@ public class UserServiceImpl implements UserService {
     private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
     private UserRepository userRepository;
     private CloudinaryService cloudinaryService;
+    private UserDeviceRepository userDeviceRepository;
+    private UserDeviceService userDeviceService;
     
     // Constants for image validation
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
     private static final List<String> SUPPORTED_FORMATS = Arrays.asList("jpg", "jpeg", "png", "gif", "webp");
+
+    @Override
+    public User findUserById(Integer userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
 
     @Override
     @Transactional
@@ -72,6 +83,12 @@ public class UserServiceImpl implements UserService {
         // Lưu lại currentUser. Vì currentUser là một managed entity (nếu UserUtils trả về đúng),
         // lệnh save này sẽ tương ứng với một SQL UPDATE.
         userRepository.save(currentUser);
+
+        // Lưu data vào bảng user_device
+        if(userDeviceRepository.existsByDeviceId(userCreationRequestDto.getDeviceId())){
+            userDeviceService.updateDeviceUser(userCreationRequestDto.getDeviceId(), userCreationRequestDto.getFcmToken());
+        }
+        userDeviceService.createDevice(currentUser.getUserId(),userCreationRequestDto.getDeviceId(),userCreationRequestDto.getFcmToken());
         logger.info("User profile updated successfully for email: {}", currentUser.getUserEmail());
     }
 

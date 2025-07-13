@@ -10,6 +10,7 @@ import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.repository.UserDeviceRepository;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.UserDeviceService;
+import vn.fpt.seima.seimaserver.service.UserService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,121 +24,73 @@ public class UserDeviceServiceImpl implements UserDeviceService {
     
     private final UserDeviceRepository userDeviceRepository;
     private final UserRepository userRepository;
+    private final UserService userService;
     
     @Override
-    public UserDevice registerOrUpdateDevice(Integer userId, String deviceId, String fcmToken) {
-        log.info("Registering or updating device for user: {}, device: {}", userId, deviceId);
+    public UserDevice createDevice(Integer userId, String deviceId, String fcmToken) {
+        log.info("Creating new device for user: {}, device: {}", userId, deviceId);
         
-        // Tìm user
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+        // Validate input
+        validateCreateDeviceInput(userId, deviceId, fcmToken);
         
-        // Tìm device đã tồn tại
-        Optional<UserDevice> existingDevice = userDeviceRepository.findByUserUserIdAndDeviceId(userId, deviceId);
+        // Find user
+        User user = userService.findUserById(userId);
         
-        if (existingDevice.isPresent()) {
-            // Cập nhật device hiện tại
-            UserDevice device = existingDevice.get();
-            device.setFcmToken(fcmToken);
-            device.setLastLogin(LocalDateTime.now());
-            log.info("Updated existing device for user: {}, device: {}", userId, deviceId);
-            return userDeviceRepository.save(device);
-        } else {
-            // Tạo device mới
-            UserDevice newDevice = UserDevice.builder()
-                    .user(user)
-                    .deviceId(deviceId)
-                    .fcmToken(fcmToken)
-                    .lastLogin(LocalDateTime.now())
-                    .build();
-            log.info("Created new device for user: {}, device: {}", userId, deviceId);
-            return userDeviceRepository.save(newDevice);
+        // Create new device
+        UserDevice newDevice = UserDevice.builder()
+                .user(user)
+                .deviceId(deviceId.trim())
+                .fcmToken(fcmToken.trim())
+                .lastChange(LocalDateTime.now())
+                .build();
+        
+        UserDevice savedDevice = userDeviceRepository.save(newDevice);
+        log.info("Successfully created device with ID: {}", savedDevice.getId());
+        
+        return savedDevice;
+    }
+    
+    @Override
+    public UserDevice updateDeviceUser(String deviceId ,  String fcmToken) {
+        log.info("Updating device ID: {} with FCM token: {}", deviceId, fcmToken);
+        
+        // Validate input
+        if (deviceId == null) {
+            throw new IllegalArgumentException("Existing device cannot be null");
+        }
+        if (fcmToken == null || fcmToken.trim().isEmpty()) {
+            throw new IllegalArgumentException("FCM token cannot be null or empty");
+        }
+        
+        // Find UserDevice
+        UserDevice existingDevice = findUserDeviceByDeviceId(deviceId);
+
+        
+        // Update device
+        existingDevice.setFcmToken(fcmToken.trim());
+        existingDevice.setLastChange(LocalDateTime.now());
+        
+        UserDevice updatedDevice = userDeviceRepository.save(existingDevice);
+        log.info("Successfully updated device ID: {} for FCM Token: {}", updatedDevice.getId(), fcmToken);
+        
+        return updatedDevice;
+    }
+
+    // Helper methods for validation and common operations
+    private void validateCreateDeviceInput(Integer userId, String deviceId, String fcmToken) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
+        if (deviceId == null || deviceId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Device ID cannot be null or empty");
+        }
+        if (fcmToken == null || fcmToken.trim().isEmpty()) {
+            throw new IllegalArgumentException("FCM token cannot be null or empty");
         }
     }
-    
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<UserDevice> findByUserAndDeviceId(Integer userId, String deviceId) {
-        return userDeviceRepository.findByUserUserIdAndDeviceId(userId, deviceId);
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
-    public List<UserDevice> findDevicesByUserId(Integer userId) {
-        return userDeviceRepository.findByUserUserId(userId);
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
-    public List<String> findFcmTokensByUserId(Integer userId) {
-        return userDeviceRepository.findFcmTokensByUserId(userId);
-    }
-    
-    @Override
-    public UserDevice updateFcmToken(Integer userId, String deviceId, String newFcmToken) {
-        log.info("Updating FCM token for user: {}, device: {}", userId, deviceId);
-        
-        UserDevice device = userDeviceRepository.findByUserUserIdAndDeviceId(userId, deviceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Device not found for user: " + userId + " and device: " + deviceId));
-        
-        device.setFcmToken(newFcmToken);
-        return userDeviceRepository.save(device);
-    }
-    
-    @Override
-    public UserDevice updateLastLogin(Integer userId, String deviceId) {
-        log.info("Updating last login for user: {}, device: {}", userId, deviceId);
-        
-        UserDevice device = userDeviceRepository.findByUserUserIdAndDeviceId(userId, deviceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Device not found for user: " + userId + " and device: " + deviceId));
-        
-        device.setLastLogin(LocalDateTime.now());
-        return userDeviceRepository.save(device);
-    }
-    
-    @Override
-    public void removeDevice(Integer userId, String deviceId) {
-        log.info("Removing device for user: {}, device: {}", userId, deviceId);
-        
-        UserDevice device = userDeviceRepository.findByUserUserIdAndDeviceId(userId, deviceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Device not found for user: " + userId + " and device: " + deviceId));
-        
-        userDeviceRepository.delete(device);
-    }
-    
-    @Override
-    public void removeAllDevicesForUser(Integer userId) {
-        log.info("Removing all devices for user: {}", userId);
-        
-        List<UserDevice> devices = userDeviceRepository.findByUserUserId(userId);
-        userDeviceRepository.deleteAll(devices);
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
-    public boolean existsByUserAndDeviceId(Integer userId, String deviceId) {
-        return userDeviceRepository.existsByUserUserIdAndDeviceId(userId, deviceId);
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
-    public long countDevicesByUserId(Integer userId) {
-        return userDeviceRepository.countByUserUserId(userId);
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<UserDevice> findByFcmToken(String fcmToken) {
-        return userDeviceRepository.findByFcmToken(fcmToken);
-    }
-    
-    @Override
-    public void removeDeviceByFcmToken(String fcmToken) {
-        log.info("Removing device by FCM token: {}", fcmToken);
-        
-        UserDevice device = userDeviceRepository.findByFcmToken(fcmToken)
-                .orElseThrow(() -> new ResourceNotFoundException("Device not found with FCM token: " + fcmToken));
-        
-        userDeviceRepository.delete(device);
+
+    private UserDevice findUserDeviceByDeviceId(String deviceId) {
+        return userDeviceRepository.findByDeviceId(deviceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found with id: " + deviceId));
     }
 } 

@@ -29,11 +29,11 @@ public class UserDevice {
     @Column(name = "fcm_token", length = 500, nullable = false)
     private String fcmToken;
     
-    @Column(name = "last_login")
-    private LocalDateTime lastLogin;
+    @Column(name = "last_change")
+    private LocalDateTime lastChange;
     
     // Relationship với User (Many-to-One)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = true)
     private User user;
 } 
