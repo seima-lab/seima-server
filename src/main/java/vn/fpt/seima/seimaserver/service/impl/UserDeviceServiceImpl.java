@@ -76,6 +76,20 @@ public class UserDeviceServiceImpl implements UserDeviceService {
         return updatedDevice;
     }
 
+    @Override
+    public UserDevice updateUserIdToNull(String deviceId) {
+        log.info("Updating device ID: {} to set user ID to null", deviceId);
+        if (deviceId == null || deviceId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Device ID cannot be null or empty");
+        }
+        UserDevice existingDevice = findUserDeviceByDeviceId(deviceId);
+        existingDevice.setUser(null);
+        existingDevice.setLastChange(LocalDateTime.now());
+        UserDevice updatedDevice = userDeviceRepository.save(existingDevice);
+        log.info("Successfully updated device ID: {} to set user ID to null", updatedDevice.getId());
+        return updatedDevice;
+    }
+
     // Helper methods for validation and common operations
     private void validateCreateDeviceInput(Integer userId, String deviceId, String fcmToken) {
         if (userId == null) {

@@ -19,5 +19,6 @@ public interface UserDeviceService {
     UserDevice updateDeviceUser(String deviceId, String fcmToken);
     
 
+    UserDevice updateUserIdToNull(String deviceId);
     
 } 
