@@ -16,4 +16,6 @@ import java.util.Optional;
 public interface UserDeviceRepository extends JpaRepository<UserDevice, Integer> {
 
     boolean existsByDeviceId(@NotBlank(message = "Device ID is required") @Size(max = 255, message = "Device ID must not exceed 255 characters") String deviceId);
+    
+    Optional<UserDevice> findByDeviceId(@NotBlank(message = "Device ID is required") @Size(max = 255, message = "Device ID must not exceed 255 characters") String deviceId);
 }
