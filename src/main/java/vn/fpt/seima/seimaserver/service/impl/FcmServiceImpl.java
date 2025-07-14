@@ -10,24 +10,21 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Service implementation for sending Firebase Cloud Messaging (FCM) notifications.
+ */
 @Service
 public class FcmServiceImpl implements FcmService {
 
     private static final Logger logger = LoggerFactory.getLogger(FcmServiceImpl.class);
-    
-    // Constants
-    private static final String EMPTY_TOKEN_MESSAGE = "Token list is empty. No message sent.";
-    private static final String SUCCESS_MESSAGE = "{} messages were sent successfully.";
-    private static final String FAILED_TOKENS_MESSAGE = "Messages failed to send to {} tokens: {}";
-    private static final String FCM_ERROR_MESSAGE = "Error sending multicast message to FCM.";
-    
+
     @Override
     public BatchResponse sendMulticastNotification(List<String> tokens, String title, String body, Map<String, String> data) {
-        // Input validation
         validateInputs(tokens, title, body);
-        
-        logger.info("Sending notification to {} tokens. Title: {}", tokens.size(), title);
-        
+
+        logger.info("Attempting to send notification to {} tokens. Title: '{}'", tokens.size(), title);
+
+        // Build the multicast message
         Notification notification = Notification.builder()
                 .setTitle(title)
                 .setBody(body)
@@ -40,47 +37,48 @@ public class FcmServiceImpl implements FcmService {
                 .build();
 
         try {
-            BatchResponse response = FirebaseMessaging.getInstance().sendMulticast(message);
-            logger.info(SUCCESS_MESSAGE, response.getSuccessCount());
+            // Switched to sendEachForMulticast for detailed responses without a dry-run parameter.
+            BatchResponse response = FirebaseMessaging.getInstance().sendEachForMulticast(message);
 
+            logger.info("Sent messages to {} tokens. Success count: {}, Failure count: {}",
+                    tokens.size(), response.getSuccessCount(), response.getFailureCount());
+
+            // Handle failed tokens with detailed logging.
             if (response.getFailureCount() > 0) {
-                handleFailedTokens(response, tokens);
+                List<SendResponse> responses = response.getResponses();
+                List<String> failedTokens = new ArrayList<>();
+                for (int i = 0; i < responses.size(); i++) {
+                    if (!responses.get(i).isSuccessful()) {
+                        String token = tokens.get(i);
+                        failedTokens.add(token);
+                        // Log the specific reason for failure for each token
+                        logger.warn("Token failed: {}. Reason: {}", token, responses.get(i).getException().getMessage());
+                    }
+                }
+                logger.error("Failed to send messages to {} tokens: {}", failedTokens.size(), failedTokens);
             }
+
             return response;
+
         } catch (FirebaseMessagingException e) {
-            logger.error(FCM_ERROR_MESSAGE, e);
+            // Catch fatal errors (e.g., authentication issues, connection problems)
+            logger.error("A fatal error occurred while sending multicast message to FCM.", e);
             throw new RuntimeException("Failed to send Firebase multicast message", e);
         }
     }
 
+    /**
+     * Validates that essential inputs for sending a notification are not null or empty.
+     */
     private void validateInputs(List<String> tokens, String title, String body) {
         if (tokens == null || tokens.isEmpty()) {
-            logger.warn(EMPTY_TOKEN_MESSAGE);
-            throw new IllegalArgumentException("Token list cannot be null or empty");
+            throw new IllegalArgumentException("Token list cannot be null or empty.");
         }
-        
         if (title == null || title.trim().isEmpty()) {
-            throw new IllegalArgumentException("Title cannot be null or empty");
+            throw new IllegalArgumentException("Title cannot be null or empty.");
         }
-        
         if (body == null || body.trim().isEmpty()) {
-            throw new IllegalArgumentException("Body cannot be null or empty");
+            throw new IllegalArgumentException("Body cannot be null or empty.");
         }
-    }
-
-    private void handleFailedTokens(BatchResponse response, List<String> tokens) {
-        List<SendResponse> responses = response.getResponses();
-        List<String> failedTokens = new ArrayList<>();
-
-        for (int i = 0; i < responses.size(); i++) {
-            if (!responses.get(i).isSuccessful()) {
-                failedTokens.add(tokens.get(i));
-                // Log specific error for debugging
-                logger.debug("Token {} failed with error: {}", 
-                    tokens.get(i), 
-                    responses.get(i).getException().getMessage());
-            }
-        }
-        logger.warn(FAILED_TOKENS_MESSAGE, failedTokens.size(), failedTokens);
     }
 }

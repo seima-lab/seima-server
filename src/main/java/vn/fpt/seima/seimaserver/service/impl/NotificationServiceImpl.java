@@ -295,7 +295,7 @@ public class NotificationServiceImpl implements NotificationService {
     public void sendGroupJoinRequestNotification(Integer groupId, Integer requestUserId, String requestUserName) {
         logger.info("Sending group join request notification for group: {}, user: {}", groupId, requestUserId);
         
-        String linkToEntity = "/groups/" + groupId + "/pending-members";
+        String linkToEntity = "seimaapp://groups/" + groupId + "/pending-members";
         String message = String.format(JOIN_REQUEST_BODY_TEMPLATE, requestUserName);
         
         sendNotificationToGroupMembers(groupId, requestUserId, requestUserName, 

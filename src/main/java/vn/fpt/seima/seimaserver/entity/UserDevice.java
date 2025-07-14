@@ -15,7 +15,10 @@ import java.time.LocalDateTime;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "user_device")
+@Table(name = "user_device", 
+       uniqueConstraints = {
+           @UniqueConstraint(name = "uk_user_device_device_id", columnNames = "device_id")
+       })
 public class UserDevice {
     
     @Id
@@ -23,7 +26,7 @@ public class UserDevice {
     @Column(name = "id")
     private Integer id;
     
-    @Column(name = "device_id", length = 255, nullable = false)
+    @Column(name = "device_id", length = 255, nullable = false, unique = true)
     private String deviceId;
     
     @Column(name = "fcm_token", length = 500, nullable = false)

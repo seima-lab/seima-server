@@ -94,11 +94,15 @@ public class UserServiceImpl implements UserService {
         // lệnh save này sẽ tương ứng với một SQL UPDATE.
         userRepository.save(currentUser);
 
-        // Lưu data vào bảng user_device
+        // Lưu data vào bảng user_device với logic đúng
         if(userDeviceRepository.existsByDeviceId(userCreationRequestDto.getDeviceId())){
+            // Device đã tồn tại → chỉ update thông tin
             userDeviceService.updateDeviceUser(userCreationRequestDto.getDeviceId(), userCreationRequestDto.getFcmToken());
+        } else {
+            // Device chưa tồn tại → tạo mới
+            userDeviceService.createDevice(currentUser.getUserId(), userCreationRequestDto.getDeviceId(), userCreationRequestDto.getFcmToken());
         }
-        userDeviceService.createDevice(currentUser.getUserId(),userCreationRequestDto.getDeviceId(),userCreationRequestDto.getFcmToken());
+        
         logger.info("User profile updated successfully for email: {}", currentUser.getUserEmail());
     }
 

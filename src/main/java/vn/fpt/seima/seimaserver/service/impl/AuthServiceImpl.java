@@ -420,11 +420,14 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = jwtService.generateAccessToken(userDto);
         String refreshToken = jwtService.generateRefreshToken(userDto);
 
-        // Lưu data vào bảng user_device
+        // Lưu data vào bảng user_device với logic đúng
         if(userDeviceRepository.existsByDeviceId(loginRequestDto.getDeviceId())) {
+            // Device đã tồn tại → chỉ update thông tin
             userDeviceService.updateDeviceUser(loginRequestDto.getDeviceId(), loginRequestDto.getFcmToken());
+        } else {
+            // Device chưa tồn tại → tạo mới
+            userDeviceService.createDevice(user.getUserId(), loginRequestDto.getDeviceId(), loginRequestDto.getFcmToken());
         }
-        userDeviceService.createDevice(user.getUserId(),loginRequestDto.getDeviceId(),loginRequestDto.getFcmToken());
 
         return LoginResponseDto.builder()
                 .accessToken(accessToken)

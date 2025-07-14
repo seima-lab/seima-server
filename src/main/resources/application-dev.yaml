@@ -17,7 +17,7 @@ app:
   datasource:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-    url: jdbc:mysql://localhost:3306/seima_database_official1?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/seima_database_official?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     driver-class-name: com.mysql.cj.jdbc.Driver
   oauth2:
     redirect-uri: seimaapp://auth/success
@@ -139,4 +139,5 @@ branch:
   domain: ${BRANCH_IO_DOMAIN}
 # Firebase Config
 firebase:
-  credential-url: /home/jason12/Documents/seima-server/src/main/resources/firebase-file-config/datn-25c1e-firebase-adminsdk-fbsvc-a6704a16ff.json
+  credential-url: seima-datn-firebase-adminsdk-fbsvc-4514a05939.json
+  project-id: seima-datn

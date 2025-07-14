@@ -135,4 +135,5 @@ branch:
   domain: ${BRANCH_IO_DOMAIN}
 # Firebase Config
 firebase:
-  credential-url: /home/jason12/Documents/seima-server/src/main/resources/firebase-file-config/datn-25c1e-firebase-adminsdk-fbsvc-a6704a16ff.json
+  credential-url: seima-datn-firebase-adminsdk-fbsvc-4514a05939.json
+  project-id: seima-datn
