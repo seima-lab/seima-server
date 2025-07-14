@@ -128,7 +128,7 @@ class UserServiceTest {
             // Then
             verify(userRepository).save(testUser);
             verify(userDeviceService).updateDeviceUser(userCreationRequest.getDeviceId(), userCreationRequest.getFcmToken());
-            verify(userDeviceService).createDevice(testUser.getUserId(), userCreationRequest.getDeviceId(), userCreationRequest.getFcmToken());
+            verify(userDeviceService, never()).createDevice(anyInt(), anyString(), anyString());
             
             assertEquals(userCreationRequest.getFullName(), testUser.getUserFullName());
             assertEquals(userCreationRequest.isGender(), testUser.getUserGender());
