@@ -151,4 +151,18 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Intege
             "AND u.userIsActive = true")
     Long countPendingGroupMembers(@Param("groupId") Integer groupId,
                                  @Param("status") GroupMemberStatus status);
+
+    /**
+     * Lấy danh sách admin và owner của group để gửi notification
+     * @param groupId ID của group
+     * @param status trạng thái membership (ACTIVE)
+     * @return List of GroupMember với role ADMIN hoặc OWNER
+     */
+    @Query("SELECT gm FROM GroupMember gm " +
+            "JOIN FETCH gm.user u " +
+            "WHERE gm.group.groupId = :groupId AND gm.status = :status " +
+            "AND (gm.role = 'ADMIN' OR gm.role = 'OWNER') " +
+            "AND u.userIsActive = true")
+    List<GroupMember> findAdminAndOwnerMembers(@Param("groupId") Integer groupId,
+                                              @Param("status") GroupMemberStatus status);
 } 

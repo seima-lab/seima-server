@@ -1,6 +1,5 @@
-package vn.fpt.seima.seimaserver.dto.request.auth;
+package vn.fpt.seima.seimaserver.dto.request.device;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -12,20 +11,13 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class LoginRequestDto {
-    @Email(message = "Email should be valid")
-    @NotBlank(message = "Email is required")
-    private String email;
-
-    @NotBlank(message = "Password is required")
-    private String password;
-
+public class RegisterDeviceRequest {
+    
     @NotBlank(message = "Device ID is required")
     @Size(max = 255, message = "Device ID must not exceed 255 characters")
     private String deviceId;
-
+    
     @NotBlank(message = "FCM token is required")
     @Size(max = 500, message = "FCM token must not exceed 500 characters")
     private String fcmToken;
-
-}
+} 

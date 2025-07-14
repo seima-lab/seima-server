@@ -8,7 +8,7 @@ import vn.fpt.seima.seimaserver.entity.User;
 
 public interface UserService {
 
-
+    User findUserById(Integer userId);
 
     void processAddNewUser(@Valid UserCreationRequestDto userCreationRequestDto);
     
