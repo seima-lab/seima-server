@@ -31,4 +31,12 @@ public class UserCreationRequestDto {
     private String avatarUrl;
 
     private boolean gender;
+
+    @NotBlank(message = "Device ID is required")
+    @Size(max = 255, message = "Device ID must not exceed 255 characters")
+    private String deviceId;
+
+    @NotBlank(message = "FCM token is required")
+    @Size(max = 500, message = "FCM token must not exceed 500 characters")
+    private String fcmToken;
 }

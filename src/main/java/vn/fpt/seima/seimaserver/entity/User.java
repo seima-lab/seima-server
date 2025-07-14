@@ -72,9 +72,15 @@ public class User {
     @OneToMany(mappedBy = "user") // user_id trong GroupMember
     private Set<GroupMember> groupMemberships;
 
-    @OneToMany(mappedBy = "user")
-    private Set<Notification> notifications;
+    @OneToMany(mappedBy = "receiver")
+    private Set<Notification> receivedNotifications;
+    
+    @OneToMany(mappedBy = "sender")
+    private Set<Notification> sentNotifications;
 
     @OneToMany(mappedBy = "user") // user_id trong WalletType cho các type do user định nghĩa
     private Set<WalletType> userDefinedWalletTypes;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<UserDevice> userDevices;
 }

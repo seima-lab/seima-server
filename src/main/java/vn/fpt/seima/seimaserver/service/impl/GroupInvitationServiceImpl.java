@@ -40,6 +40,7 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
     private final BranchLinkService branchLinkService;
     private final AppProperties appProperties;
     private final InvitationTokenService invitationTokenService;
+    private final NotificationService notificationService;
 
 
 
@@ -400,6 +401,21 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
 
             // Update token status in Redis
             boolean tokenUpdated = invitationTokenService.updateInvitationTokenStatus(invitationToken, "PENDING_APPROVAL");
+
+            // Gửi notification cho admin và owner
+            try {
+                // Lấy user name của người yêu cầu join
+                String invitedUserName = invitation.getUser().getUserFullName();
+                
+                notificationService.sendGroupJoinRequestNotification(
+                    tokenData.getGroupId(), 
+                    tokenData.getInvitedUserId(), 
+                    invitedUserName
+                );
+            } catch (Exception e) {
+                logger.error("Failed to send group join request notification", e);
+                // Không fail toàn bộ process nếu notification fail
+            }
 
             logger.info("Successfully processed invitation token: {} - updated status to PENDING_APPROVAL, tokenUpdated: {}",
                     invitationToken, tokenUpdated);
