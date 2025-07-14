@@ -45,7 +45,11 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     public Page<TransactionResponse> getAllTransaction( Pageable pageable) {
-        Page<Transaction> transactions = transactionRepository.findByType(TransactionType.INACTIVE,pageable);
+        User user = UserUtils.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        Page<Transaction> transactions = transactionRepository.findByType(TransactionType.INACTIVE,user.getUserId(),pageable);
 
         return transactions.map(transactionMapper::toResponse);
     }
