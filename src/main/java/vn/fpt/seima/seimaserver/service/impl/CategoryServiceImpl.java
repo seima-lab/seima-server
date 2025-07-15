@@ -65,12 +65,9 @@ public class CategoryServiceImpl implements CategoryService {
         }
 
         if (request.getCategoryName() == null || request.getCategoryType() == null) {
-            throw new IllegalArgumentException("Category name already exists");
+            throw new IllegalArgumentException("Category name and type must not be null.");
         }
 
-        if (categoryRepository.existsByCategoryName(request.getCategoryName())) {
-
-        }
         if(request.getGroupId()!= null){
             group = groupRepository.findById(request.getGroupId())
                     .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + request.getGroupId()));
@@ -87,6 +84,26 @@ public class CategoryServiceImpl implements CategoryService {
                     request.getCategoryName(), request.getCategoryType(), user.getUserId()
             );
         }
+
+//        if (categoryRepository.existsByCategoryName(request.getCategoryName())) {
+//
+//        }
+//        if(request.getGroupId()!= null){
+//            group = groupRepository.findById(request.getGroupId())
+//                    .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + request.getGroupId()));
+//
+//            if (!groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), group.getGroupId())) {
+//                throw new IllegalArgumentException("You are not authorized to create this group category.");
+//            }
+//
+//            isDuplicate = categoryRepository.existsByCategoryNameAndTypeAndGroup_GroupId(
+//                    request.getCategoryName(), request.getCategoryType(), request.getGroupId()
+//            );
+//        } else {
+//            isDuplicate = categoryRepository.existsByCategoryNameAndTypeAndUser_UserId(
+//                    request.getCategoryName(), request.getCategoryType(), user.getUserId()
+//            );
+//        }
 
         if (isDuplicate) {
             throw new IllegalArgumentException("A category with the same name already exists in the same scope and type.");
