@@ -52,10 +52,11 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
     void deleteByCategory_CategoryId(Integer categoryId);
     List<Transaction> findAllByCategory_CategoryId(Integer categoryId);
     @Query("SELECT t FROM Transaction t " +
-            "WHERE t.user.userId = :userId " +
+            "WHERE t.user.userId = :userId AND t.category.categoryId = :categoryId " +
             "AND t.transactionDate BETWEEN :start AND :end " +
             "AND t.transactionType IN ('EXPENSE', 'INCOME')")
     List<Transaction> findExpensesByUserAndDateRange(
+            @Param("userId") Integer categoryId,
             @Param("userId") Integer userId,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end);

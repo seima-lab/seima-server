@@ -169,12 +169,14 @@ public class TransactionController {
         }
     }
 
-    @GetMapping("/view-report/category")
+    @GetMapping("/view-report/category/{id}")
     public ApiResponse<TransactionCategoryReportResponse> getExpenseIncomeReport(
-            @RequestParam(value = "startDate") LocalDate startDate,
-            @RequestParam(value = "endDate") LocalDate endDate) {
+            @PathVariable int id,
+            @RequestParam(value = "type") String type,
+            @RequestParam(required = false ) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
         try {
-            TransactionCategoryReportResponse report = transactionService.getCategoryReport(startDate, endDate);
+            TransactionCategoryReportResponse report = transactionService.getCategoryReport(type, id, startDate, endDate);
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", report);
         } catch (IllegalArgumentException ex) {
             return new ApiResponse<>(500, ex.getMessage(), null);

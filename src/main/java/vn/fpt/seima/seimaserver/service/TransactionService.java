@@ -38,5 +38,5 @@ public interface TransactionService {
 
     TransactionReportResponse getTransactionReport(Integer categoryId,LocalDate startDate, LocalDate endDate);
 
-    TransactionCategoryReportResponse getCategoryReport(LocalDate dateFrom, LocalDate dateTo);
+    TransactionCategoryReportResponse getCategoryReport(String type, Integer id, LocalDate dateFrom, LocalDate dateTo);
 }
