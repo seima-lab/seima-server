@@ -6,7 +6,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.group.UpdateMemberRoleRequest;
+import vn.fpt.seima.seimaserver.dto.request.group.TransferOwnershipRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberListResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.OwnerExitOptionsResponse;
 import vn.fpt.seima.seimaserver.service.GroupMemberService;
 
 @RestController
@@ -49,5 +51,28 @@ public class GroupMemberController {
     public ApiResponse<Object> exitGroup(@PathVariable Integer groupId) {
         groupMemberService.exitGroup(groupId);
         return new ApiResponse<>(HttpStatus.OK.value(), "Successfully exited the group", null);
+    }
+
+    @PostMapping("/group/{groupId}/transfer-ownership")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<Object> transferOwnership(
+            @PathVariable Integer groupId,
+            @Valid @RequestBody TransferOwnershipRequest request) {
+        groupMemberService.transferOwnership(groupId, request);
+        return new ApiResponse<>(HttpStatus.OK.value(), "Ownership transferred successfully", null);
+    }
+
+    @GetMapping("/group/{groupId}/eligible-for-ownership")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<GroupMemberListResponse> getEligibleMembersForOwnership(@PathVariable Integer groupId) {
+        GroupMemberListResponse memberList = groupMemberService.getEligibleMembersForOwnership(groupId);
+        return new ApiResponse<>(HttpStatus.OK.value(), "Eligible members for ownership retrieved successfully", memberList);
+    }
+
+    @GetMapping("/group/{groupId}/owner-exit-options")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<OwnerExitOptionsResponse> getOwnerExitOptions(@PathVariable Integer groupId) {
+        OwnerExitOptionsResponse options = groupMemberService.getOwnerExitOptions(groupId);
+        return new ApiResponse<>(HttpStatus.OK.value(), "Owner exit options retrieved successfully", options);
     }
 } 

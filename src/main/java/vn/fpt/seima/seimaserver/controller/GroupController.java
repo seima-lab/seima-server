@@ -76,4 +76,11 @@ public class GroupController {
             statusResponse
         );
     }
+
+    @DeleteMapping("/{groupId}")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<Object> deleteGroup(@PathVariable Integer groupId) {
+        groupService.deleteGroup(groupId);
+        return new ApiResponse<>(HttpStatus.OK.value(), "Group deleted successfully", null);
+    }
 } 
