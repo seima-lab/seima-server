@@ -55,7 +55,7 @@ public class UserController {
         }
     }
 
-    @GetMapping("/me")
+    @PostMapping("/me")
     public ApiResponse<UserProfileResponseDto> getCurrentUserProfile(
             @Valid
             @RequestBody MeRequestDto meRequestDto
