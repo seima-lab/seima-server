@@ -26,9 +26,6 @@ public class ChatHistory {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
     
-    @Column(name = "conversation_id", length = 255)
-    private String conversationId;
-    
     @Enumerated(EnumType.STRING)
     @Column(name = "sender_type", nullable = false)
     private SenderType senderType;

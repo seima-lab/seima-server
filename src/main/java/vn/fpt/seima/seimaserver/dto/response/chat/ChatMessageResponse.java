@@ -17,7 +17,6 @@ public class ChatMessageResponse {
     
     private Integer chatId;
     private Integer userId;
-    private String conversationId;
     private SenderType senderType;
     private String messageContent;
     

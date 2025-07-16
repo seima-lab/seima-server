@@ -15,9 +15,6 @@ import vn.fpt.seima.seimaserver.entity.SenderType;
 @NoArgsConstructor
 public class CreateChatMessageRequest {
     
-    @Size(max = 255, message = "Conversation ID cannot exceed 255 characters")
-    private String conversationId;
-    
     @NotNull(message = "Sender type is required")
     private SenderType senderType;
     

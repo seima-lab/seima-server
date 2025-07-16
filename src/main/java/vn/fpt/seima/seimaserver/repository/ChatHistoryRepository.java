@@ -26,25 +26,6 @@ public interface ChatHistoryRepository extends JpaRepository<ChatHistory, Intege
     Page<ChatHistory> findByUserIdOrderByTimestampDesc(@Param("userId") Integer userId, Pageable pageable);
     
     /**
-     * Find all chat messages for a specific conversation with pagination
-     * @param conversationId the conversation ID
-     * @param pageable pagination parameters
-     * @return Page of ChatHistory ordered by timestamp ascending
-     */
-    @Query("SELECT c FROM ChatHistory c WHERE c.conversationId = :conversationId ORDER BY c.timestamp ASC")
-    Page<ChatHistory> findByConversationIdOrderByTimestampAsc(@Param("conversationId") String conversationId, Pageable pageable);
-    
-    /**
-     * Find all chat messages for a specific user and conversation
-     * @param userId the user ID
-     * @param conversationId the conversation ID
-     * @param pageable pagination parameters
-     * @return Page of ChatHistory ordered by timestamp ascending
-     */
-    @Query("SELECT c FROM ChatHistory c WHERE c.user.userId = :userId AND c.conversationId = :conversationId ORDER BY c.timestamp ASC")
-    Page<ChatHistory> findByUserIdAndConversationIdOrderByTimestampAsc(@Param("userId") Integer userId, @Param("conversationId") String conversationId, Pageable pageable);
-    
-    /**
      * Find all chat messages for a specific user within a date range
      * @param userId the user ID
      * @param startDate start date
@@ -71,34 +52,10 @@ public interface ChatHistoryRepository extends JpaRepository<ChatHistory, Intege
                                               Pageable pageable);
     
     /**
-     * Get all unique conversation IDs for a user
-     * @param userId the user ID
-     * @return List of conversation IDs
-     */
-    @Query("SELECT DISTINCT c.conversationId FROM ChatHistory c WHERE c.user.userId = :userId AND c.conversationId IS NOT NULL ORDER BY MAX(c.timestamp) DESC")
-    List<String> findDistinctConversationIdsByUserId(@Param("userId") Integer userId);
-    
-    /**
-     * Get the most recent message for each conversation for a user
-     * @param userId the user ID
-     * @return List of ChatHistory representing the latest message in each conversation
-     */
-    @Query("SELECT c FROM ChatHistory c WHERE c.user.userId = :userId AND c.timestamp = (" +
-           "SELECT MAX(c2.timestamp) FROM ChatHistory c2 WHERE c2.conversationId = c.conversationId AND c2.user.userId = :userId) " +
-           "ORDER BY c.timestamp DESC")
-    List<ChatHistory> findLatestMessagesByUserIdGroupByConversation(@Param("userId") Integer userId);
-    
-    /**
      * Delete all chat history for a specific user
      * @param userId the user ID
      */
     void deleteByUserId(@Param("userId") Integer userId);
-    
-    /**
-     * Delete all chat history for a specific conversation
-     * @param conversationId the conversation ID
-     */
-    void deleteByConversationId(@Param("conversationId") String conversationId);
     
     /**
      * Count total messages for a user
@@ -107,12 +64,4 @@ public interface ChatHistoryRepository extends JpaRepository<ChatHistory, Intege
      */
     @Query("SELECT COUNT(c) FROM ChatHistory c WHERE c.user.userId = :userId")
     Long countByUserId(@Param("userId") Integer userId);
-    
-    /**
-     * Count total messages for a conversation
-     * @param conversationId the conversation ID
-     * @return count of messages
-     */
-    @Query("SELECT COUNT(c) FROM ChatHistory c WHERE c.conversationId = :conversationId")
-    Long countByConversationId(@Param("conversationId") String conversationId);
 } 

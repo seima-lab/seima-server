@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.chat.CreateChatMessageRequest;
 import vn.fpt.seima.seimaserver.dto.response.chat.ChatMessageResponse;
-import vn.fpt.seima.seimaserver.dto.response.chat.ConversationSummaryResponse;
 import vn.fpt.seima.seimaserver.entity.ChatHistory;
 import vn.fpt.seima.seimaserver.entity.SenderType;
 import vn.fpt.seima.seimaserver.entity.User;
@@ -58,17 +57,6 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
     
     @Override
     @Transactional(readOnly = true)
-    public Page<ChatMessageResponse> getConversationHistory(String conversationId, Pageable pageable) {
-        log.info("Getting conversation history for conversation: {} and user: {}", conversationId, UserUtils.getCurrentUserId());
-        
-        Integer currentUserId = UserUtils.getCurrentUserId();
-        Page<ChatHistory> chatHistoryPage = chatHistoryRepository.findByUserIdAndConversationIdOrderByTimestampAsc(currentUserId, conversationId, pageable);
-        
-        return chatHistoryPage.map(chatHistoryMapper::toResponse);
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
     public Page<ChatMessageResponse> getUserChatHistoryByDateRange(LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
         log.info("Getting chat history for user: {} between {} and {}", UserUtils.getCurrentUserId(), startDate, endDate);
         
@@ -90,31 +78,6 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
     }
     
     @Override
-    @Transactional(readOnly = true)
-    public List<ConversationSummaryResponse> getUserConversationSummaries() {
-        log.info("Getting conversation summaries for user: {}", UserUtils.getCurrentUserId());
-        
-        Integer currentUserId = UserUtils.getCurrentUserId();
-        List<ChatHistory> latestMessages = chatHistoryRepository.findLatestMessagesByUserIdGroupByConversation(currentUserId);
-        
-        return latestMessages.stream()
-                .map(latestMessage -> {
-                    Long messageCount = chatHistoryRepository.countByConversationId(latestMessage.getConversationId());
-                    return chatHistoryMapper.toConversationSummary(latestMessage, messageCount);
-                })
-                .collect(Collectors.toList());
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
-    public List<String> getUserConversationIds() {
-        log.info("Getting conversation IDs for user: {}", UserUtils.getCurrentUserId());
-        
-        Integer currentUserId = UserUtils.getCurrentUserId();
-        return chatHistoryRepository.findDistinctConversationIdsByUserId(currentUserId);
-    }
-    
-    @Override
     public void deleteUserChatHistory() {
         log.info("Deleting all chat history for user: {}", UserUtils.getCurrentUserId());
         
@@ -122,24 +85,6 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         chatHistoryRepository.deleteByUserId(currentUserId);
         
         log.info("All chat history deleted for user: {}", currentUserId);
-    }
-    
-    @Override
-    public void deleteConversation(String conversationId) {
-        log.info("Deleting conversation: {} for user: {}", conversationId, UserUtils.getCurrentUserId());
-        
-        // First verify that the conversation belongs to the current user
-        Integer currentUserId = UserUtils.getCurrentUserId();
-        Page<ChatHistory> conversationMessages = chatHistoryRepository.findByUserIdAndConversationIdOrderByTimestampAsc(
-                currentUserId, conversationId, Pageable.unpaged());
-        
-        if (conversationMessages.isEmpty()) {
-            throw new ResourceNotFoundException("Conversation not found or doesn't belong to current user");
-        }
-        
-        chatHistoryRepository.deleteByConversationId(conversationId);
-        
-        log.info("Conversation {} deleted successfully", conversationId);
     }
     
     @Override
@@ -166,23 +111,6 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         
         Integer currentUserId = UserUtils.getCurrentUserId();
         return chatHistoryRepository.countByUserId(currentUserId);
-    }
-    
-    @Override
-    @Transactional(readOnly = true)
-    public Long getConversationMessageCount(String conversationId) {
-        log.info("Getting message count for conversation: {}", conversationId);
-        
-        // Verify that the conversation belongs to the current user
-        Integer currentUserId = UserUtils.getCurrentUserId();
-        Page<ChatHistory> conversationMessages = chatHistoryRepository.findByUserIdAndConversationIdOrderByTimestampAsc(
-                currentUserId, conversationId, Pageable.unpaged());
-        
-        if (conversationMessages.isEmpty()) {
-            throw new ResourceNotFoundException("Conversation not found or doesn't belong to current user");
-        }
-        
-        return chatHistoryRepository.countByConversationId(conversationId);
     }
     
     private User getCurrentUser() {
