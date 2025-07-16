@@ -9,10 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionCategoryReportResponse;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionReportResponse;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
+import vn.fpt.seima.seimaserver.dto.response.transaction.*;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.mapper.TransactionMapper;
 import vn.fpt.seima.seimaserver.repository.*;
@@ -507,4 +504,56 @@ public class TransactionServiceImpl implements TransactionService {
                 totalExpense, avgExpense, totalIncome, avgIncome, sortedResult
         );
     }
+
+    /**
+     * @param categoryId
+     * @param dateFrom
+     * @param dateTo
+     * @return
+     */
+    @Override
+    public TransactionDetailReportResponse getCategoryReportDetail(Integer categoryId, LocalDate dateFrom, LocalDate dateTo) {
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+
+        LocalDate now = LocalDate.now();
+        if (dateFrom == null || dateTo == null) {
+            dateFrom = now.withDayOfMonth(1);
+            dateTo = now.withDayOfMonth(now.lengthOfMonth());
+        }
+
+        List<Transaction> transactions = transactionRepository.findExpensesByUserAndDateRange(
+                categoryId, currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.atTime(23, 59, 59));
+
+        Map<String, TransactionDetailReportResponse.GroupDetail> result = new LinkedHashMap<>();
+        BigDecimal totalExpense = BigDecimal.ZERO;
+        BigDecimal totalIncome = BigDecimal.ZERO;
+
+        for (Transaction tx : transactions) {
+            LocalDate txDate = tx.getTransactionDate().toLocalDate();
+            String key = txDate.toString();
+
+            TransactionDetailReportResponse.GroupDetail group = result.getOrDefault(key, new TransactionDetailReportResponse.GroupDetail());
+            if (tx.getTransactionType() == TransactionType.EXPENSE) {
+                group.setExpense(group.getExpense().add(tx.getAmount()));
+                totalExpense = totalExpense.add(tx.getAmount());
+            } else if (tx.getTransactionType() == TransactionType.INCOME) {
+                group.setIncome(group.getIncome().add(tx.getAmount()));
+                totalIncome = totalIncome.add(tx.getAmount());
+            }
+
+            if (group.getCategoryId() == null) {
+                group.setCategoryId(tx.getCategory().getCategoryId());
+                group.setCategoryName(tx.getCategory().getCategoryName());
+                group.setCategoryIconUrl(tx.getCategory().getCategoryIconUrl());
+            }
+
+            result.put(key, group);
+        }
+
+        return new TransactionDetailReportResponse(totalExpense, totalIncome, result);
+    }
+
 }
