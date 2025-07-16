@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
+import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionCategoryReportResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionReportResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
@@ -22,9 +23,12 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -385,5 +389,76 @@ public class TransactionServiceImpl implements TransactionService {
                 .summary(summary)
                 .transactionsByCategory(transactionTypeMap)
                 .build();
+    }
+
+    /**
+     *
+     * @param dateFrom
+     * @param dateTo
+     * @return
+     */
+
+
+    @Override
+    public TransactionCategoryReportResponse getCategoryReport(LocalDate dateFrom, LocalDate dateTo) {
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        long days = ChronoUnit.DAYS.between(dateFrom, dateTo) + 1;
+
+        String groupBy;
+        if (days <= 7) {
+            groupBy = "day";
+        } else if (days <= 31) {
+            groupBy = "week";
+        } else {
+            groupBy = "month";
+        }
+
+        List<Transaction> transactions = transactionRepository.findExpensesByUserAndDateRange(
+                currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.atTime(23, 59, 59));
+
+        Map<String, TransactionCategoryReportResponse.GroupAmount> result = new LinkedHashMap<>();
+
+        for (Transaction tx : transactions) {
+            LocalDate date = tx.getTransactionDate().toLocalDate();
+            String key;
+            switch (groupBy) {
+                case "day":
+                    key = date.toString();
+                    break;
+                case "week":
+                    int weekIndex = (int) ChronoUnit.DAYS.between(dateFrom, date) / 7 + 1;
+                    LocalDate weekStart = dateFrom.plusDays((weekIndex - 1) * 7);
+                    LocalDate weekEnd = weekStart.plusDays(6);
+                    if (weekEnd.isAfter(dateTo)) weekEnd = dateTo;
+                    key = weekStart + "_to_" + weekEnd;
+                    break;
+                case "month":
+                    key = String.format("%02d", date.getMonthValue());
+                    break;
+                default:
+                    key = "unknown";
+            }
+
+            var item = result.getOrDefault(key, new TransactionCategoryReportResponse.GroupAmount());
+            if (tx.getTransactionType() == TransactionType.EXPENSE)
+                item.setExpense(item.getExpense().add(tx.getAmount()));
+            else if (tx.getTransactionType() == TransactionType.INCOME)
+                item.setIncome(item.getIncome().add(tx.getAmount()));
+            result.put(key, item);
+        }
+
+        int groupCount = result.size();
+        BigDecimal totalExpense = result.values().stream().map(TransactionCategoryReportResponse.GroupAmount::getExpense).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalIncome = result.values().stream().map(TransactionCategoryReportResponse.GroupAmount::getIncome).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal avgExpense = groupCount == 0 ? BigDecimal.ZERO : totalExpense.divide(BigDecimal.valueOf(groupCount), 2, RoundingMode.HALF_UP);
+        BigDecimal avgIncome = groupCount == 0 ? BigDecimal.ZERO : totalIncome.divide(BigDecimal.valueOf(groupCount), 2, RoundingMode.HALF_UP);
+
+        return new TransactionCategoryReportResponse(
+                totalExpense, avgExpense, totalIncome, avgIncome, result
+        );
     }
 }
