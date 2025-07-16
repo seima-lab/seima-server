@@ -48,4 +48,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
             @Param("categoryId") Integer categoryId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
-    );}
+    );
+    void deleteByCategory_CategoryId(Integer categoryId);
+}
+

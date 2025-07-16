@@ -2,14 +2,13 @@ package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.category.CreateCategoryRequest;
 import vn.fpt.seima.seimaserver.dto.response.category.CategoryResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.mapper.CategoryMapper;
-import vn.fpt.seima.seimaserver.repository.CategoryRepository;
-import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
-import vn.fpt.seima.seimaserver.repository.GroupRepository;
+import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.CategoryService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
@@ -22,6 +21,8 @@ public class CategoryServiceImpl implements CategoryService {
     private final GroupMemberRepository groupMemberRepository;
     private final GroupRepository groupRepository;
     private CategoryRepository categoryRepository;
+    private BudgetCategoryLimitRepository budgetCategoryLimitRepository;
+    private TransactionRepository transactionRepository;
 
     @Override
     public List<CategoryResponse> getAllCategoryByTypeAndUser(Integer categoryType, Integer groupId) {
@@ -77,33 +78,13 @@ public class CategoryServiceImpl implements CategoryService {
             }
 
             isDuplicate = categoryRepository.existsByCategoryNameAndTypeAndGroup_GroupId(
-                    request.getCategoryName(), request.getCategoryType(), request.getGroupId()
+                    request.getCategoryName().trim(), request.getCategoryType(), request.getGroupId()
             );
         } else {
             isDuplicate = categoryRepository.existsByCategoryNameAndTypeAndUser_UserId(
-                    request.getCategoryName(), request.getCategoryType(), user.getUserId()
+                    request.getCategoryName().trim(), request.getCategoryType(), user.getUserId()
             );
         }
-
-//        if (categoryRepository.existsByCategoryName(request.getCategoryName())) {
-//
-//        }
-//        if(request.getGroupId()!= null){
-//            group = groupRepository.findById(request.getGroupId())
-//                    .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + request.getGroupId()));
-//
-//            if (!groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), group.getGroupId())) {
-//                throw new IllegalArgumentException("You are not authorized to create this group category.");
-//            }
-//
-//            isDuplicate = categoryRepository.existsByCategoryNameAndTypeAndGroup_GroupId(
-//                    request.getCategoryName(), request.getCategoryType(), request.getGroupId()
-//            );
-//        } else {
-//            isDuplicate = categoryRepository.existsByCategoryNameAndTypeAndUser_UserId(
-//                    request.getCategoryName(), request.getCategoryType(), user.getUserId()
-//            );
-//        }
 
         if (isDuplicate) {
             throw new IllegalArgumentException("A category with the same name already exists in the same scope and type.");
@@ -140,8 +121,8 @@ public class CategoryServiceImpl implements CategoryService {
             throw new IllegalArgumentException("System-defined categories cannot be updated.");
         }
 
-        if (categoryRepository.existsByCategoryName(request.getCategoryName()) &&
-                !existingCategory.getCategoryName().equals(request.getCategoryName())) {
+        if (categoryRepository.existsByCategoryName(request.getCategoryName().trim()) &&
+                !existingCategory.getCategoryName().equals(request.getCategoryName().trim())) {
             throw new IllegalArgumentException("Category name already exists");
         }
         Group group = existingCategory.getGroup();
@@ -159,15 +140,15 @@ public class CategoryServiceImpl implements CategoryService {
         // Duplication check: based on existing ownership (user or group)
         if (group != null) {
             isDuplicate = categoryRepository.existsByCategoryNameAndTypeAndGroup_GroupId(
-                    request.getCategoryName(), request.getCategoryType(), group.getGroupId()
+                    request.getCategoryName().trim(), request.getCategoryType(), group.getGroupId()
             );
         } else {
             isDuplicate = categoryRepository.existsByCategoryNameAndTypeAndUser_UserId(
-                    request.getCategoryName(), request.getCategoryType(), user.getUserId()
+                    request.getCategoryName().trim(), request.getCategoryType(), user.getUserId()
             );
         }
 
-        if (isDuplicate && !existingCategory.getCategoryName().equals(request.getCategoryName())) {
+        if (isDuplicate && !existingCategory.getCategoryName().trim().equals(request.getCategoryName().trim())) {
             throw new IllegalArgumentException("A category with the same name already exists in the same scope and type.");
         }
 
@@ -179,6 +160,7 @@ public class CategoryServiceImpl implements CategoryService {
 
 
     @Override
+    @Transactional
     public void deleteCategory(int id) {
         Group group = null;
 
@@ -204,6 +186,8 @@ public class CategoryServiceImpl implements CategoryService {
         if(!currentUser.getUserId().equals(category.getUser().getUserId())) {
             throw new IllegalArgumentException("You are not authorized to delete this category.");
         }
+        transactionRepository.deleteByCategory_CategoryId(id);
+        budgetCategoryLimitRepository.deleteByCategory_CategoryId(id);
         categoryRepository.deleteById(id);
     }
 }
