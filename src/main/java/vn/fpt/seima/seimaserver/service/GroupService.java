@@ -5,6 +5,7 @@ import vn.fpt.seima.seimaserver.dto.request.group.UpdateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.UserJoinedGroupResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberStatusResponse;
 import vn.fpt.seima.seimaserver.exception.GroupException;
 
 import java.util.List;
@@ -25,4 +26,7 @@ public interface GroupService {
 
 
     GroupResponse archiveGroup(Integer groupId);
+    
+
+    GroupMemberStatusResponse getCurrentUserGroupStatus(Integer groupId);
 }

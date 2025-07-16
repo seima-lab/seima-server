@@ -1,6 +1,5 @@
 package vn.fpt.seima.seimaserver.service;
 
-import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.wallet.CreateWalletRequest;
 import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
 
@@ -13,5 +12,5 @@ public interface WalletService {
     List<WalletResponse> getAllWallets();
     WalletResponse updateWallet(Integer id, CreateWalletRequest request);
     void deleteWallet(Integer id);
-    void reduceAmount(Integer id, BigDecimal amount);
+    void reduceAmount(Integer id, BigDecimal amount, String type, String code );
 } 

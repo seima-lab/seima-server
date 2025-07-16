@@ -6,18 +6,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
-import vn.fpt.seima.seimaserver.entity.Budget;
-import vn.fpt.seima.seimaserver.entity.BudgetCategoryLimit;
-import vn.fpt.seima.seimaserver.entity.Category;
-import vn.fpt.seima.seimaserver.entity.User;
-import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
+import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.mapper.BudgetMapper;
 import vn.fpt.seima.seimaserver.repository.BudgetCategoryLimitRepository;
 import vn.fpt.seima.seimaserver.repository.BudgetRepository;
@@ -26,9 +20,7 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -49,7 +41,6 @@ class BudgetServiceTest {
         user = new User();
         user.setUserId(1);
 
-        // Đảm bảo đóng mock trước khi tạo mới
         if (mockedUserUtils != null) {
             mockedUserUtils.close();
         }
@@ -86,28 +77,19 @@ class BudgetServiceTest {
 
     @Test
     void saveBudget_ShouldSaveAndReturnResponse() {
-        // Arrange
         CreateBudgetRequest request = new CreateBudgetRequest();
         request.setBudgetName("Test Budget");
         request.setOverallAmountLimit(BigDecimal.TEN);
-
-        // Tạo một danh sách Category giả
-        ArrayList<Category> categories = new ArrayList<>();
-        categories.add(new Category());
-        request.setCategoryList(categories);
+        request.setCategoryList(new ArrayList<>(List.of(new Category())));
 
         Budget budget = new Budget();
 
-        // Mock dữ liệu
         lenient().when(budgetRepository.existsByBudgetName(anyString())).thenReturn(false);
         lenient().when(budgetMapper.toEntity(request)).thenReturn(budget);
         lenient().when(budgetRepository.save(budget)).thenReturn(budget);
         lenient().when(budgetMapper.toResponse(budget)).thenReturn(new BudgetResponse());
 
-        // Act
         BudgetResponse result = budgetService.saveBudget(request);
-
-        // Assert
         assertNotNull(result);
     }
 
@@ -138,7 +120,7 @@ class BudgetServiceTest {
         when(budgetRepository.findById(1)).thenReturn(Optional.of(budget));
 
         budgetService.deleteBudget(1);
-        verify(budgetCategoryLimitRepository).deleteByBudget_BudgetId(1);
+        verify(budgetCategoryLimitRepository).deleteBudgetCategoryLimitByBudget(1);
         verify(budgetRepository).deleteById(1);
     }
 
@@ -148,12 +130,80 @@ class BudgetServiceTest {
         budget.setStartDate(LocalDateTime.now().minusDays(1));
         budget.setEndDate(LocalDateTime.now().plusDays(1));
         budget.setBudgetRemainingAmount(BigDecimal.valueOf(100));
+        budget.setCurrencyCode("VND");
+
+        BudgetCategoryLimit limit = new BudgetCategoryLimit();
+        limit.setBudget(budget);
 
         when(budgetRepository.findByUserId(1)).thenReturn(List.of(budget));
-        when(budgetCategoryLimitRepository.findByTransaction(anyInt()))
-                .thenReturn(List.of(new BudgetCategoryLimit()));
+        when(budgetCategoryLimitRepository.findByTransaction(anyInt())).thenReturn(List.of(limit));
 
-        budgetService.reduceAmount(1, 1, BigDecimal.TEN, LocalDateTime.now());
+        budgetService.reduceAmount(1, 1, BigDecimal.TEN, LocalDateTime.now(), "update-subtract", "VND");
+
         verify(budgetRepository).saveAll(anyList());
+        assertEquals(BigDecimal.valueOf(90), budget.getBudgetRemainingAmount());
+    }
+
+    @Test
+    void testReduceAmount_expense_success() {
+        Integer userId = 1;
+        Integer categoryId = 10;
+        BigDecimal amount = new BigDecimal("100");
+        String type = "EXPENSE";
+        String currency = "VND";
+        LocalDateTime now = LocalDateTime.now();
+
+        Budget budget = new Budget();
+        budget.setBudgetId(1);
+        budget.setCurrencyCode(currency);
+        budget.setStartDate(now.minusDays(1));
+        budget.setEndDate(now.plusDays(1));
+        budget.setBudgetRemainingAmount(new BigDecimal("1000"));
+
+        BudgetCategoryLimit limit = new BudgetCategoryLimit();
+        limit.setBudget(budget); // Gán để tránh lỗi null
+        Category category = new Category();
+        category.setCategoryId(categoryId);
+        limit.setCategory(category);
+
+        when(budgetRepository.findByUserId(userId)).thenReturn(List.of(budget));
+        when(budgetCategoryLimitRepository.findByTransaction(categoryId)).thenReturn(List.of(limit));
+
+        budgetService.reduceAmount(userId, categoryId, amount, now, type, currency);
+
+        assertEquals(new BigDecimal("900"), budget.getBudgetRemainingAmount());
+        verify(budgetRepository, times(1)).saveAll(any());
+    }
+
+    @Test
+    void testReduceAmount_budgetNotFound_shouldThrowException() {
+        when(budgetRepository.findByUserId(1)).thenReturn(null);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            budgetService.reduceAmount(1, 10, BigDecimal.TEN, LocalDateTime.now(), "EXPENSE", "VND");
+        });
+
+        assertEquals("Budget not found", ex.getMessage().trim());
+    }
+
+    @Test
+    void testReduceAmount_budgetCategoryLimitNotFound_shouldThrowException() {
+        Integer userId = 1;
+        Integer categoryId = 10;
+
+        Budget budget = new Budget();
+        budget.setCurrencyCode("VND");
+        budget.setStartDate(LocalDateTime.now().minusDays(1));
+        budget.setEndDate(LocalDateTime.now().plusDays(1));
+        budget.setBudgetRemainingAmount(BigDecimal.valueOf(1000));
+
+        when(budgetRepository.findByUserId(userId)).thenReturn(List.of(budget));
+        when(budgetCategoryLimitRepository.findByTransaction(categoryId)).thenReturn(Collections.emptyList());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> {
+            budgetService.reduceAmount(userId, categoryId, BigDecimal.TEN, LocalDateTime.now(), "EXPENSE", "VND");
+        });
+
+        assertEquals("Budget category limit not found", ex.getMessage());
     }
 }

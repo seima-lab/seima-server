@@ -1,6 +1,7 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -23,11 +24,12 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @AllArgsConstructor
+@Slf4j
+
 public class BudgetServiceImpl implements BudgetService {
     private  BudgetRepository budgetRepository;
     private final BudgetMapper budgetMapper;
@@ -54,6 +56,7 @@ public class BudgetServiceImpl implements BudgetService {
     }
 
     @Override
+    @Transactional
     public BudgetResponse saveBudget(CreateBudgetRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("Request must not be null");
@@ -73,9 +76,13 @@ public class BudgetServiceImpl implements BudgetService {
         if (request.getCategoryList().isEmpty()) {
             throw new IllegalArgumentException("Category list must not be empty");
         }
-//        if (budgetRepository.countBudgetByUserId(user.getUserId(), request.))
+
+        if (!budgetRepository.countBudgetByUserId(user.getUserId())) {
+            throw new IllegalArgumentException("The user cannot have more than 5 budgets.");
+        }
         Budget budget = budgetMapper.toEntity(request);
         budget.setUser(user);
+        budget.setPeriodType(PeriodType.NONE);
         Budget savedBudget = budgetRepository.save(budget);
 
         for (Category category : request.getCategoryList()) {
@@ -110,7 +117,7 @@ public class BudgetServiceImpl implements BudgetService {
         if (request.getCategoryList().isEmpty()) {
             throw new IllegalArgumentException("Category list must not be empty");
         }
-        budgetCategoryLimitRepository.deleteByBudget_BudgetId(existingBudget.getBudgetId());
+        budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(existingBudget.getBudgetId());
         budgetPeriodRepository.deleteAll(budgetPeriodRepository.findByBudget_BudgetId(existingBudget.getBudgetId()));
 
         budgetMapper.updateBudgetFromDto(request, existingBudget);
@@ -137,17 +144,17 @@ public class BudgetServiceImpl implements BudgetService {
         Budget budget = budgetRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found for this id: " + id));
 
-        budgetCategoryLimitRepository.deleteByBudget_BudgetId(budget.getBudgetId());
+        budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(budget.getBudgetId());
         budgetPeriodRepository.deleteAll(budgetPeriodRepository.findByBudget_BudgetId(budget.getBudgetId()));
         budgetRepository.deleteById(id);
     }
 
     @Override
     @Transactional
-    public void reduceAmount(Integer userId, Integer categoryId ,BigDecimal amount, LocalDateTime transactionDate) {
+    public void reduceAmount(Integer userId, Integer categoryId ,BigDecimal amount, LocalDateTime transactionDate, String type, String code) {
         List<Budget> existingBudget =  budgetRepository.findByUserId(userId);
 
-        if (existingBudget == null) {
+        if (existingBudget.isEmpty()) {
           throw new IllegalArgumentException("Budget not found ");
         }
 
@@ -157,13 +164,32 @@ public class BudgetServiceImpl implements BudgetService {
                     .findByTransaction(categoryId);
 
             if (budgetCategoryLimits.isEmpty()) {
-                throw new IllegalArgumentException("Budget category limit not found");
+               return;
             }
-            if (transactionDate.isBefore(budget.getEndDate()) && transactionDate.isAfter(budget.getStartDate())) {
-                BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
-                budget.setBudgetRemainingAmount(newAmount);
-            }
+            if(budget.getCurrencyCode().equals(code)){
+                if (transactionDate.isBefore(budget.getEndDate()) && transactionDate.isAfter(budget.getStartDate())) {
+                    if (type.equals("EXPENSE")) {
+                        BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
+                        log.info("123 :" + newAmount);
+                        budget.setBudgetRemainingAmount(newAmount);
+                    }
+                    else if (type.equals("INCOME")) {
+                        budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount());
+                    }
+                    else if (type.equals("update-subtract")){
+                        BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
+                        budget.setBudgetRemainingAmount(newAmount);
+                    }
+                    else if (type.equals("update-add")) {
+                        BigDecimal newAmount = budget.getBudgetRemainingAmount().add(amount);
+                        budget.setBudgetRemainingAmount(newAmount);
+                    }
+                    else{
+                        budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount());
+                    }
+                }
 
+            }
         }
         budgetRepository.saveAll(existingBudget);
     }

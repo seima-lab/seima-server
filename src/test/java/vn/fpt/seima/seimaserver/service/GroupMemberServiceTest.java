@@ -8,9 +8,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import vn.fpt.seima.seimaserver.dto.request.group.AcceptGroupMemberRequest;
+import vn.fpt.seima.seimaserver.dto.request.group.RejectGroupMemberRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.UpdateMemberRoleRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberListResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.PendingGroupMemberListResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.PendingGroupMemberResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.GroupException;
 import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
@@ -1338,6 +1342,731 @@ class GroupMemberServiceTest {
             );
             
             assertEquals("Member already has this role", exception.getMessage());
+        }
+    }
+
+    // ===== GET PENDING GROUP MEMBERS TESTS =====
+
+    @Test
+    @DisplayName("getPendingGroupMembers - Should successfully return pending members when admin requests")
+    void getPendingGroupMembers_ShouldSuccessfullyReturnPendingMembers_WhenAdminRequests() {
+        // Given
+        Integer groupId = 1;
+        User currentUser = createTestUser(2, "admin@example.com", "Admin User");
+        Group group = createTestGroup(groupId, "Test Group");
+        
+        GroupMember adminMember = new GroupMember();
+        adminMember.setUser(currentUser);
+        adminMember.setGroup(group);
+        adminMember.setRole(GroupMemberRole.ADMIN);
+        adminMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        User pendingUser1 = createTestUser(3, "pending1@example.com", "Pending User 1");
+        User pendingUser2 = createTestUser(4, "pending2@example.com", "Pending User 2");
+
+        GroupMember pendingMember1 = new GroupMember();
+        pendingMember1.setUser(pendingUser1);
+        pendingMember1.setGroup(group);
+        pendingMember1.setRole(GroupMemberRole.MEMBER);
+        pendingMember1.setStatus(GroupMemberStatus.PENDING_APPROVAL);
+        pendingMember1.setJoinDate(LocalDateTime.now().minusDays(2));
+
+        GroupMember pendingMember2 = new GroupMember();
+        pendingMember2.setUser(pendingUser2);
+        pendingMember2.setGroup(group);
+        pendingMember2.setRole(GroupMemberRole.MEMBER);
+        pendingMember2.setStatus(GroupMemberStatus.PENDING_APPROVAL);
+        pendingMember2.setJoinDate(LocalDateTime.now().minusDays(1));
+
+        List<GroupMember> pendingMembers = Arrays.asList(pendingMember1, pendingMember2);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(adminMember));
+            when(groupPermissionService.canViewPendingRequests(GroupMemberRole.ADMIN))
+                    .thenReturn(true);
+            when(groupMemberRepository.findPendingGroupMembers(
+                    groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(pendingMembers);
+            when(groupMemberRepository.countPendingGroupMembers(
+                    groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(2L);
+
+            // When
+            PendingGroupMemberListResponse result = groupMemberService.getPendingGroupMembers(groupId);
+
+            // Then
+            assertNotNull(result);
+            assertEquals(groupId, result.getGroupId());
+            assertEquals(group.getGroupName(), result.getGroupName());
+            assertEquals(2, result.getTotalPendingCount());
+            assertEquals(2, result.getPendingMembers().size());
+
+            // Verify first pending member
+            PendingGroupMemberResponse firstPending = result.getPendingMembers().get(0);
+            assertEquals(pendingUser1.getUserId(), firstPending.getUserId());
+            assertEquals(pendingUser1.getUserFullName(), firstPending.getUserFullName());
+            assertEquals(pendingUser1.getUserEmail(), firstPending.getUserEmail());
+            assertEquals(pendingMember1.getJoinDate(), firstPending.getRequestedAt());
+
+            verify(groupPermissionService).canViewPendingRequests(GroupMemberRole.ADMIN);
+        }
+    }
+
+    @Test
+    @DisplayName("getPendingGroupMembers - Should throw exception when group ID is null")
+    void getPendingGroupMembers_ShouldThrowException_WhenGroupIdIsNull() {
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class,
+                () -> groupMemberService.getPendingGroupMembers(null));
+
+        assertEquals("Group ID cannot be null", exception.getMessage());
+        verifyNoInteractions(groupRepository, groupMemberRepository, groupPermissionService);
+    }
+
+    @Test
+    @DisplayName("getPendingGroupMembers - Should throw exception when user is regular member")
+    void getPendingGroupMembers_ShouldThrowException_WhenUserIsRegularMember() {
+        // Given
+        Integer groupId = 1;
+        User currentUser = createTestUser(1, "member@example.com", "Member User");
+        Group group = createTestGroup(groupId, "Test Group");
+        
+        GroupMember regularMember = new GroupMember();
+        regularMember.setUser(currentUser);
+        regularMember.setGroup(group);
+        regularMember.setRole(GroupMemberRole.MEMBER);
+        regularMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(regularMember));
+            when(groupPermissionService.canViewPendingRequests(GroupMemberRole.MEMBER))
+                    .thenReturn(false);
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.getPendingGroupMembers(groupId));
+
+            assertEquals("You don't have permission to view pending member requests. Only admins and owners can view pending requests.", exception.getMessage());
+            verify(groupPermissionService).canViewPendingRequests(GroupMemberRole.MEMBER);
+        }
+    }
+
+    // ===== ACCEPT GROUP MEMBER REQUEST TESTS =====
+
+    @Test
+    @DisplayName("acceptGroupMemberRequest - Should successfully accept request when admin accepts")
+    void acceptGroupMemberRequest_ShouldSuccessfullyAcceptRequest_WhenAdminAccepts() {
+        // Given
+        Integer groupId = 1;
+        Integer pendingUserId = 3;
+        AcceptGroupMemberRequest request = new AcceptGroupMemberRequest(pendingUserId);
+        
+        User currentUser = createTestUser(2, "admin@example.com", "Admin User");
+        User pendingUser = createTestUser(pendingUserId, "pending@example.com", "Pending User");
+        Group group = createTestGroup(groupId, "Test Group");
+        
+        GroupMember adminMember = new GroupMember();
+        adminMember.setUser(currentUser);
+        adminMember.setGroup(group);
+        adminMember.setRole(GroupMemberRole.ADMIN);
+        adminMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember pendingMember = new GroupMember();
+        pendingMember.setUser(pendingUser);
+        pendingMember.setGroup(group);
+        pendingMember.setRole(GroupMemberRole.MEMBER);
+        pendingMember.setStatus(GroupMemberStatus.PENDING_APPROVAL);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(adminMember));
+            when(groupPermissionService.canAcceptGroupMemberRequests(GroupMemberRole.ADMIN))
+                    .thenReturn(true);
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    pendingUserId, groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.of(pendingMember));
+
+            // When
+            groupMemberService.acceptGroupMemberRequest(groupId, request);
+
+            // Then
+            verify(groupMemberRepository).save(pendingMember);
+            assertEquals(GroupMemberStatus.ACTIVE, pendingMember.getStatus());
+            assertEquals(GroupMemberRole.MEMBER, pendingMember.getRole());
+            verify(groupPermissionService).canAcceptGroupMemberRequests(GroupMemberRole.ADMIN);
+        }
+    }
+
+    @Test
+    @DisplayName("acceptGroupMemberRequest - Should successfully accept request when owner accepts")
+    void acceptGroupMemberRequest_ShouldSuccessfullyAcceptRequest_WhenOwnerAccepts() {
+        // Given
+        Integer groupId = 1;
+        Integer pendingUserId = 3;
+        AcceptGroupMemberRequest request = new AcceptGroupMemberRequest(pendingUserId);
+        
+        User currentUser = createTestUser(2, "owner@example.com", "Owner User");
+        User pendingUser = createTestUser(pendingUserId, "pending@example.com", "Pending User");
+        Group group = createTestGroup(groupId, "Test Group");
+        
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(currentUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember pendingMember = new GroupMember();
+        pendingMember.setUser(pendingUser);
+        pendingMember.setGroup(group);
+        pendingMember.setRole(GroupMemberRole.MEMBER);
+        pendingMember.setStatus(GroupMemberStatus.PENDING_APPROVAL);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(ownerMember));
+            when(groupPermissionService.canAcceptGroupMemberRequests(GroupMemberRole.OWNER))
+                    .thenReturn(true);
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    pendingUserId, groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.of(pendingMember));
+
+            // When
+            groupMemberService.acceptGroupMemberRequest(groupId, request);
+
+            // Then
+            verify(groupMemberRepository).save(pendingMember);
+            assertEquals(GroupMemberStatus.ACTIVE, pendingMember.getStatus());
+            assertEquals(GroupMemberRole.MEMBER, pendingMember.getRole());
+        }
+    }
+
+    @Test
+    @DisplayName("acceptGroupMemberRequest - Should throw exception when group ID is null")
+    void acceptGroupMemberRequest_ShouldThrowException_WhenGroupIdIsNull() {
+        // Given
+        AcceptGroupMemberRequest request = new AcceptGroupMemberRequest(1);
+
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class,
+                () -> groupMemberService.acceptGroupMemberRequest(null, request));
+
+        assertEquals("Group ID cannot be null", exception.getMessage());
+        verifyNoInteractions(groupRepository, groupMemberRepository, groupPermissionService);
+    }
+
+    @Test
+    @DisplayName("acceptGroupMemberRequest - Should throw exception when request is null")
+    void acceptGroupMemberRequest_ShouldThrowException_WhenRequestIsNull() {
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class,
+                () -> groupMemberService.acceptGroupMemberRequest(1, null));
+
+        assertEquals("Request cannot be null", exception.getMessage());
+        verifyNoInteractions(groupRepository, groupMemberRepository, groupPermissionService);
+    }
+
+    @Test
+    @DisplayName("acceptGroupMemberRequest - Should throw exception when user is regular member")
+    void acceptGroupMemberRequest_ShouldThrowException_WhenUserIsRegularMember() {
+        // Given
+        Integer groupId = 1;
+        AcceptGroupMemberRequest request = new AcceptGroupMemberRequest(3);
+        
+        User currentUser = createTestUser(2, "member@example.com", "Member User");
+        Group group = createTestGroup(groupId, "Test Group");
+        
+        GroupMember regularMember = new GroupMember();
+        regularMember.setUser(currentUser);
+        regularMember.setGroup(group);
+        regularMember.setRole(GroupMemberRole.MEMBER);
+        regularMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(regularMember));
+            when(groupPermissionService.canAcceptGroupMemberRequests(GroupMemberRole.MEMBER))
+                    .thenReturn(false);
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.acceptGroupMemberRequest(groupId, request));
+
+            assertEquals("You don't have permission to accept member requests. Only admins and owners can accept requests.", exception.getMessage());
+            verify(groupPermissionService).canAcceptGroupMemberRequests(GroupMemberRole.MEMBER);
+            verify(groupMemberRepository, never()).save(any());
+        }
+    }
+
+    @Test
+    @DisplayName("acceptGroupMemberRequest - Should throw exception when no pending request found")
+    void acceptGroupMemberRequest_ShouldThrowException_WhenNoPendingRequestFound() {
+        // Given
+        Integer groupId = 1;
+        Integer userId = 3;
+        AcceptGroupMemberRequest request = new AcceptGroupMemberRequest(userId);
+        
+        User currentUser = createTestUser(2, "admin@example.com", "Admin User");
+        Group group = createTestGroup(groupId, "Test Group");
+        
+        GroupMember adminMember = new GroupMember();
+        adminMember.setUser(currentUser);
+        adminMember.setGroup(group);
+        adminMember.setRole(GroupMemberRole.ADMIN);
+        adminMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(adminMember));
+            when(groupPermissionService.canAcceptGroupMemberRequests(GroupMemberRole.ADMIN))
+                    .thenReturn(true);
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    userId, groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.acceptGroupMemberRequest(groupId, request));
+
+            assertEquals("No pending request found for this user", exception.getMessage());
+            verify(groupMemberRepository, never()).save(any());
+        }
+    }
+
+    @Test
+    @DisplayName("acceptGroupMemberRequest - Should throw exception when pending user account is inactive")
+    void acceptGroupMemberRequest_ShouldThrowException_WhenPendingUserAccountIsInactive() {
+        // Given
+        Integer groupId = 1;
+        Integer pendingUserId = 3;
+        AcceptGroupMemberRequest request = new AcceptGroupMemberRequest(pendingUserId);
+        
+        User currentUser = createTestUser(2, "admin@example.com", "Admin User");
+        User inactivePendingUser = createTestUser(pendingUserId, "pending@example.com", "Pending User");
+        inactivePendingUser.setUserIsActive(false); // Set as inactive
+        Group group = createTestGroup(groupId, "Test Group");
+        
+        GroupMember adminMember = new GroupMember();
+        adminMember.setUser(currentUser);
+        adminMember.setGroup(group);
+        adminMember.setRole(GroupMemberRole.ADMIN);
+        adminMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember pendingMember = new GroupMember();
+        pendingMember.setUser(inactivePendingUser);
+        pendingMember.setGroup(group);
+        pendingMember.setRole(GroupMemberRole.MEMBER);
+        pendingMember.setStatus(GroupMemberStatus.PENDING_APPROVAL);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(adminMember));
+            when(groupPermissionService.canAcceptGroupMemberRequests(GroupMemberRole.ADMIN))
+                    .thenReturn(true);
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    pendingUserId, groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.of(pendingMember));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.acceptGroupMemberRequest(groupId, request));
+
+            assertEquals("User account is no longer active", exception.getMessage());
+            verify(groupMemberRepository, never()).save(any());
+        }
+    }
+
+    // ===== REJECT GROUP MEMBER REQUEST TESTS =====
+
+    @Test
+    @DisplayName("rejectGroupMemberRequest - Should successfully reject request when admin rejects")
+    void rejectGroupMemberRequest_ShouldSuccessfullyRejectRequest_WhenAdminRejects() {
+        // Given
+        Integer groupId = 1;
+        Integer pendingUserId = 3;
+        RejectGroupMemberRequest request = new RejectGroupMemberRequest(pendingUserId);
+        
+        User currentUser = createTestUser(2, "admin@example.com", "Admin User");
+        User pendingUser = createTestUser(pendingUserId, "pending@example.com", "Pending User");
+        Group group = createTestGroup(groupId, "Test Group");
+        
+        GroupMember adminMember = new GroupMember();
+        adminMember.setUser(currentUser);
+        adminMember.setGroup(group);
+        adminMember.setRole(GroupMemberRole.ADMIN);
+        adminMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember pendingMember = new GroupMember();
+        pendingMember.setUser(pendingUser);
+        pendingMember.setGroup(group);
+        pendingMember.setRole(GroupMemberRole.MEMBER);
+        pendingMember.setStatus(GroupMemberStatus.PENDING_APPROVAL);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(adminMember));
+            when(groupPermissionService.canRejectGroupMemberRequests(GroupMemberRole.ADMIN))
+                    .thenReturn(true);
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    pendingUserId, groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.of(pendingMember));
+
+            // When
+            groupMemberService.rejectGroupMemberRequest(groupId, request);
+
+            // Then
+            verify(groupMemberRepository).save(pendingMember);
+            assertEquals(GroupMemberStatus.REJECTED, pendingMember.getStatus());
+            verify(groupPermissionService).canRejectGroupMemberRequests(GroupMemberRole.ADMIN);
+        }
+    }
+
+    @Test
+    @DisplayName("rejectGroupMemberRequest - Should successfully reject request when owner rejects")
+    void rejectGroupMemberRequest_ShouldSuccessfullyRejectRequest_WhenOwnerRejects() {
+        // Given
+        Integer groupId = 1;
+        Integer pendingUserId = 3;
+        RejectGroupMemberRequest request = new RejectGroupMemberRequest(pendingUserId);
+        
+        User currentUser = createTestUser(2, "owner@example.com", "Owner User");
+        User pendingUser = createTestUser(pendingUserId, "pending@example.com", "Pending User");
+        Group group = createTestGroup(groupId, "Test Group");
+        
+        GroupMember ownerMember = new GroupMember();
+        ownerMember.setUser(currentUser);
+        ownerMember.setGroup(group);
+        ownerMember.setRole(GroupMemberRole.OWNER);
+        ownerMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        GroupMember pendingMember = new GroupMember();
+        pendingMember.setUser(pendingUser);
+        pendingMember.setGroup(group);
+        pendingMember.setRole(GroupMemberRole.MEMBER);
+        pendingMember.setStatus(GroupMemberStatus.PENDING_APPROVAL);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(ownerMember));
+            when(groupPermissionService.canRejectGroupMemberRequests(GroupMemberRole.OWNER))
+                    .thenReturn(true);
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    pendingUserId, groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.of(pendingMember));
+
+            // When
+            groupMemberService.rejectGroupMemberRequest(groupId, request);
+
+            // Then
+            verify(groupMemberRepository).save(pendingMember);
+            assertEquals(GroupMemberStatus.REJECTED, pendingMember.getStatus());
+        }
+    }
+
+    @Test
+    @DisplayName("rejectGroupMemberRequest - Should throw exception when group ID is null")
+    void rejectGroupMemberRequest_ShouldThrowException_WhenGroupIdIsNull() {
+        // Given
+        RejectGroupMemberRequest request = new RejectGroupMemberRequest(1);
+
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class,
+                () -> groupMemberService.rejectGroupMemberRequest(null, request));
+
+        assertEquals("Group ID cannot be null", exception.getMessage());
+        verifyNoInteractions(groupRepository, groupMemberRepository, groupPermissionService);
+    }
+
+    @Test
+    @DisplayName("rejectGroupMemberRequest - Should throw exception when request is null")
+    void rejectGroupMemberRequest_ShouldThrowException_WhenRequestIsNull() {
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class,
+                () -> groupMemberService.rejectGroupMemberRequest(1, null));
+
+        assertEquals("Request cannot be null", exception.getMessage());
+        verifyNoInteractions(groupRepository, groupMemberRepository, groupPermissionService);
+    }
+
+    @Test
+    @DisplayName("rejectGroupMemberRequest - Should throw exception when user is regular member")
+    void rejectGroupMemberRequest_ShouldThrowException_WhenUserIsRegularMember() {
+        // Given
+        Integer groupId = 1;
+        RejectGroupMemberRequest request = new RejectGroupMemberRequest(3);
+        
+        User currentUser = createTestUser(2, "member@example.com", "Member User");
+        Group group = createTestGroup(groupId, "Test Group");
+        
+        GroupMember regularMember = new GroupMember();
+        regularMember.setUser(currentUser);
+        regularMember.setGroup(group);
+        regularMember.setRole(GroupMemberRole.MEMBER);
+        regularMember.setStatus(GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(regularMember));
+            when(groupPermissionService.canRejectGroupMemberRequests(GroupMemberRole.MEMBER))
+                    .thenReturn(false);
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.rejectGroupMemberRequest(groupId, request));
+
+            assertEquals("You don't have permission to reject member requests. Only admins and owners can reject requests.", exception.getMessage());
+            verify(groupPermissionService).canRejectGroupMemberRequests(GroupMemberRole.MEMBER);
+            verify(groupMemberRepository, never()).save(any());
+        }
+    }
+
+    @Test
+    @DisplayName("rejectGroupMemberRequest - Should throw exception when no pending request found")
+    void rejectGroupMemberRequest_ShouldThrowException_WhenNoPendingRequestFound() {
+        // Given
+        Integer groupId = 1;
+        RejectGroupMemberRequest request = new RejectGroupMemberRequest();
+        request.setUserId(999); // User that doesn't have pending request
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testCurrentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            
+            // Current user is admin
+            GroupMember adminMember = createGroupMember(10, testGroup, testCurrentUser, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    testCurrentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(adminMember));
+            when(groupPermissionService.canRejectGroupMemberRequests(GroupMemberRole.ADMIN))
+                    .thenReturn(true);
+
+            // No pending request found
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    request.getUserId(), groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.rejectGroupMemberRequest(groupId, request));
+
+            assertEquals("No pending request found for this user", exception.getMessage());
+            verify(groupMemberRepository, never()).save(any());
+        }
+    }
+
+    // ===== EXIT GROUP TESTS =====
+
+    @Test
+    @DisplayName("exitGroup - Should successfully exit when admin exits")
+    void exitGroup_ShouldSuccessfullyExit_WhenAdminExits() {
+        // Given
+        Integer groupId = 1;
+        GroupMember adminMember = createGroupMember(10, testGroup, testCurrentUser, GroupMemberRole.ADMIN, GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testCurrentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserIdAndGroupId(testCurrentUser.getUserId(), groupId))
+                    .thenReturn(Optional.of(adminMember));
+            when(groupMemberRepository.save(any(GroupMember.class))).thenReturn(adminMember);
+
+            // When
+            groupMemberService.exitGroup(groupId);
+
+            // Then
+            verify(groupMemberRepository).save(adminMember);
+            assertEquals(GroupMemberStatus.LEFT, adminMember.getStatus());
+        }
+    }
+
+    @Test
+    @DisplayName("exitGroup - Should successfully exit when member exits")
+    void exitGroup_ShouldSuccessfullyExit_WhenMemberExits() {
+        // Given
+        Integer groupId = 1;
+        GroupMember memberMember = createGroupMember(10, testGroup, testCurrentUser, GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testCurrentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserIdAndGroupId(testCurrentUser.getUserId(), groupId))
+                    .thenReturn(Optional.of(memberMember));
+            when(groupMemberRepository.save(any(GroupMember.class))).thenReturn(memberMember);
+
+            // When
+            groupMemberService.exitGroup(groupId);
+
+            // Then
+            verify(groupMemberRepository).save(memberMember);
+            assertEquals(GroupMemberStatus.LEFT, memberMember.getStatus());
+        }
+    }
+
+    @Test
+    @DisplayName("exitGroup - Should throw exception when owner tries to exit")
+    void exitGroup_ShouldThrowException_WhenOwnerTriesToExit() {
+        // Given
+        Integer groupId = 1;
+        GroupMember ownerMember = createGroupMember(10, testGroup, testCurrentUser, GroupMemberRole.OWNER, GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testCurrentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserIdAndGroupId(testCurrentUser.getUserId(), groupId))
+                    .thenReturn(Optional.of(ownerMember));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.exitGroup(groupId));
+
+            assertEquals("Group owner cannot exit the group. Please transfer ownership before leaving.", exception.getMessage());
+            verify(groupMemberRepository, never()).save(any());
+        }
+    }
+
+    @Test
+    @DisplayName("exitGroup - Should throw exception when group ID is null")
+    void exitGroup_ShouldThrowException_WhenGroupIdIsNull() {
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class,
+                () -> groupMemberService.exitGroup(null));
+
+        assertEquals("Group ID cannot be null", exception.getMessage());
+        verifyNoInteractions(groupRepository, groupMemberRepository);
+    }
+
+    @Test
+    @DisplayName("exitGroup - Should throw exception when group not found")
+    void exitGroup_ShouldThrowException_WhenGroupNotFound() {
+        // Given
+        Integer groupId = 999;
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testCurrentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.exitGroup(groupId));
+
+            assertEquals("Group not found", exception.getMessage());
+            verify(groupMemberRepository, never()).save(any());
+        }
+    }
+
+    @Test
+    @DisplayName("exitGroup - Should throw exception when group is inactive")
+    void exitGroup_ShouldThrowException_WhenGroupIsInactive() {
+        // Given
+        Integer groupId = 1;
+        Group inactiveGroup = createGroup(groupId, "Inactive Group", false);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testCurrentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(inactiveGroup));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.exitGroup(groupId));
+
+            assertEquals("Group not found", exception.getMessage());
+            verify(groupMemberRepository, never()).save(any());
+        }
+    }
+
+    @Test
+    @DisplayName("exitGroup - Should throw exception when user is not member of group")
+    void exitGroup_ShouldThrowException_WhenUserIsNotMemberOfGroup() {
+        // Given
+        Integer groupId = 1;
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testCurrentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserIdAndGroupId(testCurrentUser.getUserId(), groupId))
+                    .thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.exitGroup(groupId));
+
+            assertEquals("You are not a member of this group", exception.getMessage());
+            verify(groupMemberRepository, never()).save(any());
+        }
+    }
+
+    @Test
+    @DisplayName("exitGroup - Should throw exception when user is not active member")
+    void exitGroup_ShouldThrowException_WhenUserIsNotActiveMember() {
+        // Given
+        Integer groupId = 1;
+        GroupMember inactiveMember = createGroupMember(10, testGroup, testCurrentUser, GroupMemberRole.MEMBER, GroupMemberStatus.LEFT);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testCurrentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserIdAndGroupId(testCurrentUser.getUserId(), groupId))
+                    .thenReturn(Optional.of(inactiveMember));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.exitGroup(groupId));
+
+            assertEquals("You are not currently active in this group", exception.getMessage());
+            verify(groupMemberRepository, never()).save(any());
+        }
+    }
+
+    @Test
+    @DisplayName("exitGroup - Should throw exception when user has invalid role")
+    void exitGroup_ShouldThrowException_WhenUserHasInvalidRole() {
+        // Given
+        Integer groupId = 1;
+        GroupMember memberWithNullRole = createGroupMember(10, testGroup, testCurrentUser, null, GroupMemberStatus.ACTIVE);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testCurrentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserIdAndGroupId(testCurrentUser.getUserId(), groupId))
+                    .thenReturn(Optional.of(memberWithNullRole));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupMemberService.exitGroup(groupId));
+
+            assertEquals("Invalid role for exit operation", exception.getMessage());
+            verify(groupMemberRepository, never()).save(any());
         }
     }
 } 

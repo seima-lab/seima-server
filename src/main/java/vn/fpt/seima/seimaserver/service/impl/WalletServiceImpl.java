@@ -1,13 +1,11 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import vn.fpt.seima.seimaserver.dto.request.wallet.CreateWalletRequest;
 import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
-import vn.fpt.seima.seimaserver.entity.Budget;
-import vn.fpt.seima.seimaserver.entity.User;
-import vn.fpt.seima.seimaserver.entity.Wallet;
-import vn.fpt.seima.seimaserver.entity.WalletType;
+import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.WalletException;
 import vn.fpt.seima.seimaserver.mapper.WalletMapper;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
@@ -33,6 +31,17 @@ public class WalletServiceImpl implements WalletService {
     @Override
     public WalletResponse createWallet(CreateWalletRequest request) {
         User currentUser = getCurrentUser();
+        
+        // Check wallet limit (maximum 5 wallets per user)
+        List<Wallet> existingWallets = walletRepository.findAllActiveByUserId(currentUser.getUserId());
+        if (existingWallets.size() >= 5) {
+            throw new WalletException("Maximum wallet limit reached. You can only have up to 5 wallets.");
+        }
+        
+        // Check wallet name uniqueness
+        if (walletRepository.existsByUserIdAndWalletNameAndNotDeleted(currentUser.getUserId(), request.getWalletName())) {
+            throw new WalletException("Wallet name already exists. Please choose a different name.");
+        }
         
         WalletType walletType = walletTypeRepository.findById(request.getWalletTypeId())
                 .orElseThrow(() -> new WalletException("Wallet type not found with id: " + request.getWalletTypeId()));
@@ -77,6 +86,11 @@ public class WalletServiceImpl implements WalletService {
         Wallet existingWallet = walletRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new WalletException("Wallet not found with id: " + id));
         validateUserOwnership(currentUser.getUserId(), existingWallet);
+        
+        // Check wallet name uniqueness (exclude current wallet)
+        if (walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(currentUser.getUserId(), request.getWalletName(), id)) {
+            throw new WalletException("Wallet name already exists. Please choose a different name.");
+        }
         
         if (Boolean.TRUE.equals(request.getIsDefault())) {
             updateOtherWalletsDefaultStatus(currentUser.getUserId(), false);
@@ -129,13 +143,29 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
-    public void reduceAmount(Integer id, BigDecimal amount) {
+    public void reduceAmount(Integer id, BigDecimal amount, String type, String code) {
         Wallet existingWallet =  walletRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Wallet not found for this id: " + id));
+        BigDecimal newAmount;
+        if (existingWallet.getCurrencyCode().equals(code)) {
+            if (type.equals("EXPENSE")){
+                newAmount = existingWallet.getCurrentBalance().subtract(amount);
+            }
+            else if (type.equals("INCOME")){
+                newAmount = existingWallet.getCurrentBalance().add(amount);
+            }
+            else if (type.equals("update-subtract")){
+                newAmount = existingWallet.getCurrentBalance().subtract(amount);
+            }
+            else if (type.equals("update-add")) {
+                newAmount = existingWallet.getCurrentBalance().add(amount);
+            }
+            else{
+                newAmount = existingWallet.getCurrentBalance();
+            }
+            existingWallet.setCurrentBalance(newAmount);
 
-        BigDecimal newAmount = existingWallet.getCurrentBalance().subtract(amount);
-        existingWallet.setCurrentBalance(newAmount);
-
-        walletRepository.save(existingWallet);
+            walletRepository.save(existingWallet);
+        }
     }
 } 

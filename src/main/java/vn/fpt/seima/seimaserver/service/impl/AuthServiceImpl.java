@@ -36,13 +36,9 @@ import vn.fpt.seima.seimaserver.exception.MaxOtpAttemptsExceededException;
 import vn.fpt.seima.seimaserver.exception.NullRequestParamException;
 import vn.fpt.seima.seimaserver.exception.OtpNotFoundException;
 import vn.fpt.seima.seimaserver.entity.User;
+import vn.fpt.seima.seimaserver.repository.UserDeviceRepository;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
-import vn.fpt.seima.seimaserver.service.AuthService;
-import vn.fpt.seima.seimaserver.service.EmailService;
-import vn.fpt.seima.seimaserver.service.JwtService;
-import vn.fpt.seima.seimaserver.service.RedisService;
-import vn.fpt.seima.seimaserver.service.PasswordValidationService;
-import vn.fpt.seima.seimaserver.service.VerificationTokenService;
+import vn.fpt.seima.seimaserver.service.*;
 import vn.fpt.seima.seimaserver.util.OtpUtils;
 import vn.fpt.seima.seimaserver.dto.request.auth.ChangePasswordRequestDto;
 
@@ -82,6 +78,12 @@ public class AuthServiceImpl implements AuthService {
     
     @Autowired
     private VerificationTokenService verificationTokenService;
+
+    @Autowired
+    private UserDeviceService userDeviceService;
+
+    @Autowired
+    private UserDeviceRepository userDeviceRepository;
 
     @Value("${app.lab-name}")
     private String labName;
@@ -417,6 +419,15 @@ public class AuthServiceImpl implements AuthService {
         // Generate tokens
         String accessToken = jwtService.generateAccessToken(userDto);
         String refreshToken = jwtService.generateRefreshToken(userDto);
+
+        // Lưu data vào bảng user_device với logic đúng
+        if(userDeviceRepository.existsByDeviceId(loginRequestDto.getDeviceId())) {
+            // Device đã tồn tại → chỉ update thông tin
+            userDeviceService.updateDeviceUser(loginRequestDto.getDeviceId(), loginRequestDto.getFcmToken());
+        } else {
+            // Device chưa tồn tại → tạo mới
+            userDeviceService.createDevice(user.getUserId(), loginRequestDto.getDeviceId(), loginRequestDto.getFcmToken());
+        }
 
         return LoginResponseDto.builder()
                 .accessToken(accessToken)

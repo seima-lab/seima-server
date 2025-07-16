@@ -3,7 +3,6 @@ package vn.fpt.seima.seimaserver.service.impl;
 import lombok.AllArgsConstructor;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,7 +13,6 @@ import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResp
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionReportResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
 import vn.fpt.seima.seimaserver.entity.*;
-import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.mapper.TransactionMapper;
 import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.BudgetService;
@@ -105,8 +103,16 @@ public class TransactionServiceImpl implements TransactionService {
             transaction.setWallet(wallet);
             transaction.setTransactionType(type);
 
-            budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate());
-            walletService.reduceAmount(request.getWalletId(),transaction.getAmount());
+            if (type == TransactionType.EXPENSE) {
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "EXPENSE", request.getCurrencyCode());
+                walletService.reduceAmount(request.getWalletId(),transaction.getAmount(), "EXPENSE", request.getCurrencyCode());
+            }
+
+            if (type == TransactionType.INCOME) {
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "INCOME", request.getCurrencyCode());
+                walletService.reduceAmount(request.getWalletId(),transaction.getAmount(),"INCOME", request.getCurrencyCode());
+            }
+
             Transaction savedTransaction = transactionRepository.save(transaction);
 
             YearMonth month = YearMonth.from(transaction.getTransactionDate());
@@ -164,9 +170,29 @@ public class TransactionServiceImpl implements TransactionService {
                 }
                 transaction.setGroup(group);
             }
+            BigDecimal newAmount = BigDecimal.ZERO;
+            String type = null;
+
+            //so sua lon hon cu
+            if (transaction.getAmount().compareTo(request.getAmount()) < 0) {
+                type = "update-subtract";
+                newAmount = request.getAmount().subtract(transaction.getAmount());
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type , request.getCurrencyCode());
+                walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+
+            } else if (transaction.getAmount().compareTo(request.getAmount()) > 0) {
+                type = "update-add";
+                newAmount = transaction.getAmount().subtract(request.getAmount());
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode() );
+                walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+            }
+            else{
+                type = "no-update";
+                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode() );
+                walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+            }
             transactionMapper.updateTransactionFromDto(request, transaction);
-            budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate());
-            walletService.reduceAmount(request.getWalletId(),transaction.getAmount());
+
             Transaction updatedTransaction = transactionRepository.save(transaction);
 
             YearMonth month = YearMonth.from(transaction.getTransactionDate());
@@ -190,6 +216,13 @@ public class TransactionServiceImpl implements TransactionService {
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found with ID: " + id));
 
         transaction.setTransactionType(TransactionType.INACTIVE);
+
+        YearMonth month = YearMonth.from(transaction.getTransactionDate());
+        String cacheKey = transaction.getUser().getUserId() + "-" + month;
+        Cache cache = cacheManager.getCache("transactionOverview");
+        if (cache != null) {
+            cache.evict(cacheKey);
+        }
         transactionRepository.save(transaction);
     }
 

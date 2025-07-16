@@ -1,92 +1,130 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title th:remove="all">OTP Verification</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 0; 
-            padding: 20px; 
-            background-color: #f4f4f4; 
-        }
-        .container { 
-            background-color: #ffffff; 
-            padding: 30px; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 15px rgba(0,0,0,0.1); 
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        h1 { 
-            color: #2c3e50; 
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        p { 
-            color: #555; 
-            line-height: 1.6;
-            margin-bottom: 15px;
-        }
-        .otp-code {
-            background-color: #f8f9fa;
-            border: 2px solid #3498db;
-            border-radius: 5px;
-            padding: 15px;
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            color: #3498db;
-            letter-spacing: 3px;
-            margin: 20px 0;
-        }
-        .warning {
-            background-color: #e8f4fd;
-            border: 1px solid #bee5eb;
-            border-radius: 4px;
-            padding: 12px;
-            color: #0c5460;
-            margin: 15px 0;
-        }
-        .footer {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-            color: #666;
-            font-size: 14px;
-        }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:remove="all">OTP Verification - Seima</title>
 </head>
-<body>
-<div class="container">
-    <h1>🎉 Xác Thực Tài Khoản</h1>
+<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f5f5f5;">
     
-    <p>Xin chào <strong th:text="${userName}">User</strong>,</p>
+    <!-- Main Container Table -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5; padding: 20px 0;">
+        <tr>
+            <td align="center">
+                
+                <!-- Email Content Table -->
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 600px;">
+                    
+                    <!-- Header Section -->
+                    <tr>
+                        <td style="padding: 40px 30px 30px 30px; text-align: center; border-bottom: 1px solid #e5e7eb;">
+                            <h1 style="margin: 0; color: #1f2937; font-size: 24px; font-weight: bold;">🎉 Account Verification</h1>
+                            <p style="margin: 15px 0 0 0; color: #6b7280; font-size: 16px;">Welcome to Seima! Verify your account to get started</p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Greeting Section -->
+                    <tr>
+                        <td style="padding: 30px 30px 20px 30px;">
+                            <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
+                                Hello <strong th:text="${userName}">User</strong>,
+                            </p>
+                            <p style="margin: 15px 0 0 0; color: #374151; font-size: 16px; line-height: 1.5;">
+                                Thank you for registering an account with <strong th:text="${appName}">Seima</strong> - your smart financial management companion.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Instructions Section -->
+                    <tr>
+                        <td style="padding: 0 30px 20px 30px;">
+                            <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5; text-align: center;">
+                                To complete the registration process and start managing your finances, please use the following OTP code:
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- OTP Code Section -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <!-- OTP Code Box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td align="center">
+                                        <table cellpadding="0" cellspacing="0" border="0" style="background-color: #2563eb; border-radius: 12px; padding: 0;">
+                                            <tr>
+                                                <td style="padding: 25px 40px; text-align: center;">
+                                                    <span style="color: #ffffff; font-size: 32px; font-weight: bold; letter-spacing: 4px; font-family: 'Courier New', monospace;" th:text="${otpRegister}">123456</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Warning Section -->
+                    <tr>
+                        <td style="padding: 0 30px 20px 30px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <p style="margin: 0 0 10px 0; color: #1e3a8a; font-weight: bold; font-size: 14px;">ℹ️ Important Notes:</p>
+                                        <ul style="margin: 0; padding-left: 20px; color: #1e3a8a; font-size: 14px;">
+                                            <li style="margin-bottom: 5px;">This OTP code is only valid for <strong>3 minutes</strong></li>
+                                            <li style="margin-bottom: 5px;">Do not share this code with anyone</li>
+                                            <li style="margin-bottom: 0;">If you did not register this account, please ignore this email</li>
+                                        </ul>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Benefits Section -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <p style="margin: 0 0 15px 0; color: #374151; font-size: 16px; line-height: 1.5; text-align: center;">
+                                After entering the OTP code, your account will be activated and you can start tracking expenses, managing budgets, and taking control of your financial future.
+                            </p>
+                            
+                            <!-- Benefits List -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border-radius: 6px; margin-top: 20px;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <p style="margin: 0 0 10px 0; color: #374151; font-size: 16px; font-weight: bold; text-align: center;">What you can do with Seima:</p>
+                                        <ul style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                                            <li style="margin-bottom: 8px;">💰 Track expenses and income effortlessly</li>
+                                            <li style="margin-bottom: 8px;">📊 Create and manage budgets</li>
+                                            <li style="margin-bottom: 8px;">📈 View detailed financial reports</li>
+                                            <li style="margin-bottom: 0;">👥 Collaborate with family and friends on shared expenses</li>
+                                        </ul>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer Section -->
+                    <tr>
+                        <td style="padding: 30px; border-top: 1px solid #e5e7eb; text-align: center; background-color: #f9fafb;">
+                            <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
+                                If you have any questions, don't hesitate to contact us at 
+                                <a href="mailto:support@seima.app" style="color: #2563eb; text-decoration: none;">support@seima.app</a>
+                            </p>
+                            <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                                Best regards,<br/>
+                                <strong>The <span th:text="${appName}">Seima</span> Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+                
+            </td>
+        </tr>
+    </table>
     
-    <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong th:text="${appName}">Seima Lab</strong>.</p>
-    
-    <p>Để hoàn tất quá trình đăng ký, vui lòng sử dụng mã OTP sau:</p>
-    
-    <div class="otp-code">
-        <span th:text="${otpRegister}">123456</span>
-    </div>
-    
-    <div class="warning">
-        <strong>ℹ️ Lưu ý quan trọng:</strong>
-        <ul style="margin: 5px 0; padding-left: 20px;">
-            <li>Mã OTP này chỉ có hiệu lực trong <strong>3 phút</strong></li>
-            <li>Không chia sẻ mã này với bất kỳ ai</li>
-            <li>Nếu bạn không thực hiện đăng ký này, vui lòng bỏ qua email</li>
-        </ul>
-    </div>
-    
-    <p>Sau khi nhập mã OTP, tài khoản của bạn sẽ được kích hoạt và bạn có thể bắt đầu sử dụng dịch vụ của chúng tôi.</p>
-    
-    <div class="footer">
-        <p>Nếu bạn có bất kỳ câu hỏi nào, đừng ngần ngại liên hệ với chúng tôi.</p>
-        <p>Trân trọng,<br/>
-        <strong>Đội ngũ <span th:text="${appName}">Seima Lab</span></strong></p>
-    </div>
-</div>
 </body>
 </html>

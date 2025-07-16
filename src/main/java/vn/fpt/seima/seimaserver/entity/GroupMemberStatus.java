@@ -2,7 +2,6 @@ package vn.fpt.seima.seimaserver.entity;
 
 public enum GroupMemberStatus {
     PENDING_APPROVAL,
-    APPROVED,
     INVITED,
     REJECTED,
     LEFT,

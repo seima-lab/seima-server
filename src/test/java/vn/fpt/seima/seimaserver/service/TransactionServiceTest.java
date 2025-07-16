@@ -1,10 +1,13 @@
 package vn.fpt.seima.seimaserver.service;
 
 
+
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +35,7 @@ class TransactionServiceTest {
     @Mock private CategoryRepository categoryRepository;
     @Mock private WalletRepository walletRepository;
     @Mock private TransactionMapper transactionMapper;
+    @Mock private CacheManager cacheManager;
 
     @InjectMocks private TransactionServiceImpl transactionService;
 
@@ -70,14 +74,26 @@ class TransactionServiceTest {
     }
     @Test
     void testDeleteTransaction_Success() {
+        // Arrange
         Transaction transaction = new Transaction();
+        User user = new User();
+        user.setUserId(1);
+        transaction.setUser(user);
+        transaction.setTransactionDate(LocalDateTime.of(2025, 7, 6, 10, 0));
+        transaction.setTransactionType(TransactionType.EXPENSE);
+
+        Cache mockCache = mock(Cache.class);
 
         when(transactionRepository.findById(1)).thenReturn(Optional.of(transaction));
-        when(transactionRepository.save(transaction)).thenReturn(transaction);
+        when(cacheManager.getCache("transactionOverview")).thenReturn(mockCache);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(transaction);
 
+        // Act
         transactionService.deleteTransaction(1);
 
+        // Assert
         assertEquals(TransactionType.INACTIVE, transaction.getTransactionType());
+        verify(mockCache).evict("1-2025-07");
         verify(transactionRepository).save(transaction);
     }
 

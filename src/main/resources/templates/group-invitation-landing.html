@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${invitation.pageTitle}">Join Group Invitation</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" th:content="${invitation.pageDescription}">
+    
+    <!-- Open Graph Meta Tags for Social Sharing -->
+    <meta property="og:title" th:content="${invitation.pageTitle}">
+    <meta property="og:description" th:content="${invitation.pageDescription}">
+    <meta property="og:image" th:content="${invitation.ogImageUrl}">
+    <meta property="og:url" th:content="@{'/invite/' + ${inviteCode}}">
+    <meta property="og:type" content="website">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" th:content="${invitation.pageTitle}">
+    <meta name="twitter:description" th:content="${invitation.pageDescription}">
+    <meta name="twitter:image" th:content="${invitation.ogImageUrl}">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/favicon.png">
+    
+    <!-- CSS Styles -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+            overflow: hidden;
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .header {
+            background: linear-gradient(45deg, #2563eb, #1e40af);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        
+        .app-logo {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            margin: 0 auto 15px;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .content {
+            padding: 30px 20px;
+        }
+        
+        .group-info {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .group-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            object-fit: cover;
+            border: 4px solid #f0f0f0;
+        }
+        
+        .group-name {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .group-description {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+        
+        .member-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .member-count {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .inviter-info {
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .join-button {
+            display: block;
+            width: 100%;
+            background: linear-gradient(45deg, #2563eb, #1e40af);
+            color: white;
+            text-decoration: none;
+            padding: 15px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 16px;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 20px;
+        }
+        
+        .join-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+        }
+        
+        .download-section {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+        
+        .download-text {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .download-link {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .download-link:hover {
+            text-decoration: underline;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 12px;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                margin: 10px;
+            }
+            
+            .header {
+                padding: 20px 15px;
+            }
+            
+            .content {
+                padding: 20px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="app-logo">📱</div>
+            <h1 th:text="${invitation.appName}">Seima</h1>
+            <p>Group Invitation</p>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="content">
+            <!-- Group Information -->
+            <div class="group-info">
+                <img th:if="${invitation.groupAvatarUrl}" 
+                     th:src="${invitation.groupAvatarUrl}" 
+                     th:alt="${invitation.groupName + ' avatar'}"
+                     class="group-avatar">
+                <div th:if="${invitation.groupAvatarUrl == null}" class="group-avatar">👥</div>
+                
+                <h2 class="group-name" th:text="${invitation.groupName}">Group Name</h2>
+                <p class="group-description" th:text="${invitation.groupDescription}">Group Description</p>
+                
+                <div class="member-info">
+                    <div class="member-count">
+                        <span>👥</span>
+                        <span th:text="${invitation.memberCount} + ' members'">5 members</span>
+                    </div>
+                </div>
+                
+                <div class="inviter-info" th:if="${invitation.inviterName}">
+                    Invited by <strong th:text="${invitation.inviterName}">Inviter Name</strong>
+                </div>
+            </div>
+            
+            <!-- Join Button (Branch.io Deep Link) -->
+            <a th:href="${invitation.joinButtonLink}" class="join-button">
+                🚀 Join Group
+            </a>
+            
+            <!-- Download Section -->
+            <div class="download-section">
+                <p class="download-text">Don't have the app yet?</p>
+                <a th:href="${invitation.appDownloadUrl}" class="download-link">
+                    📱 Download APK
+                </a>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p th:text="${invitation.appName} + ' - Smart Financial Management'">Seima - Smart Financial Management</p>
+        </div>
+    </div>
+    
+    <!-- Analytics (Optional) -->
+    <script>
+        // Track landing page view
+        console.log('Landing page viewed:', window.location.href);
+        
+        // Track join button click
+        document.querySelector('.join-button').addEventListener('click', function() {
+            console.log('Join button clicked');
+            // Add analytics tracking here
+        });
+    </script>
+</body>
+</html> 

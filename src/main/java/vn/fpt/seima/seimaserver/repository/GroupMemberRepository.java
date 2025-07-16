@@ -123,4 +123,46 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Intege
             "WHERE gm.user.userId = :userId AND gm.role = :role")
     List<GroupMember> findByUserIdAndRole(@Param("userId") Integer userId,
                                          @Param("role") GroupMemberRole role);
+
+    /**
+     * Find all pending group members for a specific group
+     * @param groupId the group ID
+     * @param status the membership status (should be PENDING_APPROVAL)
+     * @return List of GroupMember with pending approval status, ordered by join date asc
+     */
+    @Query("SELECT gm FROM GroupMember gm " +
+            "JOIN FETCH gm.user u " +
+            "JOIN FETCH gm.group g " +
+            "WHERE gm.group.groupId = :groupId AND gm.status = :status " +
+            "AND u.userIsActive = true " +
+            "ORDER BY gm.joinDate ASC")
+    List<GroupMember> findPendingGroupMembers(@Param("groupId") Integer groupId,
+                                             @Param("status") GroupMemberStatus status);
+
+    /**
+     * Count pending group members for a specific group
+     * @param groupId the group ID
+     * @param status the membership status (should be PENDING_APPROVAL)
+     * @return count of pending members
+     */
+    @Query("SELECT COUNT(gm) FROM GroupMember gm " +
+            "JOIN gm.user u " +
+            "WHERE gm.group.groupId = :groupId AND gm.status = :status " +
+            "AND u.userIsActive = true")
+    Long countPendingGroupMembers(@Param("groupId") Integer groupId,
+                                 @Param("status") GroupMemberStatus status);
+
+    /**
+     * Lấy danh sách admin và owner của group để gửi notification
+     * @param groupId ID của group
+     * @param status trạng thái membership (ACTIVE)
+     * @return List of GroupMember với role ADMIN hoặc OWNER
+     */
+    @Query("SELECT gm FROM GroupMember gm " +
+            "JOIN FETCH gm.user u " +
+            "WHERE gm.group.groupId = :groupId AND gm.status = :status " +
+            "AND (gm.role = 'ADMIN' OR gm.role = 'OWNER') " +
+            "AND u.userIsActive = true")
+    List<GroupMember> findAdminAndOwnerMembers(@Param("groupId") Integer groupId,
+                                              @Param("status") GroupMemberStatus status);
 } 

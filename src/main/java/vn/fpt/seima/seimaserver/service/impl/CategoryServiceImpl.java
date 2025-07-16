@@ -9,9 +9,12 @@ import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.mapper.CategoryMapper;
 import vn.fpt.seima.seimaserver.repository.*;
+import vn.fpt.seima.seimaserver.service.BudgetService;
 import vn.fpt.seima.seimaserver.service.CategoryService;
+import vn.fpt.seima.seimaserver.service.WalletService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -23,6 +26,8 @@ public class CategoryServiceImpl implements CategoryService {
     private CategoryRepository categoryRepository;
     private BudgetCategoryLimitRepository budgetCategoryLimitRepository;
     private TransactionRepository transactionRepository;
+    private BudgetService budgetService;
+    private WalletService walletService;
 
     @Override
     public List<CategoryResponse> getAllCategoryByTypeAndUser(Integer categoryType, Integer groupId) {
@@ -185,6 +190,19 @@ public class CategoryServiceImpl implements CategoryService {
 
         if(!currentUser.getUserId().equals(category.getUser().getUserId())) {
             throw new IllegalArgumentException("You are not authorized to delete this category.");
+        }
+        List<Transaction> transactions = transactionRepository.findAllByCategory_CategoryId(id);
+        for (Transaction transaction : transactions) {
+            budgetService.reduceAmount(currentUser.getUserId(),
+                    id,
+                    transaction.getAmount(),
+                    transaction.getTransactionDate(),
+                    "update-add",
+                    transaction.getCurrencyCode());
+            walletService.reduceAmount(transaction.getWallet().getId(),
+                    transaction.getAmount(),
+                    "update-add",
+                    transaction.getCurrencyCode());
         }
         transactionRepository.deleteByCategory_CategoryId(id);
         budgetCategoryLimitRepository.deleteByCategory_CategoryId(id);

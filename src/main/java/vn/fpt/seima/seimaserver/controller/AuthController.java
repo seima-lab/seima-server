@@ -15,6 +15,7 @@ import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.auth.GoogleLoginRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.ForgotPasswordRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.LoginRequestDto;
+import vn.fpt.seima.seimaserver.dto.request.auth.LogoutRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.NormalRegisterRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.SetNewPasswordRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.auth.VerifyForgotPasswordOtpRequestDto;
@@ -36,10 +37,7 @@ import vn.fpt.seima.seimaserver.exception.PasswordMismatchException;
 import vn.fpt.seima.seimaserver.exception.InvalidPasswordException;
 import vn.fpt.seima.seimaserver.exception.AccountNotVerifiedException;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
-import vn.fpt.seima.seimaserver.service.AuthService;
-import vn.fpt.seima.seimaserver.service.GoogleService;
-import vn.fpt.seima.seimaserver.service.JwtService;
-import vn.fpt.seima.seimaserver.service.TokenBlacklistService;
+import vn.fpt.seima.seimaserver.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Date;
@@ -60,6 +58,8 @@ public class AuthController {
     private AuthService authService;
     @Autowired
     private TokenBlacklistService tokenBlacklistService;
+    @Autowired
+    UserDeviceService userDeviceService;
 
     // Google Login
     @PostMapping("/google")
@@ -284,7 +284,9 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<String>> logout(HttpServletRequest request) {
+    public ResponseEntity<ApiResponse<String>> logout(
+            @Valid @RequestBody LogoutRequestDto logoutRequestDto,
+            HttpServletRequest request) {
         try {
             String authHeader = request.getHeader("Authorization");
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
@@ -296,6 +298,9 @@ public class AuthController {
                 
                 // Blacklist the token
                 tokenBlacklistService.blacklistToken(jwt, expirationTime);
+                
+                // Update device to set user ID to null
+                userDeviceService.updateUserIdToNull(logoutRequestDto.getDeviceId());
                 
                 return ResponseEntity.ok(ApiResponse.<String>builder()
                         .statusCode(HttpStatus.OK.value())

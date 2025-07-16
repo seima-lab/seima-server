@@ -9,10 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 import vn.fpt.seima.seimaserver.config.base.AppProperties;
 import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.UpdateGroupRequest;
-import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.UserJoinedGroupResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.*;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.GroupException;
 import vn.fpt.seima.seimaserver.mapper.GroupMapper;
@@ -54,22 +51,22 @@ public class GroupServiceImpl implements GroupService {
         User currentUser = getCurrentUser();
         
         // Handle avatar upload (optional)
-        String avatarUrl = null;
+        String avatarUrl;
         if (request.getImage() != null && !request.getImage().isEmpty()) {
             log.info("Processing image upload for group");
             validateImageFile(request.getImage());
             avatarUrl = uploadImageToCloudinary(request.getImage());
             log.info("Group avatar uploaded successfully: {}", avatarUrl);
         } else {
-            log.info("No image provided, group will use default avatar");
+            // Set default group avatar URL when no image is provided
+            avatarUrl = "https://cdn.pixabay.com/photo/2016/11/14/17/39/group-1824145_1280.png";
+            log.info("No image provided, using default group avatar: {}", avatarUrl);
         }
         
         // Create group entity
         Group group = createGroupEntity(request);
-        // Set the avatar URL if available
-        if (avatarUrl != null) {
-            group.setGroupAvatarUrl(avatarUrl);
-        }
+        // Set the avatar URL (either uploaded or default)
+        group.setGroupAvatarUrl(avatarUrl);
         
         Group savedGroup = groupRepository.save(group);
         log.info("Group created with ID: {}", savedGroup.getGroupId());
@@ -594,5 +591,73 @@ public class GroupServiceImpl implements GroupService {
         }
 
         return group;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GroupMemberStatusResponse getCurrentUserGroupStatus(Integer groupId) {
+        log.info("Getting current user status for group ID: {}", groupId);
+        
+        // Validate input
+        if (groupId == null) {
+            throw new GroupException("Group ID cannot be null");
+        }
+        
+        // Get current user
+        User currentUser = getCurrentUser();
+        
+        // Find group
+        Optional<Group> groupOpt = groupRepository.findById(groupId);
+        
+        if (groupOpt.isEmpty()) {
+            // Group not found
+            return GroupMemberStatusResponse.builder()
+                    .groupId(groupId)
+                    .status(null)
+                    .role(null)
+                    .groupExists(false)
+                    .build();
+        }
+        
+        Group group = groupOpt.get();
+        
+        // Check if group is inactive
+        if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+            return GroupMemberStatusResponse.builder()
+                    .groupId(groupId)
+                    .status(null)
+                    .role(null)
+                    .groupExists(false)
+                    .build();
+        }
+        
+        // Find user's membership in this group
+        Optional<GroupMember> membershipOpt = groupMemberRepository.findByUserIdAndGroupId(
+                currentUser.getUserId(), groupId);
+        
+        if (membershipOpt.isEmpty()) {
+            // User is not a member
+            return GroupMemberStatusResponse.builder()
+                    .groupId(groupId)
+                    .status(null)
+                    .role(null)
+                    .groupExists(true)
+                    .build();
+        }
+        
+        GroupMember membership = membershipOpt.get();
+        
+        // Return user's current status
+        GroupMemberStatusResponse response = GroupMemberStatusResponse.builder()
+                .groupId(groupId)
+                .status(membership.getStatus())
+                .role(membership.getRole())
+                .groupExists(true)
+                .build();
+        
+        log.info("User {} status in group {}: status={}, role={}", 
+                currentUser.getUserId(), groupId, membership.getStatus(), membership.getRole());
+        
+        return response;
     }
 } 
