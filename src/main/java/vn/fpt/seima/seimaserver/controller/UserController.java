@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
+import vn.fpt.seima.seimaserver.dto.request.user.MeRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.user.UserCreationRequestDto;
 import vn.fpt.seima.seimaserver.dto.request.user.UserUpdateRequestDto;
 import vn.fpt.seima.seimaserver.dto.response.user.UserProfileResponseDto;
@@ -14,6 +15,8 @@ import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.exception.GmailAlreadyExistException;
 import vn.fpt.seima.seimaserver.exception.NotMatchCurrentGmailException;
 import vn.fpt.seima.seimaserver.mapper.UserMapper;
+import vn.fpt.seima.seimaserver.repository.UserDeviceRepository;
+import vn.fpt.seima.seimaserver.service.UserDeviceService;
 import vn.fpt.seima.seimaserver.service.UserService;
 import vn.fpt.seima.seimaserver.service.GroupMemberService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
@@ -24,6 +27,8 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 public class UserController {
     private UserService userService;
     private GroupMemberService groupMemberService;
+    private UserDeviceRepository userDeviceRepository;
+    private UserDeviceService userDeviceService;
 
 
     @PostMapping("/create")
@@ -51,7 +56,11 @@ public class UserController {
     }
 
     @GetMapping("/me")
-    public ApiResponse<UserProfileResponseDto> getCurrentUserProfile() {
+    public ApiResponse<UserProfileResponseDto> getCurrentUserProfile(
+            @Valid
+            @RequestBody MeRequestDto meRequestDto
+
+    ) {
         User currentUser = UserUtils.getCurrentUser(); // Hoặc inject CurrentUserUtil và gọi phương thức của nó
         if (currentUser == null) {
             return ApiResponse.<UserProfileResponseDto>builder()
@@ -59,6 +68,15 @@ public class UserController {
                     .message("User not authenticated or profile not found.")
                     .build();
         }
+        // Lưu data vào bảng user_device với logic đúng
+        if(userDeviceRepository.existsByDeviceId(meRequestDto.getDeviceId())) {
+            // Device đã tồn tại → chỉ update thông tin
+            userDeviceService.updateDeviceUser(meRequestDto.getDeviceId(), meRequestDto.getFcmToken());
+        } else {
+            // Device chưa tồn tại → tạo mới
+            userDeviceService.createDevice(currentUser.getUserId(), meRequestDto.getDeviceId(), meRequestDto.getFcmToken());
+        }
+
         // Chuyển đổi User entity sang DTO để trả về
         UserProfileResponseDto userProfileDto = UserMapper.mapUserToProfileDto(currentUser);
         return ApiResponse.<UserProfileResponseDto>builder()
