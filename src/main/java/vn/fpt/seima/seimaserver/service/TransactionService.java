@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
 import vn.fpt.seima.seimaserver.dto.response.transaction.*;
+import vn.fpt.seima.seimaserver.entity.PeriodType;
 import vn.fpt.seima.seimaserver.entity.TransactionType;
 
 import java.time.LocalDate;
@@ -35,7 +36,7 @@ public interface TransactionService {
 
     TransactionReportResponse getTransactionReport(Integer categoryId,LocalDate startDate, LocalDate endDate);
 
-    TransactionCategoryReportResponse getCategoryReport(String type, Integer id, LocalDate dateFrom, LocalDate dateTo);
+    TransactionCategoryReportResponse getCategoryReport(PeriodType type, Integer id, LocalDate dateFrom, LocalDate dateTo);
 
     TransactionDetailReportResponse getCategoryReportDetail( Integer id, LocalDate dateFrom, LocalDate dateTo);
 }

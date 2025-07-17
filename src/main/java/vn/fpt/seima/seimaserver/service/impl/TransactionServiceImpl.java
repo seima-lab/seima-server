@@ -397,11 +397,15 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
-    public TransactionCategoryReportResponse getCategoryReport(String type, Integer categoryId, LocalDate dateFrom, LocalDate dateTo) {
+    public TransactionCategoryReportResponse getCategoryReport(PeriodType type, Integer categoryId, LocalDate dateFrom, LocalDate dateTo) {
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
         }
+        if (categoryId == null) {
+            throw new IllegalArgumentException("CategoryId must not be null");
+        }
+
         LocalDate now = LocalDate.now();
         if (dateFrom == null || dateTo == null) {
             dateFrom = now.withDayOfMonth(1);
@@ -412,17 +416,17 @@ public class TransactionServiceImpl implements TransactionService {
 
         String groupBy;
 
-        switch (type.toLowerCase()) {
-            case "week":
+        switch (type) {
+            case PeriodType.WEEKLY:
                 groupBy = "day";
                 break;
-            case "month":
+            case PeriodType.MONTHLY:
                 groupBy = "week";
                 break;
-            case "year":
+            case PeriodType.YEARLY:
                 groupBy = "2-month";
                 break;
-            case "custom":
+            case PeriodType.CUSTOM:
                 if (days > 30) {
                     groupBy = "month";
                 } else {
@@ -517,7 +521,9 @@ public class TransactionServiceImpl implements TransactionService {
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
         }
-
+        if (categoryId == null) {
+            throw new IllegalArgumentException("CategoryId must not be null");
+        }
         LocalDate now = LocalDate.now();
         if (dateFrom == null || dateTo == null) {
             dateFrom = now.withDayOfMonth(1);

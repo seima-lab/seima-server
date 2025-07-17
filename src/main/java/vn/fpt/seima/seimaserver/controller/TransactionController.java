@@ -13,6 +13,7 @@ import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.dto.response.transaction.*;
+import vn.fpt.seima.seimaserver.entity.PeriodType;
 import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.service.OcrService;
 import vn.fpt.seima.seimaserver.service.TransactionService;
@@ -172,7 +173,7 @@ public class TransactionController {
     @GetMapping("/view-report/category/{id}")
     public ApiResponse<TransactionCategoryReportResponse> getExpenseIncomeReport(
             @PathVariable int id,
-            @RequestParam(value = "type") String type,
+            @RequestParam(value = "type") PeriodType type,
             @RequestParam(required = false ) LocalDate startDate,
             @RequestParam(required = false) LocalDate endDate) {
         try {
