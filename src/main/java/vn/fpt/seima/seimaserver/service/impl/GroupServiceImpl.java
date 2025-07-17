@@ -660,4 +660,49 @@ public class GroupServiceImpl implements GroupService {
         
         return response;
     }
+
+    @Override
+    @Transactional
+    public void deleteGroup(Integer groupId) {
+        log.info("Deleting group with ID: {}", groupId);
+
+        // Validate input
+        if (groupId == null) {
+            throw new GroupException("Group ID cannot be null");
+        }
+
+        // Get current user
+        User currentUser = getCurrentUser();
+
+        // Find and validate group
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new GroupException("Group not found"));
+
+        // Check if group is already inactive
+        if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+            throw new GroupException("Group is already inactive");
+        }
+
+        // Validate current user is owner
+        GroupMemberRole currentUserRole = getCurrentUserRole(groupId, currentUser);
+        if (currentUserRole != GroupMemberRole.OWNER) {
+            throw new GroupException("Only group owner can delete the group");
+        }
+
+        // Soft delete: Set group as inactive instead of hard delete to preserve data integrity
+        group.setGroupIsActive(false);
+        groupRepository.save(group);
+
+        // Set all active members to LEFT status
+        List<GroupMember> activeMembers = groupMemberRepository.findActiveGroupMembers(
+                groupId, GroupMemberStatus.ACTIVE);
+        
+        for (GroupMember member : activeMembers) {
+            member.setStatus(GroupMemberStatus.LEFT);
+            groupMemberRepository.save(member);
+        }
+
+        log.info("Successfully deleted group {} and set all {} members to LEFT status", 
+                groupId, activeMembers.size());
+    }
 } 
