@@ -11,6 +11,7 @@ import vn.fpt.seima.seimaserver.entity.PeriodType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Builder
@@ -28,5 +29,5 @@ public class CreateBudgetRequest {
     private PeriodType periodType;
     private BigDecimal overallAmountLimit;
     private BigDecimal budgetRemainingAmount;
-    private ArrayList<Category> categoryList;
+    private List<Category> categoryList;
 }

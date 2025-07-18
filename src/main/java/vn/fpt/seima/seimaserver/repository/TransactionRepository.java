@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;import vn.fpt.seima.seimaserver.entity.Transaction;
 import vn.fpt.seima.seimaserver.entity.TransactionType;
 import vn.fpt.seima.seimaserver.entity.User;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -16,9 +19,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
 
     List<Transaction> findAllByUserAndTransactionDateBetween(User user, LocalDateTime start, LocalDateTime end);
 
-    @Query("SELECT t FROM Transaction t WHERE t.transactionType != :type")
+    @Query("SELECT t FROM Transaction t WHERE t.transactionType != :type and t.user.userId = :userId")
     Page<Transaction> findByType(
                                         @Param("transaction_type") TransactionType type,
+                                        @Param("userId") Integer userId,
                                         Pageable pageable);
 
     @Query("SELECT t FROM Transaction t WHERE t.transactionType != :type and t.group.groupId = :groupId")
@@ -47,4 +51,32 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
             @Param("categoryId") Integer categoryId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
-    );}
+    );
+    void deleteByCategory_CategoryId(Integer categoryId);
+    List<Transaction> findAllByCategory_CategoryId(Integer categoryId);
+    @Query("SELECT t FROM Transaction t " +
+            "WHERE t.user.userId = :userId AND t.category.categoryId = :categoryId " +
+            "AND t.transactionDate BETWEEN :start AND :end " +
+            "AND t.transactionType IN ('EXPENSE', 'INCOME')")
+    List<Transaction> findExpensesByUserAndDateRange(
+            @Param("categoryId") Integer categoryId,
+            @Param("userId") Integer userId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
+
+    @Query("SELECT t FROM Transaction t " +
+            "WHERE t.user.userId = :userId " +
+            "AND t.transactionDate BETWEEN :start AND :end " +
+            "AND t.transactionType IN ('EXPENSE', 'INCOME')")
+    List<Transaction> findExpensesByUserAndDateRange(
+            @Param("userId") Integer userId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
+
+    @Query("SELECT SUM(t.amount) FROM Transaction t WHERE t.user.userId = :userId AND t.transactionType = 'EXPENSE' AND t.category.categoryId = :categoryId AND t.transactionDate BETWEEN :from AND :to")
+    BigDecimal sumExpensesByCategoryAndMonth(@Param("userId") Integer userId,
+                                             @Param("categoryId") Integer categoryId,
+                                             @Param("from") LocalDateTime from,
+                                             @Param("to") LocalDateTime to);
+}
+

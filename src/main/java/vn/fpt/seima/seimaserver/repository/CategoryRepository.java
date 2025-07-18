@@ -20,20 +20,21 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
             @Param("userId") Integer userId
     );
 
-    @Query("SELECT c FROM Category c WHERE c.categoryType = :categoryType AND (c.group.groupId = :groupId OR (c.group IS NULL AND c.user IS NULL))")
+    @Query("SELECT c FROM Category c WHERE c.categoryType = :categoryType " +
+            "AND (c.group.groupId = :groupId OR (c.group IS NULL AND c.user IS NULL))")
     List<Category> findByCategoryTypeAndGroup_GroupIdOrGroupIsNull(
             @Param("categoryType") CategoryType categoryType,
             @Param("groupId") Integer groupId
     );
 
     @Query("SELECT CASE WHEN COUNT(c) > 0 THEN true ELSE false END FROM Category c " +
-            "WHERE c.categoryName = :categoryName AND c.categoryType = :type AND c.user.userId = :userId")
+            "WHERE c.categoryName = :categoryName AND c.categoryType = :type AND (c.user.userId = :userId or c.user is null)")
     boolean existsByCategoryNameAndTypeAndUser_UserId(@Param("categoryName") String categoryName,
                          @Param("type") CategoryType type,
                          @Param("userId") Integer userId);
 
     @Query("SELECT CASE WHEN COUNT(c) > 0 THEN true ELSE false END FROM Category c " +
-            "WHERE c.categoryName = :categoryName AND c.categoryType = :type AND c.group.groupId = :groupId")
+            "WHERE c.categoryName = :categoryName AND c.categoryType = :type AND (c.group.groupId = :groupId or c.group is null)")
     boolean existsByCategoryNameAndTypeAndGroup_GroupId(@Param("categoryName") String categoryName,
                           @Param("type") CategoryType type,
                           @Param("groupId") Integer groupId);
