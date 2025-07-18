@@ -9,9 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionReportResponse;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
+import vn.fpt.seima.seimaserver.dto.response.transaction.*;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.mapper.TransactionMapper;
 import vn.fpt.seima.seimaserver.repository.*;
@@ -22,9 +20,12 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -43,7 +44,11 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     public Page<TransactionResponse> getAllTransaction( Pageable pageable) {
-        Page<Transaction> transactions = transactionRepository.findByType(TransactionType.INACTIVE,pageable);
+        User user = UserUtils.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        Page<Transaction> transactions = transactionRepository.findByType(TransactionType.INACTIVE,user.getUserId(),pageable);
 
         return transactions.map(transactionMapper::toResponse);
     }
@@ -382,4 +387,179 @@ public class TransactionServiceImpl implements TransactionService {
                 .transactionsByCategory(transactionTypeMap)
                 .build();
     }
+
+    /**
+     * @param categoryId
+     * @param dateFrom
+     * @param dateTo
+     * @return
+     */
+
+
+    @Override
+    public TransactionCategoryReportResponse getCategoryReport(PeriodType type, Integer categoryId, LocalDate dateFrom, LocalDate dateTo) {
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        if (categoryId == null) {
+            throw new IllegalArgumentException("CategoryId must not be null");
+        }
+
+        LocalDate now = LocalDate.now();
+        if (dateFrom == null || dateTo == null) {
+            dateFrom = now.withDayOfMonth(1);
+            dateTo = now.withDayOfMonth(now.lengthOfMonth());
+        }
+
+        long days = ChronoUnit.DAYS.between(dateFrom, dateTo) + 1;
+
+        String groupBy;
+
+        switch (type) {
+            case PeriodType.WEEKLY:
+                groupBy = "day";
+                break;
+            case PeriodType.MONTHLY:
+                groupBy = "week";
+                break;
+            case PeriodType.YEARLY:
+                groupBy = "2-month";
+                break;
+            case PeriodType.CUSTOM:
+                if (days > 30) {
+                    groupBy = "month";
+                } else {
+                    groupBy = "week";
+                }
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid type: " + type);
+        }
+
+        List<Transaction> transactions = transactionRepository.findExpensesByUserAndDateRange(
+                categoryId, currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.atTime(23, 59, 59));
+
+        Map<String, TransactionCategoryReportResponse.GroupAmount> result = new LinkedHashMap<>();
+        Map<String, LocalDate> keyDateMap = new HashMap<>();
+
+
+        for (Transaction tx : transactions) {
+            LocalDate date = tx.getTransactionDate().toLocalDate();
+            LocalDate sortDate;
+            String key;
+            switch (groupBy) {
+                case "day":
+                    key = date.toString();
+                    sortDate = date;
+                    break;
+
+                case "week":
+                    int weekIndex = (int) ChronoUnit.DAYS.between(dateFrom, date) / 7 + 1;
+                    LocalDate weekStart = dateFrom.plusDays((weekIndex - 1) * 7);
+                    LocalDate weekEnd = weekStart.plusDays(6);
+                    if (weekEnd.isAfter(dateTo)) weekEnd = dateTo;
+                    key = weekStart + "_to_" + weekEnd;
+                    sortDate = weekStart;
+                    break;
+
+                case "month":
+                    key = date.getMonth().toString();
+                    sortDate = LocalDate.of(date.getYear(), date.getMonthValue(), 1);
+                    break;
+
+                case "2-month":
+                    int group = (date.getMonthValue() - 1) / 2 + 1;
+                    int startMonth = (group - 1) * 2 + 1;
+                    int endMonth = group * 2;
+                    key = "Group_" + group + " (" + startMonth + "-" + endMonth + ")";
+                    sortDate = LocalDate.of(date.getYear(), startMonth, 1);
+                    break;
+
+                default:
+                    key = "unknown";
+                    sortDate = date;
+            }
+            keyDateMap.put(key, sortDate);
+            var item = result.getOrDefault(key, new
+                    TransactionCategoryReportResponse.GroupAmount());
+            if (tx.getTransactionType() == TransactionType.EXPENSE)
+                item.setExpense(item.getExpense().add(tx.getAmount()));
+            else if (tx.getTransactionType() == TransactionType.INCOME)
+                item.setIncome(item.getIncome().add(tx.getAmount()));
+            result.put(key, item);
+        }
+
+        int groupCount = result.size();
+        BigDecimal totalExpense = result.values().stream().map(TransactionCategoryReportResponse.GroupAmount::getExpense).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalIncome = result.values().stream().map(TransactionCategoryReportResponse.GroupAmount::getIncome).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal avgExpense = groupCount == 0 ? BigDecimal.ZERO : totalExpense.divide(BigDecimal.valueOf(groupCount), 2, RoundingMode.HALF_UP);
+        BigDecimal avgIncome = groupCount == 0 ? BigDecimal.ZERO : totalIncome.divide(BigDecimal.valueOf(groupCount), 2, RoundingMode.HALF_UP);
+        Map<String, TransactionCategoryReportResponse.GroupAmount> sortedResult = result.entrySet().stream()
+                .sorted(Comparator.comparing(entry -> keyDateMap.get(entry.getKey())))
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (e1, e2) -> e1,
+                        LinkedHashMap::new
+                ));
+        return new TransactionCategoryReportResponse(
+                totalExpense, avgExpense, totalIncome, avgIncome, sortedResult
+        );
+    }
+
+    /**
+     * @param categoryId
+     * @param dateFrom
+     * @param dateTo
+     * @return
+     */
+    @Override
+    public TransactionDetailReportResponse getCategoryReportDetail(Integer categoryId, LocalDate dateFrom, LocalDate dateTo) {
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        if (categoryId == null) {
+            throw new IllegalArgumentException("CategoryId must not be null");
+        }
+        LocalDate now = LocalDate.now();
+        if (dateFrom == null || dateTo == null) {
+            dateFrom = now.withDayOfMonth(1);
+            dateTo = now.withDayOfMonth(now.lengthOfMonth());
+        }
+
+        List<Transaction> transactions = transactionRepository.findExpensesByUserAndDateRange(
+                categoryId, currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.atTime(23, 59, 59));
+
+        Map<String, TransactionDetailReportResponse.GroupDetail> result = new LinkedHashMap<>();
+        BigDecimal totalExpense = BigDecimal.ZERO;
+        BigDecimal totalIncome = BigDecimal.ZERO;
+
+        for (Transaction tx : transactions) {
+            LocalDate txDate = tx.getTransactionDate().toLocalDate();
+            String key = txDate.toString();
+
+            TransactionDetailReportResponse.GroupDetail group = result.getOrDefault(key, new TransactionDetailReportResponse.GroupDetail());
+            if (tx.getTransactionType() == TransactionType.EXPENSE) {
+                group.setExpense(group.getExpense().add(tx.getAmount()));
+                totalExpense = totalExpense.add(tx.getAmount());
+            } else if (tx.getTransactionType() == TransactionType.INCOME) {
+                group.setIncome(group.getIncome().add(tx.getAmount()));
+                totalIncome = totalIncome.add(tx.getAmount());
+            }
+
+            if (group.getCategoryId() == null) {
+                group.setCategoryId(tx.getCategory().getCategoryId());
+                group.setCategoryName(tx.getCategory().getCategoryName());
+                group.setCategoryIconUrl(tx.getCategory().getCategoryIconUrl());
+            }
+
+            result.put(key, group);
+        }
+
+        return new TransactionDetailReportResponse(totalExpense, totalIncome, result);
+    }
+
 }

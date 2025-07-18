@@ -6,16 +6,17 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOcrResponse;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionReportResponse;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
+import vn.fpt.seima.seimaserver.dto.response.budget.FinancialHealthResponse;
+import vn.fpt.seima.seimaserver.dto.response.transaction.*;
+import vn.fpt.seima.seimaserver.entity.PeriodType;
 import vn.fpt.seima.seimaserver.entity.User;
+import vn.fpt.seima.seimaserver.service.FinancialHealthService;
 import vn.fpt.seima.seimaserver.service.OcrService;
 import vn.fpt.seima.seimaserver.service.TransactionService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
@@ -29,7 +30,7 @@ import java.time.YearMonth;
 public class TransactionController {
     private final TransactionService transactionService;
     private final OcrService ocrService;
-
+    private final FinancialHealthService financialHealthService;
     @PostMapping(value = "/expense")
     public ApiResponse<TransactionResponse> recordExpense(@RequestBody  CreateTransactionRequest request) {
         try {
@@ -167,6 +168,43 @@ public class TransactionController {
             TransactionReportResponse transactions = transactionService.getTransactionReport(categoryId,startDate,endDate);
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
         } catch (Exception ex) {
+            return new ApiResponse<>(500, ex.getMessage(), null);
+        }
+    }
+
+    @GetMapping("/view-report/category/{id}")
+    public ApiResponse<TransactionCategoryReportResponse> getExpenseIncomeReport(
+            @PathVariable int id,
+            @RequestParam(value = "type") PeriodType type,
+            @RequestParam(required = false ) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        try {
+            TransactionCategoryReportResponse report = transactionService.getCategoryReport(type, id, startDate, endDate);
+            return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", report);
+        } catch (IllegalArgumentException ex) {
+            return new ApiResponse<>(500, ex.getMessage(), null);
+        }
+    }
+
+    @GetMapping("/view-report/category-detail/{id}")
+    public ApiResponse<TransactionDetailReportResponse> getExpenseIncomeReport(
+            @PathVariable int id,
+            @RequestParam(required = false ) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        try {
+            TransactionDetailReportResponse report = transactionService.getCategoryReportDetail(id, startDate, endDate);
+            return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", report);
+        } catch (IllegalArgumentException ex) {
+            return new ApiResponse<>(500, ex.getMessage(), null);
+        }
+    }
+
+    @GetMapping("/financial-health")
+    public ApiResponse<FinancialHealthResponse> financialHealth(){
+        try {
+            FinancialHealthResponse report = financialHealthService.calculateScore();
+            return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", report);
+        } catch (IllegalArgumentException ex) {
             return new ApiResponse<>(500, ex.getMessage(), null);
         }
     }
