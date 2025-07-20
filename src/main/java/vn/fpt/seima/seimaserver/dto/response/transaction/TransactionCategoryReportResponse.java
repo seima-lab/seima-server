@@ -16,6 +16,7 @@ public class TransactionCategoryReportResponse {
     private BigDecimal totalIncome;
     private BigDecimal averageIncome;
     private Map<String, GroupAmount> data;
+    private Integer categoryId;
 
     @Data
     @AllArgsConstructor
