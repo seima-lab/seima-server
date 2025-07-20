@@ -1,6 +1,7 @@
 package vn.fpt.seima.seimaserver.dto.response.category;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import vn.fpt.seima.seimaserver.entity.CategoryType;
@@ -8,6 +9,7 @@ import vn.fpt.seima.seimaserver.entity.CategoryType;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 public class CategoryResponse {
     private Integer categoryId;
     private Integer userId;

@@ -39,4 +39,6 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
                           @Param("type") CategoryType type,
                           @Param("groupId") Integer groupId);
 
+    @Query("SELECT c FROM Category c WHERE c.categoryId = :categoryId ")
+    List<Category> getCategoriesByCategoryId(@Param("categoryId") Integer categoryId);
 }
