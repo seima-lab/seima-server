@@ -8,11 +8,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
+import vn.fpt.seima.seimaserver.dto.response.budget.BudgetLastResponse;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.dto.response.budgetPeriod.BudgetPeriodResponse;
 import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.service.BudgetPeriodService;
 import vn.fpt.seima.seimaserver.service.BudgetService;
+
+import java.util.List;
 
 @RestController
 @AllArgsConstructor
@@ -95,6 +98,18 @@ public class BudgetController {
         try {
             Pageable pageable = PageRequest.of(page, size);
             Page<BudgetPeriodResponse> budgets = budgetPeriodService.getListBudgetPeriods(id, pageable);
+
+            return new ApiResponse<>(HttpStatus.OK.value(), "Budget list retrieved successfully", budgets);
+        } catch (Exception ex) {
+            return new ApiResponse<>(500, ex.getMessage(), null);
+        }
+    }
+
+    @GetMapping("/last-budget")
+    public ApiResponse<List<BudgetLastResponse>> getBudgetLastPeriod() {
+        try {
+
+            List<BudgetLastResponse> budgets = budgetService.getLastBudget();
 
             return new ApiResponse<>(HttpStatus.OK.value(), "Budget list retrieved successfully", budgets);
         } catch (Exception ex) {

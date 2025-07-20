@@ -31,6 +31,7 @@ public class TransactionReportResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ReportByCategory {
+        private Integer categoryId;
         private String categoryName;
         private String categoryIconUrl;
         private BigDecimal amount;

@@ -351,6 +351,7 @@ public class TransactionServiceImpl implements TransactionService {
 
             if (report == null) {
                 report = TransactionReportResponse.ReportByCategory.builder()
+                        .categoryId(t.getCategory().getCategoryId())
                         .categoryName(t.getCategory().getCategoryName())
                         .categoryIconUrl(t.getCategory().getCategoryIconUrl())
                         .amount(amount)
@@ -505,7 +506,7 @@ public class TransactionServiceImpl implements TransactionService {
                         LinkedHashMap::new
                 ));
         return new TransactionCategoryReportResponse(
-                totalExpense, avgExpense, totalIncome, avgIncome, sortedResult
+                totalExpense, avgExpense, totalIncome, avgIncome, sortedResult, categoryId
         );
     }
 
