@@ -56,6 +56,9 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
                     .divide(totalIncome, 2, RoundingMode.HALF_UP)
                     .multiply(BigDecimal.valueOf(100));
             savingScore = savingRate.intValue() * 40 / 100;
+            if (savingScore >40) {
+                savingScore = 40;
+            }
         }
         List<Budget> budgets = budgetRepository.findByUserId(currentUser.getUserId());
         int compliantBudgets = 0;
@@ -80,6 +83,10 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
             BigDecimal rate = BigDecimal.valueOf(compliantBudgets)
                     .divide(BigDecimal.valueOf(budgets.size()), 2, RoundingMode.HALF_UP);
             budgetScore = rate.multiply(BigDecimal.valueOf(30)).intValue();
+
+            if (budgetScore > 30) {
+                budgetScore = 30;
+            }
         }
 
         // 3. So sánh với tháng trước
