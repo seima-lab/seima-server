@@ -157,7 +157,7 @@ public class BudgetServiceImpl implements BudgetService {
         List<Budget> existingBudget =  budgetRepository.findByUserId(userId);
 
         if (existingBudget.isEmpty()) {
-          throw new IllegalArgumentException("Budget not found ");
+          return;
         }
 
         for (Budget budget : existingBudget) {
@@ -171,8 +171,8 @@ public class BudgetServiceImpl implements BudgetService {
             if(budget.getCurrencyCode().equals(code)){
                 if (transactionDate.isBefore(budget.getEndDate()) && transactionDate.isAfter(budget.getStartDate())) {
                     if (type.equals("EXPENSE")) {
+
                         BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
-                        log.info("123 :" + newAmount);
                         budget.setBudgetRemainingAmount(newAmount);
                     }
                     else if (type.equals("INCOME")) {
