@@ -73,10 +73,14 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end);
 
-    @Query("SELECT SUM(t.amount) FROM Transaction t WHERE t.user.userId = :userId AND t.transactionType = 'EXPENSE' AND t.category.categoryId = :categoryId AND t.transactionDate BETWEEN :from AND :to")
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.user.userId = :userId AND " +
+            "t.transactionType = 'EXPENSE' AND t.category.categoryId in :categoryId AND " +
+            "t.transactionDate BETWEEN :from AND :to")
     BigDecimal sumExpensesByCategoryAndMonth(@Param("userId") Integer userId,
-                                             @Param("categoryId") Integer categoryId,
+                                             @Param("categoryId") List<Integer> categoryId,
                                              @Param("from") LocalDateTime from,
                                              @Param("to") LocalDateTime to);
+
+
 }
 

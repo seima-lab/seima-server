@@ -14,6 +14,7 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -62,11 +63,14 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
         }
         List<Budget> budgets = budgetRepository.findByUserId(currentUser.getUserId());
         int compliantBudgets = 0;
+        List<Integer> categoriesId = new ArrayList<>();
+
         for (Budget budget : budgets) {
             for (BudgetCategoryLimit categoryLimit : budget.getBudgetCategoryLimits()) {
+                categoriesId.add(categoryLimit.getCategory().getCategoryId());
                 BigDecimal actualSpent = transactionRepository.sumExpensesByCategoryAndMonth(
                         currentUser.getUserId(),
-                        categoryLimit.getCategory().getCategoryId(),
+                        categoriesId,
                         dateFrom.atStartOfDay(),
                         dateTo.atTime(23, 59, 59)
                 );

@@ -37,6 +37,7 @@ public class BudgetServiceImpl implements BudgetService {
     private final BudgetPeriodRepository budgetPeriodRepository;
     private final BudgetPeriodService budgetPeriodService;
     private final CategoryRepository categoryRepository;
+    private final TransactionRepository transactionRepository;
 
     @Override
     public Page<BudgetResponse> getAllBudget(Pageable pageable) {
@@ -81,7 +82,18 @@ public class BudgetServiceImpl implements BudgetService {
         if (!budgetRepository.countBudgetByUserId(user.getUserId())) {
             throw new IllegalArgumentException("The user cannot have more than 5 budgets.");
         }
+        List<Integer> categoryIds = new ArrayList<>();
+        for (Category category : request.getCategoryList()){
+            categoryIds.add(category.getCategoryId());
+        }
         Budget budget = budgetMapper.toEntity(request);
+        budget.setBudgetRemainingAmount(request.getBudgetRemainingAmount()
+                .subtract(transactionRepository.sumExpensesByCategoryAndMonth(
+                        user.getUserId(),
+                        categoryIds,
+                        request.getStartDate(),
+                        request.getEndDate()
+                        )));
         budget.setUser(user);
         Budget savedBudget = budgetRepository.save(budget);
 
@@ -157,7 +169,7 @@ public class BudgetServiceImpl implements BudgetService {
         List<Budget> existingBudget =  budgetRepository.findByUserId(userId);
 
         if (existingBudget.isEmpty()) {
-          throw new IllegalArgumentException("Budget not found ");
+          return;
         }
 
         for (Budget budget : existingBudget) {
@@ -172,7 +184,6 @@ public class BudgetServiceImpl implements BudgetService {
                 if (transactionDate.isBefore(budget.getEndDate()) && transactionDate.isAfter(budget.getStartDate())) {
                     if (type.equals("EXPENSE")) {
                         BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
-                        log.info("123 :" + newAmount);
                         budget.setBudgetRemainingAmount(newAmount);
                     }
                     else if (type.equals("INCOME")) {
