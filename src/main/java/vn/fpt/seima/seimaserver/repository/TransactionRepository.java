@@ -19,7 +19,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
 
     List<Transaction> findAllByUserAndTransactionDateBetween(User user, LocalDateTime start, LocalDateTime end);
 
-    @Query("SELECT t FROM Transaction t WHERE t.transactionType != :type and t.user.userId = :userId")
+    @Query("SELECT t FROM Transaction t WHERE t.transactionType != :type and t.user.userId = :userId " +
+            "and t.group.groupId is null ")
     Page<Transaction> findByType(
                                         @Param("transaction_type") TransactionType type,
                                         @Param("userId") Integer userId,

@@ -276,7 +276,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Cacheable(value = "transactionOverview", key = "#userId + '-' + #month.toString()")
-    public TransactionOverviewResponse getTransactionOverview(Integer userId, YearMonth month) {
+    public TransactionOverviewResponse getTransactionOverview(Integer userId, YearMonth month, Integer groupId) {
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
@@ -287,9 +287,13 @@ public class TransactionServiceImpl implements TransactionService {
         if ((month.getMonthValue() < 0 || month.getMonthValue() > 12)) {
             throw new IllegalArgumentException("Month is not in range [0, 12]");
         }
+
         LocalDateTime start = month.atDay(1).atStartOfDay();
         LocalDateTime end = month.atEndOfMonth().atTime(23, 59, 59);
 
+        if (groupId == 0) {
+
+        }
         List<Transaction> transactions = transactionRepository
                 .findAllByUserAndTransactionDateBetween(currentUser, start, end);
 

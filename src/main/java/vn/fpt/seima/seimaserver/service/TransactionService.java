@@ -28,7 +28,7 @@ public interface TransactionService {
 
     TransactionResponse transferTransaction(CreateTransactionRequest request);
 
-    TransactionOverviewResponse getTransactionOverview(Integer userId, YearMonth month);
+    TransactionOverviewResponse getTransactionOverview(Integer userId, YearMonth month, Integer groupId);
 
     Page<TransactionResponse> viewHistoryTransactionsGroup(Pageable pageable, Integer groupId);
 

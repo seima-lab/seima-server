@@ -83,14 +83,15 @@ public class TransactionController {
     }
 
     @GetMapping("/overview")
-    public ApiResponse<TransactionOverviewResponse> overviewTransaction(@RequestParam("month")
+    public ApiResponse<TransactionOverviewResponse> overviewTransaction(@RequestParam(defaultValue = "0") Integer groupId,
+                                                                        @RequestParam("month")
                                                                         @DateTimeFormat(pattern = "yyyy-MM") YearMonth month) {
         try {
             User currentUser = UserUtils.getCurrentUser();
             if (currentUser == null) {
                 return new ApiResponse<>(HttpStatus.UNAUTHORIZED.value(), "You are not logged in", null);
             }
-            TransactionOverviewResponse response = transactionService.getTransactionOverview(currentUser.getUserId(), month);
+            TransactionOverviewResponse response = transactionService.getTransactionOverview(currentUser.getUserId(), month, groupId);
 
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction get successfully", response);
         } catch (IllegalArgumentException ex) {
