@@ -29,6 +29,6 @@ public class CreateBudgetRequest {
     private PeriodType periodType;
     private BigDecimal overallAmountLimit;
     private BigDecimal budgetRemainingAmount;
-    private String currentCode;
+    private String currencyCode;
     private List<Category> categoryList;
 }
