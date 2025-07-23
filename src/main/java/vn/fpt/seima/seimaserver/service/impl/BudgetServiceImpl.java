@@ -160,7 +160,7 @@ public class BudgetServiceImpl implements BudgetService {
 
         budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(budget.getBudgetId());
         budgetPeriodRepository.deleteAll(budgetPeriodRepository.findByBudget_BudgetId(budget.getBudgetId()));
-        budgetRepository.deleteById(id);
+        budgetRepository.deleteBudget(id);
     }
 
     @Override
@@ -183,6 +183,7 @@ public class BudgetServiceImpl implements BudgetService {
             if(budget.getCurrencyCode().equals(code)){
                 if (transactionDate.isBefore(budget.getEndDate()) && transactionDate.isAfter(budget.getStartDate())) {
                     if (type.equals("EXPENSE")) {
+
                         BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
                         budget.setBudgetRemainingAmount(newAmount);
                     }

@@ -124,6 +124,11 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
             } else {
                 diffPercent = BigDecimal.ZERO;
             }
+        } else if (expected.compareTo(BigDecimal.ZERO) < 0) {
+            BigDecimal expectedAbs = expected.abs();
+            diffPercent = actual.subtract(expected)
+                    .divide(expectedAbs, 4, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100));
         } else {
             diffPercent = actual.subtract(expected)
                     .divide(expected, 4, RoundingMode.HALF_UP)

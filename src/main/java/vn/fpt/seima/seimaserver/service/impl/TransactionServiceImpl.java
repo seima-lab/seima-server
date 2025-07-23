@@ -41,6 +41,8 @@ public class TransactionServiceImpl implements TransactionService {
     private final CacheManager cacheManager;
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
+    private final BudgetCategoryLimitRepository budgetCategoryLimitRepository;
+    private final BudgetRepository budgetRepository;
 
     @Override
     public Page<TransactionResponse> getAllTransaction( Pageable pageable) {
@@ -212,11 +214,11 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
+    @Transactional
     public void deleteTransaction(int id) {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found with ID: " + id));
 
-        transaction.setTransactionType(TransactionType.INACTIVE);
 
         YearMonth month = YearMonth.from(transaction.getTransactionDate());
         String cacheKey = transaction.getUser().getUserId() + "-" + month;
@@ -224,6 +226,35 @@ public class TransactionServiceImpl implements TransactionService {
         if (cache != null) {
             cache.evict(cacheKey);
         }
+        Wallet wallet = transaction.getWallet();
+        if (transaction.getTransactionType() == TransactionType.EXPENSE) {
+
+            wallet.setCurrentBalance(wallet.getCurrentBalance().add(transaction.getAmount()));
+
+            List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository.findByTransaction(transaction.getCategory().getCategoryId());
+
+            if (budgetCategoryLimits.isEmpty()) {
+                return;
+            }
+            for (BudgetCategoryLimit budgetCategoryLimit : budgetCategoryLimits) {
+                Budget budget = budgetRepository.findById(budgetCategoryLimit.getBudget().getBudgetId())
+                        .orElse(null);
+
+                if (budget == null) {
+                    continue;
+                }
+                if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate())){
+                    budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount().add(transaction.getAmount()));
+                    budgetRepository.save(budget);
+                }
+            }
+
+        } else {
+            wallet.setCurrentBalance(wallet.getCurrentBalance().subtract(transaction.getAmount()));
+        }
+        transaction.setTransactionType(TransactionType.INACTIVE);
+
+        walletRepository.save(wallet);
         transactionRepository.save(transaction);
     }
 
@@ -393,7 +424,7 @@ public class TransactionServiceImpl implements TransactionService {
      * @param categoryId
      * @param dateFrom
      * @param dateTo
-     * @return
+     * @return TransactionCategoryReportResponse
      */
 
 

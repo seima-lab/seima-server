@@ -30,6 +30,7 @@ public class BudgetResponse {
     private String periodType;
     private BigDecimal overallAmountLimit;
     private BigDecimal budgetRemainingAmount;
+    private String currencyCode;
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
