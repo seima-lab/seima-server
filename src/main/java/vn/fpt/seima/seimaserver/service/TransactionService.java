@@ -32,9 +32,9 @@ public interface TransactionService {
 
     Page<TransactionResponse> viewHistoryTransactionsGroup(Pageable pageable, Integer groupId);
 
-    Page<TransactionResponse> viewHistoryTransactionsDate(Pageable pageable, LocalDate startDate, LocalDate endDate);
+    Page<TransactionResponse> viewHistoryTransactionsDate(Pageable pageable, LocalDate startDate, LocalDate endDate, Integer groupId);
 
-    TransactionReportResponse getTransactionReport(Integer categoryId,LocalDate startDate, LocalDate endDate);
+    TransactionReportResponse getTransactionReport(Integer categoryId,LocalDate startDate, LocalDate endDate, Integer groupId);
 
     TransactionCategoryReportResponse getCategoryReport(PeriodType type, Integer id, LocalDate dateFrom, LocalDate dateTo);
 

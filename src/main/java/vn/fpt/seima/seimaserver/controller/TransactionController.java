@@ -146,11 +146,12 @@ public class TransactionController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(value = "start_date") LocalDate startDate,
-            @RequestParam(value = "end_date") LocalDate endDate
+            @RequestParam(value = "end_date") LocalDate endDate,
+            @RequestParam(required = false) Integer groupId
     ) {
         try {
             Pageable pageable = PageRequest.of(page, size);
-            Page<TransactionResponse> transactions = transactionService.viewHistoryTransactionsDate(pageable, startDate,endDate);
+            Page<TransactionResponse> transactions = transactionService.viewHistoryTransactionsDate(pageable, startDate,endDate, groupId);
 
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
         } catch (Exception ex) {
@@ -162,10 +163,11 @@ public class TransactionController {
     public ApiResponse<TransactionReportResponse> viewReportTransactions(
             @RequestParam(required = false) Integer categoryId,
             @RequestParam(value = "startDate") LocalDate startDate,
-            @RequestParam(value = "endDate") LocalDate endDate
+            @RequestParam(value = "endDate") LocalDate endDate,
+            @RequestParam(required = false) Integer groupId
     ) {
         try {
-            TransactionReportResponse transactions = transactionService.getTransactionReport(categoryId,startDate,endDate);
+            TransactionReportResponse transactions = transactionService.getTransactionReport(categoryId,startDate,endDate,groupId);
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
         } catch (Exception ex) {
             return new ApiResponse<>(500, ex.getMessage(), null);

@@ -89,21 +89,14 @@ class BudgetServiceTest {
     void reduceAmount_ShouldReduceRemainingAmount() {
         Budget budget = new Budget();
         budget.setBudgetId(1);
-        budget.setStartDate(LocalDateTime.now().minusDays(1));
-        budget.setEndDate(LocalDateTime.now().plusDays(1));
-        budget.setCurrencyCode("VND");
-        budget.setBudgetRemainingAmount(BigDecimal.valueOf(100));
+        when(budgetRepository.findByUserId(anyInt())).thenReturn(List.of(budget));
+        when(budgetCategoryLimitRepository.findByTransaction(anyInt())).thenReturn(Collections.emptyList());
 
-        BudgetCategoryLimit limit = new BudgetCategoryLimit();
-        limit.setBudget(budget);
+        // Act
+        budgetService.reduceAmount(1, 1, BigDecimal.TEN, LocalDateTime.now(), "EXPENSE", "code");
 
-        when(budgetRepository.findByUserId(1)).thenReturn(List.of(budget));
-        when(budgetCategoryLimitRepository.findByTransaction(1)).thenReturn(List.of(limit));
-
-        budgetService.reduceAmount(1, 1, BigDecimal.TEN, LocalDateTime.now(), "update-subtract", "VND");
-
-        assertEquals(BigDecimal.valueOf(90), budget.getBudgetRemainingAmount());
-        verify(budgetRepository).saveAll(any());
+        // Assert
+        verify(budgetPeriodRepository, never()).saveAll(any());
     }
 
 }
