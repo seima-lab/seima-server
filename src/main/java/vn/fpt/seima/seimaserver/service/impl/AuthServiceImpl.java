@@ -110,10 +110,7 @@ public class AuthServiceImpl implements AuthService {
     private final Map<String,Bucket> rateLimitBuckets = new ConcurrentHashMap<>();
     private static final String OTP_KEY_PREFIX = "otp-:";
 
-    @Override
-    public void logout(HttpServletRequest request) {
 
-    }
 
 
     @Override
@@ -508,7 +505,7 @@ public class AuthServiceImpl implements AuthService {
         }
     }
     
-    @Override
+
     @Transactional
     public boolean resetPassword(ResetPasswordRequestDto resetPasswordRequestDto) {
         String email = resetPasswordRequestDto.getEmail();
