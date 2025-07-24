@@ -449,6 +449,7 @@ public class TransactionServiceImpl implements TransactionService {
         String groupBy;
 
         switch (type) {
+            case PeriodType.DAILY:
             case PeriodType.WEEKLY:
                 groupBy = "day";
                 break;
