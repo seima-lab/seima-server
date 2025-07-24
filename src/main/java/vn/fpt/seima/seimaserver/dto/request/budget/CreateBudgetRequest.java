@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import vn.fpt.seima.seimaserver.entity.Category;
 import vn.fpt.seima.seimaserver.entity.PeriodType;
+import vn.fpt.seima.seimaserver.entity.Wallet;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,8 +26,8 @@ public class CreateBudgetRequest {
     private LocalDateTime endDate;
     private PeriodType periodType;
     private BigDecimal overallAmountLimit;
-    private String currentCode;
-    private BigDecimal budgetRemainingAmount;
     private String currencyCode;
+    private BigDecimal budgetRemainingAmount;
+    private List<Wallet> walletList;
     private List<Category> categoryList;
 }
