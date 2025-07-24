@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 public interface BudgetMapper {
     BudgetMapper INSTANCE = Mappers.getMapper(BudgetMapper.class);
 
+    @Mapping(source = "currencyCode", target = "currencyCode")
     Budget toEntity(CreateBudgetRequest request);
 
     @Mapping(target = "categories", expression = "java(mapCategories(budget.getBudgetCategoryLimits()))")

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import vn.fpt.seima.seimaserver.entity.Budget;
 import vn.fpt.seima.seimaserver.entity.BudgetPeriod;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -16,4 +17,8 @@ public interface BudgetPeriodRepository extends JpaRepository<BudgetPeriod, Inte
 
     @Query("SELECT bp FROM BudgetPeriod bp WHERE bp.budget = :budget")
     Page<BudgetPeriod> getListBudgetPeriods(Budget budget, Pageable pageable);
+
+    @Query("SELECT bp FROM BudgetPeriod bp WHERE bp.budget.budgetId = :budgetId and :timeNow between bp.startDate and bp.endDate")
+    List<BudgetPeriod> findByBudget_BudgetIdAndTime(Integer budgetId, LocalDateTime timeNow);
+
 }
