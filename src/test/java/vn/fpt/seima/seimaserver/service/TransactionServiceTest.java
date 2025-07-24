@@ -191,7 +191,7 @@ class TransactionServiceTest {
         transaction.setTransactionDate(LocalDateTime.now());
         transaction.setAmount(BigDecimal.valueOf(100));
 
-        when(transactionRepository.findAllByUserAndTransactionDateBetween(any(), any(), any()))
+        when(transactionRepository.findAllByUserAndTransactionDateBetween(currentUser.getUserId(), any(), any(), any()))
                 .thenReturn(List.of(transaction));
 
 

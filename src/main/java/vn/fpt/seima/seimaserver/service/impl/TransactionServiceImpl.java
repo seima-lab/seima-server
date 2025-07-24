@@ -1,6 +1,8 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
@@ -32,6 +34,7 @@ import java.util.stream.Collectors;
 @Service
 @AllArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
+    private static final Logger log = LoggerFactory.getLogger(TransactionServiceImpl.class);
     private final TransactionRepository transactionRepository;
     private final CategoryRepository categoryRepository;
     private final WalletRepository walletRepository;
@@ -277,10 +280,7 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Cacheable(value = "transactionOverview", key = "#userId + '-' + #month.toString()")
     public TransactionOverviewResponse getTransactionOverview(Integer userId, YearMonth month) {
-        User currentUser = UserUtils.getCurrentUser();
-        if (currentUser == null) {
-            throw new IllegalArgumentException("User must not be null");
-        }
+
         if (month == null) {
             month = YearMonth.now();
         }
@@ -291,7 +291,7 @@ public class TransactionServiceImpl implements TransactionService {
         LocalDateTime end = month.atEndOfMonth().atTime(23, 59, 59);
 
         List<Transaction> transactions = transactionRepository
-                .findAllByUserAndTransactionDateBetween(currentUser, start, end);
+                .findAllByUserAndTransactionDateBetween(userId,TransactionType.INACTIVE ,start, end);
 
         BigDecimal totalIncome = BigDecimal.ZERO;
         BigDecimal totalExpense = BigDecimal.ZERO;
@@ -337,18 +337,23 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public Page<TransactionResponse> viewHistoryTransactionsDate(Pageable pageable, LocalDate startDate, LocalDate endDate) {
+    public Page<TransactionResponse> viewHistoryTransactionsDate(Pageable pageable, LocalDate startDate, LocalDate endDate, Integer groupId) {
+
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
 
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
-        Page<Transaction> transactions = transactionRepository.findByDate(TransactionType.INACTIVE,startDateTime, endDateTime,pageable);
+        Page<Transaction> transactions = transactionRepository.findByDate(TransactionType.INACTIVE,startDateTime, endDateTime, groupId,currentUser.getUserId(), pageable);
 
         return transactions.map(transactionMapper::toResponse);
     }
 
     @Override
-    public TransactionReportResponse getTransactionReport(Integer categoryId,LocalDate startDate, LocalDate endDate) {
+    public TransactionReportResponse getTransactionReport(Integer categoryId,LocalDate startDate, LocalDate endDate, Integer groupId) {
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
@@ -357,7 +362,7 @@ public class TransactionServiceImpl implements TransactionService {
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
         List<Transaction> transactions =
-                transactionRepository.listReportByUserAndCategoryAndTransactionDateBetween(currentUser,categoryId, startDateTime, endDateTime );
+                transactionRepository.listReportByUserAndCategoryAndTransactionDateBetween(currentUser,categoryId, startDateTime, endDateTime, groupId );
 
         BigDecimal totalIncome = BigDecimal.ZERO;
         BigDecimal totalExpense = BigDecimal.ZERO;
