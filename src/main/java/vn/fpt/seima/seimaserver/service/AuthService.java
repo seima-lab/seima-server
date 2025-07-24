@@ -15,7 +15,7 @@ import vn.fpt.seima.seimaserver.dto.response.auth.NormalRegisterResponseDto;
 import vn.fpt.seima.seimaserver.dto.response.auth.VerifyForgotPasswordOtpResponseDto;
 
 public interface AuthService {
-    void logout(HttpServletRequest request);
+
 
     NormalRegisterResponseDto processRegister(NormalRegisterRequestDto normalRegisterRequestDto);
     
@@ -30,9 +30,7 @@ public interface AuthService {
     VerifyForgotPasswordOtpResponseDto verifyForgotPasswordOtp(VerifyForgotPasswordOtpRequestDto verifyForgotPasswordOtpRequestDto);
     
     boolean setNewPasswordAfterVerification(SetNewPasswordRequestDto setNewPasswordRequestDto, String verificationToken);
-    
-    boolean resetPassword(ResetPasswordRequestDto resetPasswordRequestDto);
-    
+
     void resendForgotPasswordOtp(String email);
     
     boolean changePassword(String userEmail, ChangePasswordRequestDto changePasswordRequestDto);
