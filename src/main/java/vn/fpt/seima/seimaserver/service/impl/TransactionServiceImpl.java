@@ -493,10 +493,30 @@ public class TransactionServiceImpl implements TransactionService {
                     break;
 
                 case "week":
-                    int weekIndex = (int) ChronoUnit.DAYS.between(dateFrom, date) / 7 + 1;
-                    LocalDate weekStart = dateFrom.plusDays((weekIndex - 1) * 7);
-                    LocalDate weekEnd = weekStart.plusDays(6);
-                    if (weekEnd.isAfter(dateTo)) weekEnd = dateTo;
+                    LocalDate firstDayOfMonth = dateFrom.withDayOfMonth(1);
+                    LocalDate lastDayOfMonth = dateFrom.withDayOfMonth(dateFrom.lengthOfMonth());
+
+                    DayOfWeek firstDow = firstDayOfMonth.getDayOfWeek();
+                    LocalDate weekStart;
+                    LocalDate weekEnd;
+
+                    // Tìm tuần bắt đầu
+                    if (date.isBefore(firstDayOfMonth)) {
+                        key = "before_month";
+                        sortDate = date;
+                        break;
+                    }
+
+                    if (!date.isAfter(firstDayOfMonth.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY)))) {
+                        weekStart = firstDayOfMonth;
+                        weekEnd = firstDayOfMonth.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+                        if (weekEnd.isAfter(lastDayOfMonth)) weekEnd = lastDayOfMonth;
+                    } else {
+                        weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                        weekEnd = weekStart.plusDays(6);
+                        if (weekEnd.isAfter(lastDayOfMonth)) weekEnd = lastDayOfMonth;
+                    }
+
                     key = weekStart + "_to_" + weekEnd;
                     sortDate = weekStart;
                     break;
