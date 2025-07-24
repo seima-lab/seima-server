@@ -10,7 +10,6 @@ import vn.fpt.seima.seimaserver.entity.PeriodType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -20,15 +19,14 @@ import java.util.List;
 public class CreateBudgetRequest {
     private Integer userId;
     private String budgetName;
-
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime startDate;
-
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime endDate;
     private PeriodType periodType;
     private BigDecimal overallAmountLimit;
-    private BigDecimal budgetRemainingAmount;
     private String currentCode;
+    private BigDecimal budgetRemainingAmount;
+    private String currencyCode;
     private List<Category> categoryList;
 }
