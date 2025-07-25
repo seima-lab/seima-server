@@ -20,6 +20,7 @@ import vn.fpt.seima.seimaserver.service.*;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -208,7 +209,7 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
         }
         
         // Check current user's membership and role
-        Optional<GroupMember> currentUserMembership = groupMemberRepository.findByUserIdAndGroupId(
+        Optional<GroupMember> currentUserMembership = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(
                 currentUser.getUserId(), groupId);
         
         if (currentUserMembership.isEmpty() || 
@@ -236,9 +237,12 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
         }
         
         // Check if user was previously a member and handle gracefully
-        Optional<GroupMember> existingMembership = groupMemberRepository.findByUserIdAndGroupId(targetUserId, groupId);
-        if (existingMembership.isPresent()) {
-            GroupMemberStatus status = existingMembership.get().getStatus();
+        // Use the method that returns the most recent membership to handle multiple records
+        Optional<GroupMember> mostRecentMembership = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(targetUserId, groupId);
+
+        if (mostRecentMembership.isPresent()) {
+            GroupMemberStatus status = mostRecentMembership.get().getStatus();
+
             if (status == GroupMemberStatus.PENDING_APPROVAL) {
                 throw new GroupException("User already has a pending invitation to this group");
             }
@@ -367,7 +371,7 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
             }
 
             // Find and validate group member invitation
-            Optional<GroupMember> invitationOpt = groupMemberRepository.findByUserIdAndGroupId(
+            Optional<GroupMember> invitationOpt = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(
                     tokenData.getInvitedUserId(), tokenData.getGroupId());
 
             if (invitationOpt.isEmpty()) {
@@ -540,4 +544,4 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
                 .resultType(ResultType.GROUP_INACTIVE_OR_DELETED)
                 .build();
     }
-} 
+}
