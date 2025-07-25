@@ -27,7 +27,6 @@ public class SpeechClientConfig {
         Resource classPathResource = new ClassPathResource(credentialsLocation);
         if(!classPathResource.exists()) {
             logger.error("Google Cloud credentials file not found at path: '{}'. Please check your application.properties.", credentialsLocation);
-           return null;
         } else {
             logger.info("Google Cloud credentials file found successfully at: {}", classPathResource.getURL());
         }
