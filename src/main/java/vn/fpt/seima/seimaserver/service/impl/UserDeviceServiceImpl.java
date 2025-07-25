@@ -49,9 +49,11 @@ public class UserDeviceServiceImpl implements UserDeviceService {
         
         return savedDevice;
     }
-    
+
+
+
     @Override
-    public UserDevice updateDeviceUser(String deviceId ,  String fcmToken) {
+    public UserDevice updateDeviceUser(Integer userId,String deviceId ,  String fcmToken) {
         log.info("Updating device ID: {} with FCM token: {}", deviceId, fcmToken);
         
         // Validate input
@@ -61,6 +63,9 @@ public class UserDeviceServiceImpl implements UserDeviceService {
         if (fcmToken == null || fcmToken.trim().isEmpty()) {
             throw new IllegalArgumentException("FCM token cannot be null or empty");
         }
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
         
         // Find UserDevice
         UserDevice existingDevice = findUserDeviceByDeviceId(deviceId);
@@ -69,6 +74,7 @@ public class UserDeviceServiceImpl implements UserDeviceService {
         // Update device
         existingDevice.setFcmToken(fcmToken.trim());
         existingDevice.setLastChange(LocalDateTime.now());
+        existingDevice.setUser(userService.findUserById(userId));
         
         UserDevice updatedDevice = userDeviceRepository.save(existingDevice);
         log.info("Successfully updated device ID: {} for FCM Token: {}", updatedDevice.getId(), fcmToken);

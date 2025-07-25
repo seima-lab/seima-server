@@ -420,7 +420,7 @@ public class AuthServiceImpl implements AuthService {
         // Lưu data vào bảng user_device với logic đúng
         if(userDeviceRepository.existsByDeviceId(loginRequestDto.getDeviceId())) {
             // Device đã tồn tại → chỉ update thông tin
-            userDeviceService.updateDeviceUser(loginRequestDto.getDeviceId(), loginRequestDto.getFcmToken());
+            userDeviceService.updateDeviceUser(user.getUserId(),loginRequestDto.getDeviceId(), loginRequestDto.getFcmToken());
         } else {
             // Device chưa tồn tại → tạo mới
             userDeviceService.createDevice(user.getUserId(), loginRequestDto.getDeviceId(), loginRequestDto.getFcmToken());

@@ -10,7 +10,6 @@ import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.entity.UserDevice;
 import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.repository.UserDeviceRepository;
-import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.impl.UserDeviceServiceImpl;
 
 import java.time.LocalDateTime;
@@ -25,9 +24,6 @@ class UserDeviceServiceTest {
 
     @Mock
     private UserDeviceRepository userDeviceRepository;
-
-    @Mock
-    private UserRepository userRepository;
 
     @Mock
     private UserService userService;
@@ -219,9 +215,10 @@ class UserDeviceServiceTest {
     @Test
     void updateDeviceUser_WhenValidInputs_ShouldUpdateDeviceSuccessfully() {
         // Given
+        Integer userId = 1;
         String deviceId = "device123";
         String newFcmToken = "new_fcm_token_456";
-        
+
         UserDevice updatedDevice = UserDevice.builder()
                 .id(1)
                 .deviceId(deviceId)
@@ -231,10 +228,11 @@ class UserDeviceServiceTest {
                 .build();
 
         when(userDeviceRepository.findByDeviceId(deviceId)).thenReturn(Optional.of(testUserDevice));
+        when(userService.findUserById(userId)).thenReturn(testUser);
         when(userDeviceRepository.save(any(UserDevice.class))).thenReturn(updatedDevice);
 
         // When
-        UserDevice result = userDeviceService.updateDeviceUser(deviceId, newFcmToken);
+        UserDevice result = userDeviceService.updateDeviceUser(userId, deviceId, newFcmToken);
 
         // Then
         assertNotNull(result);
@@ -242,63 +240,90 @@ class UserDeviceServiceTest {
         assertEquals(deviceId, result.getDeviceId());
 
         verify(userDeviceRepository).findByDeviceId(deviceId);
+        verify(userService).findUserById(userId);
         verify(userDeviceRepository).save(any(UserDevice.class));
+    }
+
+    @Test
+    void updateDeviceUser_WhenUserIdIsNull_ShouldThrowIllegalArgumentException() {
+        // Given
+        Integer userId = null;
+        String deviceId = "device123";
+        String fcmToken = "new_fcm_token_456";
+
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> userDeviceService.updateDeviceUser(userId, deviceId, fcmToken)
+        );
+
+        assertEquals("User ID cannot be null", exception.getMessage());
+        verify(userDeviceRepository, never()).findByDeviceId(any());
+        verify(userService, never()).findUserById(any());
+        verify(userDeviceRepository, never()).save(any());
     }
 
     @Test
     void updateDeviceUser_WhenDeviceIdIsNull_ShouldThrowIllegalArgumentException() {
         // Given
+        Integer userId = 1;
         String deviceId = null;
         String fcmToken = "new_fcm_token_456";
 
         // When & Then
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> userDeviceService.updateDeviceUser(deviceId, fcmToken)
+                () -> userDeviceService.updateDeviceUser(userId, deviceId, fcmToken)
         );
 
         assertEquals("Existing device cannot be null", exception.getMessage());
         verify(userDeviceRepository, never()).findByDeviceId(any());
+        verify(userService, never()).findUserById(any());
         verify(userDeviceRepository, never()).save(any());
     }
 
     @Test
     void updateDeviceUser_WhenFcmTokenIsNull_ShouldThrowIllegalArgumentException() {
         // Given
+        Integer userId = 1;
         String deviceId = "device123";
         String fcmToken = null;
 
         // When & Then
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> userDeviceService.updateDeviceUser(deviceId, fcmToken)
+                () -> userDeviceService.updateDeviceUser(userId, deviceId, fcmToken)
         );
 
         assertEquals("FCM token cannot be null or empty", exception.getMessage());
         verify(userDeviceRepository, never()).findByDeviceId(any());
+        verify(userService, never()).findUserById(any());
         verify(userDeviceRepository, never()).save(any());
     }
 
     @Test
     void updateDeviceUser_WhenFcmTokenIsEmpty_ShouldThrowIllegalArgumentException() {
         // Given
+        Integer userId = 1;
         String deviceId = "device123";
         String fcmToken = "   ";
 
         // When & Then
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> userDeviceService.updateDeviceUser(deviceId, fcmToken)
+                () -> userDeviceService.updateDeviceUser(userId, deviceId, fcmToken)
         );
 
         assertEquals("FCM token cannot be null or empty", exception.getMessage());
         verify(userDeviceRepository, never()).findByDeviceId(any());
+        verify(userService, never()).findUserById(any());
         verify(userDeviceRepository, never()).save(any());
     }
 
     @Test
     void updateDeviceUser_WhenDeviceNotFound_ShouldThrowResourceNotFoundException() {
         // Given
+        Integer userId = 1;
         String deviceId = "nonexistent_device";
         String fcmToken = "new_fcm_token_456";
 
@@ -307,29 +332,33 @@ class UserDeviceServiceTest {
         // When & Then
         ResourceNotFoundException exception = assertThrows(
                 ResourceNotFoundException.class,
-                () -> userDeviceService.updateDeviceUser(deviceId, fcmToken)
+                () -> userDeviceService.updateDeviceUser(userId, deviceId, fcmToken)
         );
 
         assertEquals("Device not found with id: " + deviceId, exception.getMessage());
         verify(userDeviceRepository).findByDeviceId(deviceId);
+        verify(userService, never()).findUserById(any());
         verify(userDeviceRepository, never()).save(any());
     }
 
     @Test
     void updateDeviceUser_WhenFcmTokenHasWhitespace_ShouldTrimAndUpdate() {
         // Given
+        Integer userId = 1;
         String deviceId = "device123";
         String fcmToken = "  new_fcm_token_456  ";
 
         when(userDeviceRepository.findByDeviceId(deviceId)).thenReturn(Optional.of(testUserDevice));
+        when(userService.findUserById(userId)).thenReturn(testUser);
         when(userDeviceRepository.save(any(UserDevice.class))).thenReturn(testUserDevice);
 
         // When
-        userDeviceService.updateDeviceUser(deviceId, fcmToken);
+        userDeviceService.updateDeviceUser(userId, deviceId, fcmToken);
 
         // Then
         verify(userDeviceRepository).findByDeviceId(deviceId);
-        verify(userDeviceRepository).save(argThat(device -> 
+        verify(userService).findUserById(userId);
+        verify(userDeviceRepository).save(argThat(device ->
             device.getFcmToken().equals("new_fcm_token_456")
         ));
     }
@@ -456,7 +485,7 @@ class UserDeviceServiceTest {
         assertEquals(testUser, createdDevice.getUser());
 
         // When - Update FCM token
-        UserDevice updatedDevice = userDeviceService.updateDeviceUser(deviceId, updatedFcmToken);
+        UserDevice updatedDevice = userDeviceService.updateDeviceUser(userId, deviceId, updatedFcmToken);
 
         // Then - Verify update
         assertNotNull(updatedDevice);
@@ -468,7 +497,7 @@ class UserDeviceServiceTest {
         assertNotNull(loggedOutDevice);
 
         // Verify all interactions
-        verify(userService).findUserById(userId);
+        verify(userService, times(2)).findUserById(userId);
         verify(userDeviceRepository, times(3)).save(any(UserDevice.class));
         verify(userDeviceRepository, times(2)).findByDeviceId(deviceId);
     }
@@ -476,6 +505,7 @@ class UserDeviceServiceTest {
     @Test
     void updateDeviceUser_WhenUserDeviceHasNullUser_ShouldStillUpdate() {
         // Given
+        Integer userId = 1;
         String deviceId = "device123";
         String newFcmToken = "new_token";
         
@@ -488,16 +518,18 @@ class UserDeviceServiceTest {
                 .build();
 
         when(userDeviceRepository.findByDeviceId(deviceId)).thenReturn(Optional.of(deviceWithNullUser));
+        when(userService.findUserById(userId)).thenReturn(testUser);
         when(userDeviceRepository.save(any(UserDevice.class))).thenReturn(deviceWithNullUser);
 
         // When
-        UserDevice result = userDeviceService.updateDeviceUser(deviceId, newFcmToken);
+        UserDevice result = userDeviceService.updateDeviceUser(userId, deviceId, newFcmToken);
 
         // Then
         assertNotNull(result);
         verify(userDeviceRepository).findByDeviceId(deviceId);
-        verify(userDeviceRepository).save(argThat(device -> 
+        verify(userService).findUserById(userId);
+        verify(userDeviceRepository).save(argThat(device ->
             device.getFcmToken().equals(newFcmToken.trim())
         ));
     }
-} 
+}
