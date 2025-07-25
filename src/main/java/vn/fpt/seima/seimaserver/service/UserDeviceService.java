@@ -16,7 +16,7 @@ public interface UserDeviceService {
     /**
      * Update existing device with new user and fcm token
      */
-    UserDevice updateDeviceUser(String deviceId, String fcmToken);
+    UserDevice updateDeviceUser(Integer userId,String deviceId, String fcmToken);
     
 
     UserDevice updateUserIdToNull(String deviceId);

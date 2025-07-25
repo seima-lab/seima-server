@@ -127,7 +127,7 @@ class UserServiceTest {
 
             // Then
             verify(userRepository).save(testUser);
-            verify(userDeviceService).updateDeviceUser(userCreationRequest.getDeviceId(), userCreationRequest.getFcmToken());
+            verify(userDeviceService).updateDeviceUser(testUser.getUserId(), userCreationRequest.getDeviceId(), userCreationRequest.getFcmToken());
             verify(userDeviceService, never()).createDevice(anyInt(), anyString(), anyString());
             
             assertEquals(userCreationRequest.getFullName(), testUser.getUserFullName());
@@ -191,7 +191,7 @@ class UserServiceTest {
             userService.processAddNewUser(userCreationRequest);
 
             // Then
-            verify(userDeviceService, never()).updateDeviceUser(anyString(), anyString());
+            verify(userDeviceService, never()).updateDeviceUser(anyInt(), anyString(), anyString());
             verify(userDeviceService).createDevice(testUser.getUserId(), userCreationRequest.getDeviceId(), userCreationRequest.getFcmToken());
         }
     }
@@ -436,4 +436,5 @@ class UserServiceTest {
         );
         assertTrue(exception.getMessage().contains("Failed to upload avatar"));
     }
-} 
+}
+
