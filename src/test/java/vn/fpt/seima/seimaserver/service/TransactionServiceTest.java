@@ -191,14 +191,17 @@ class TransactionServiceTest {
         transaction.setTransactionDate(LocalDateTime.now());
         transaction.setAmount(BigDecimal.valueOf(100));
 
-        when(transactionRepository.findAllByUserAndTransactionDateBetween(any(), any(), any()))
-                .thenReturn(List.of(transaction));
+        when(transactionRepository.findAllByUserAndTransactionDateBetween(
+                eq(currentUser.getUserId()), any(), any(), any())
+        ).thenReturn(List.of(transaction));
+
+        TransactionOverviewResponse result = transactionService.getTransactionOverview(currentUser.getUserId(), YearMonth.now());
 
 
-        TransactionOverviewResponse result = transactionService.getTransactionOverview(currentUser.getUserId(), YearMonth.now(), 0);
         assertNotNull(result);
         assertEquals(BigDecimal.valueOf(100), result.getSummary().getTotalIncome());
     }
+
     @Test
     void testRecordIncome_Success() {
         // Arrange
@@ -319,4 +322,3 @@ class TransactionServiceTest {
     }
 
 }
-

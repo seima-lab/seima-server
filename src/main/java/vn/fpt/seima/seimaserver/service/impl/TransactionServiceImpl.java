@@ -1,6 +1,7 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
@@ -29,6 +30,7 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
@@ -276,7 +278,7 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Cacheable(value = "transactionOverview", key = "#userId + '-' + #month.toString()")
-    public TransactionOverviewResponse getTransactionOverview(Integer userId, YearMonth month, Integer groupId) {
+    public TransactionOverviewResponse getTransactionOverview(Integer userId, YearMonth month) {
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
@@ -287,15 +289,11 @@ public class TransactionServiceImpl implements TransactionService {
         if ((month.getMonthValue() < 0 || month.getMonthValue() > 12)) {
             throw new IllegalArgumentException("Month is not in range [0, 12]");
         }
-
         LocalDateTime start = month.atDay(1).atStartOfDay();
         LocalDateTime end = month.atEndOfMonth().atTime(23, 59, 59);
 
-        if (groupId == 0) {
-
-        }
         List<Transaction> transactions = transactionRepository
-                .findAllByUserAndTransactionDateBetween(currentUser, start, end);
+                .findAllByUserAndTransactionDateBetween(userId,TransactionType.INACTIVE ,start, end);
 
         BigDecimal totalIncome = BigDecimal.ZERO;
         BigDecimal totalExpense = BigDecimal.ZERO;
@@ -341,18 +339,23 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public Page<TransactionResponse> viewHistoryTransactionsDate(Pageable pageable, LocalDate startDate, LocalDate endDate) {
+    public Page<TransactionResponse> viewHistoryTransactionsDate(Pageable pageable, LocalDate startDate, LocalDate endDate, Integer groupId) {
+
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
 
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
-        Page<Transaction> transactions = transactionRepository.findByDate(TransactionType.INACTIVE,startDateTime, endDateTime,pageable);
+        Page<Transaction> transactions = transactionRepository.findByDate(TransactionType.INACTIVE,startDateTime, endDateTime, groupId,currentUser.getUserId(), pageable);
 
         return transactions.map(transactionMapper::toResponse);
     }
 
     @Override
-    public TransactionReportResponse getTransactionReport(Integer categoryId,LocalDate startDate, LocalDate endDate) {
+    public TransactionReportResponse getTransactionReport(Integer categoryId,LocalDate startDate, LocalDate endDate, Integer groupId) {
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
@@ -361,7 +364,7 @@ public class TransactionServiceImpl implements TransactionService {
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
         List<Transaction> transactions =
-                transactionRepository.listReportByUserAndCategoryAndTransactionDateBetween(currentUser,categoryId, startDateTime, endDateTime );
+                transactionRepository.listReportByUserAndCategoryAndTransactionDateBetween(currentUser,categoryId, startDateTime, endDateTime, groupId );
 
         BigDecimal totalIncome = BigDecimal.ZERO;
         BigDecimal totalExpense = BigDecimal.ZERO;
@@ -453,6 +456,7 @@ public class TransactionServiceImpl implements TransactionService {
         String groupBy;
 
         switch (type) {
+            case PeriodType.DAILY:
             case PeriodType.WEEKLY:
                 groupBy = "day";
                 break;
@@ -460,7 +464,9 @@ public class TransactionServiceImpl implements TransactionService {
                 groupBy = "week";
                 break;
             case PeriodType.YEARLY:
-                groupBy = "2-month";
+                groupBy = "month";
+                dateFrom = LocalDate.of(now.getYear(), 1, 1);
+                dateTo = now;;
                 break;
             case PeriodType.CUSTOM:
                 if (days > 30) {
@@ -472,9 +478,8 @@ public class TransactionServiceImpl implements TransactionService {
             default:
                 throw new IllegalArgumentException("Invalid type: " + type);
         }
-
         List<Transaction> transactions = transactionRepository.findExpensesByUserAndDateRange(
-                categoryId, currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.atTime(23, 59, 59));
+                categoryId, currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.plusDays(1).atStartOfDay());
 
         Map<String, TransactionCategoryReportResponse.GroupAmount> result = new LinkedHashMap<>();
         Map<String, LocalDate> keyDateMap = new HashMap<>();
@@ -491,25 +496,41 @@ public class TransactionServiceImpl implements TransactionService {
                     break;
 
                 case "week":
-                    int weekIndex = (int) ChronoUnit.DAYS.between(dateFrom, date) / 7 + 1;
-                    LocalDate weekStart = dateFrom.plusDays((weekIndex - 1) * 7);
-                    LocalDate weekEnd = weekStart.plusDays(6);
-                    if (weekEnd.isAfter(dateTo)) weekEnd = dateTo;
+                    LocalDate firstDayOfMonth = dateFrom.withDayOfMonth(1);
+                    LocalDate lastDayOfMonth = dateFrom.withDayOfMonth(dateFrom.lengthOfMonth());
+
+                    LocalDate weekStart;
+                    LocalDate weekEnd;
+
+                    if (date.isBefore(firstDayOfMonth)) {
+                        key = "before_month";
+                        sortDate = date;
+                        break;
+                    }
+
+                    if (!date.isAfter(firstDayOfMonth.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY)))) {
+                        weekStart = firstDayOfMonth;
+                        weekEnd = firstDayOfMonth.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+                        if (weekEnd.isAfter(lastDayOfMonth)) weekEnd = lastDayOfMonth;
+                    } else {
+                        weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                        weekEnd = weekStart.plusDays(6);
+                        if (weekEnd.isAfter(lastDayOfMonth)) weekEnd = lastDayOfMonth;
+                    }
+
                     key = weekStart + "_to_" + weekEnd;
                     sortDate = weekStart;
                     break;
 
                 case "month":
-                    key = date.getMonth().toString();
-                    sortDate = LocalDate.of(date.getYear(), date.getMonthValue(), 1);
-                    break;
-
-                case "2-month":
-                    int group = (date.getMonthValue() - 1) / 2 + 1;
-                    int startMonth = (group - 1) * 2 + 1;
-                    int endMonth = group * 2;
-                    key = "Group_" + group + " (" + startMonth + "-" + endMonth + ")";
-                    sortDate = LocalDate.of(date.getYear(), startMonth, 1);
+                    LocalDate monthStart = LocalDate.of(date.getYear(), date.getMonthValue(), 1);
+                    LocalDate monthEnd = monthStart.withDayOfMonth(monthStart.lengthOfMonth());
+                    LocalDate today = LocalDate.now();
+                    if (monthEnd.isAfter(today)) {
+                        monthEnd = today;
+                    }
+                    key = monthStart + "_to_" + monthEnd;
+                    sortDate = monthStart;
                     break;
 
                 default:
@@ -590,6 +611,12 @@ public class TransactionServiceImpl implements TransactionService {
                 group.setCategoryId(tx.getCategory().getCategoryId());
                 group.setCategoryName(tx.getCategory().getCategoryName());
                 group.setCategoryIconUrl(tx.getCategory().getCategoryIconUrl());
+                group.setTransactionId(tx.getTransactionId());
+                group.setTransactionType(tx.getTransactionType());
+                group.setTransactionDate(tx.getTransactionDate());
+                group.setAmount(tx.getAmount());
+                group.setCurrencyCode(tx.getCurrencyCode());
+                group.setDescription(tx.getDescription());
             }
 
             result.put(key, group);
