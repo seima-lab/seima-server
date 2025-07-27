@@ -2,16 +2,13 @@ package vn.fpt.seima.seimaserver.service;
 
 import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.UpdateGroupRequest;
-import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.UserJoinedGroupResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberStatusResponse;
+import vn.fpt.seima.seimaserver.dto.request.group.CancelJoinGroupRequest;
+import vn.fpt.seima.seimaserver.dto.response.group.*;
 import vn.fpt.seima.seimaserver.dto.response.group.UserPendingGroupResponse;
-import vn.fpt.seima.seimaserver.exception.GroupException;
 
 import java.util.List;
 
-// import vn.fpt.seima.seimaserver.entity.Group;
+
 public interface GroupService {
 
     GroupResponse createGroupWithImage(CreateGroupRequest request);
@@ -36,4 +33,7 @@ public interface GroupService {
     
 
     List<UserPendingGroupResponse> getUserPendingGroups();
+    
+
+    void cancelJoinGroupRequest(CancelJoinGroupRequest request);
 }

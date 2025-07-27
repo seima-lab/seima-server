@@ -12,6 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 import vn.fpt.seima.seimaserver.config.base.AppProperties;
 import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.UpdateGroupRequest;
+import vn.fpt.seima.seimaserver.dto.request.group.CancelJoinGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.UserJoinedGroupResponse;
@@ -900,6 +901,254 @@ class GroupServiceTest {
             assertEquals("Unable to identify the current user", exception.getMessage());
 
             verify(groupMemberRepository, never()).findUserPendingGroups(anyInt(), any(GroupMemberStatus.class));
+        }
+    }
+
+    // ===== cancelJoinGroupRequest Tests =====
+    
+    // Normal Cases
+    @Test
+    void cancelJoinGroupRequest_Success_WhenValidPendingRequest() {
+        // Given
+        Integer groupId = 1;
+        CancelJoinGroupRequest request = new CancelJoinGroupRequest(groupId);
+        User currentUser = createTestUserWithId(1, "Test User", "test@example.com");
+        Group testGroup = createTestGroupWithId(groupId, "Test Group", true);
+        GroupMember pendingMembership = createGroupMember(testGroup, currentUser, GroupMemberRole.MEMBER, GroupMemberStatus.PENDING_APPROVAL);
+        
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(currentUser.getUserId(), groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.of(pendingMembership));
+
+            // When
+            groupService.cancelJoinGroupRequest(request);
+
+            // Then
+            assertEquals(GroupMemberStatus.LEFT, pendingMembership.getStatus());
+            verify(groupMemberRepository).save(pendingMembership);
+            verify(groupRepository).findById(groupId);
+            verify(groupMemberRepository).findByUserAndGroupAndStatus(currentUser.getUserId(), groupId, GroupMemberStatus.PENDING_APPROVAL);
+        }
+    }
+
+    // Abnormal Cases
+    @Test
+    void cancelJoinGroupRequest_ThrowsException_WhenRequestIsNull() {
+        // Given
+        CancelJoinGroupRequest request = null;
+
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class,
+                () -> groupService.cancelJoinGroupRequest(request));
+
+        assertEquals("Cancel request cannot be null", exception.getMessage());
+        verify(groupRepository, never()).findById(anyInt());
+        verify(groupMemberRepository, never()).findByUserAndGroupAndStatus(anyInt(), anyInt(), any(GroupMemberStatus.class));
+    }
+
+    @Test
+    void cancelJoinGroupRequest_ThrowsException_WhenGroupIdIsNull() {
+        // Given
+        CancelJoinGroupRequest request = new CancelJoinGroupRequest(null);
+
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class,
+                () -> groupService.cancelJoinGroupRequest(request));
+
+        assertEquals("Group ID cannot be null", exception.getMessage());
+        verify(groupRepository, never()).findById(anyInt());
+        verify(groupMemberRepository, never()).findByUserAndGroupAndStatus(anyInt(), anyInt(), any(GroupMemberStatus.class));
+    }
+
+    @Test
+    void cancelJoinGroupRequest_ThrowsException_WhenGroupIdIsZero() {
+        // Given
+        CancelJoinGroupRequest request = new CancelJoinGroupRequest(0);
+
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class,
+                () -> groupService.cancelJoinGroupRequest(request));
+
+        assertEquals("Group ID must be a positive integer", exception.getMessage());
+        verify(groupRepository, never()).findById(anyInt());
+        verify(groupMemberRepository, never()).findByUserAndGroupAndStatus(anyInt(), anyInt(), any(GroupMemberStatus.class));
+    }
+
+    @Test
+    void cancelJoinGroupRequest_ThrowsException_WhenGroupIdIsNegative() {
+        // Given
+        CancelJoinGroupRequest request = new CancelJoinGroupRequest(-1);
+
+        // When & Then
+        GroupException exception = assertThrows(GroupException.class,
+                () -> groupService.cancelJoinGroupRequest(request));
+
+        assertEquals("Group ID must be a positive integer", exception.getMessage());
+        verify(groupRepository, never()).findById(anyInt());
+        verify(groupMemberRepository, never()).findByUserAndGroupAndStatus(anyInt(), anyInt(), any(GroupMemberStatus.class));
+    }
+
+    @Test
+    void cancelJoinGroupRequest_ThrowsException_WhenUserNotFound() {
+        // Given
+        Integer groupId = 1;
+        CancelJoinGroupRequest request = new CancelJoinGroupRequest(groupId);
+        
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(null);
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupService.cancelJoinGroupRequest(request));
+
+            assertEquals("Unable to identify the current user", exception.getMessage());
+            verify(groupRepository, never()).findById(anyInt());
+            verify(groupMemberRepository, never()).findByUserAndGroupAndStatus(anyInt(), anyInt(), any(GroupMemberStatus.class));
+        }
+    }
+
+    @Test
+    void cancelJoinGroupRequest_ThrowsException_WhenGroupNotFound() {
+        // Given
+        Integer groupId = 999;
+        CancelJoinGroupRequest request = new CancelJoinGroupRequest(groupId);
+        User currentUser = createTestUserWithId(1, "Test User", "test@example.com");
+        
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupService.cancelJoinGroupRequest(request));
+
+            assertEquals("Group not found", exception.getMessage());
+            verify(groupRepository).findById(groupId);
+            verify(groupMemberRepository, never()).findByUserAndGroupAndStatus(anyInt(), anyInt(), any(GroupMemberStatus.class));
+        }
+    }
+
+    @Test
+    void cancelJoinGroupRequest_ThrowsException_WhenGroupIsInactive() {
+        // Given
+        Integer groupId = 1;
+        CancelJoinGroupRequest request = new CancelJoinGroupRequest(groupId);
+        User currentUser = createTestUserWithId(1, "Test User", "test@example.com");
+        Group inactiveGroup = createTestGroupWithId(groupId, "Inactive Group", false);
+        
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(inactiveGroup));
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupService.cancelJoinGroupRequest(request));
+
+            assertEquals("Group not found", exception.getMessage());
+            verify(groupRepository).findById(groupId);
+            verify(groupMemberRepository, never()).findByUserAndGroupAndStatus(anyInt(), anyInt(), any(GroupMemberStatus.class));
+        }
+    }
+
+    @Test
+    void cancelJoinGroupRequest_ThrowsException_WhenNoPendingRequestFound() {
+        // Given
+        Integer groupId = 1;
+        CancelJoinGroupRequest request = new CancelJoinGroupRequest(groupId);
+        User currentUser = createTestUserWithId(1, "Test User", "test@example.com");
+        Group testGroup = createTestGroupWithId(groupId, "Test Group", true);
+        
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(currentUser.getUserId(), groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupService.cancelJoinGroupRequest(request));
+
+            assertEquals("No pending join request found for this group", exception.getMessage());
+            verify(groupRepository).findById(groupId);
+            verify(groupMemberRepository).findByUserAndGroupAndStatus(currentUser.getUserId(), groupId, GroupMemberStatus.PENDING_APPROVAL);
+            verify(groupMemberRepository, never()).save(any(GroupMember.class));
+        }
+    }
+
+    @Test
+    void cancelJoinGroupRequest_ThrowsException_WhenUserHasActiveMembership() {
+        // Given
+        Integer groupId = 1;
+        CancelJoinGroupRequest request = new CancelJoinGroupRequest(groupId);
+        User currentUser = createTestUserWithId(1, "Test User", "test@example.com");
+        Group testGroup = createTestGroupWithId(groupId, "Test Group", true);
+        GroupMember activeMembership = createGroupMember(testGroup, currentUser, GroupMemberRole.MEMBER, GroupMemberStatus.ACTIVE);
+        
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(currentUser.getUserId(), groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupService.cancelJoinGroupRequest(request));
+
+            assertEquals("No pending join request found for this group", exception.getMessage());
+            verify(groupRepository).findById(groupId);
+            verify(groupMemberRepository).findByUserAndGroupAndStatus(currentUser.getUserId(), groupId, GroupMemberStatus.PENDING_APPROVAL);
+            verify(groupMemberRepository, never()).save(any(GroupMember.class));
+        }
+    }
+
+    // Boundary Cases
+    @Test
+    void cancelJoinGroupRequest_Success_WhenGroupIdIsOne() {
+        // Given
+        Integer groupId = 1; // Minimum valid group ID
+        CancelJoinGroupRequest request = new CancelJoinGroupRequest(groupId);
+        User currentUser = createTestUserWithId(1, "Test User", "test@example.com");
+        Group testGroup = createTestGroupWithId(groupId, "Test Group", true);
+        GroupMember pendingMembership = createGroupMember(testGroup, currentUser, GroupMemberRole.MEMBER, GroupMemberStatus.PENDING_APPROVAL);
+        
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(currentUser.getUserId(), groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.of(pendingMembership));
+
+            // When
+            groupService.cancelJoinGroupRequest(request);
+
+            // Then
+            assertEquals(GroupMemberStatus.LEFT, pendingMembership.getStatus());
+            verify(groupMemberRepository).save(pendingMembership);
+        }
+    }
+
+    @Test
+    void cancelJoinGroupRequest_Success_WhenGroupIdIsMaxInteger() {
+        // Given
+        Integer groupId = Integer.MAX_VALUE; // Maximum valid group ID
+        CancelJoinGroupRequest request = new CancelJoinGroupRequest(groupId);
+        User currentUser = createTestUserWithId(1, "Test User", "test@example.com");
+        Group testGroup = createTestGroupWithId(groupId, "Test Group", true);
+        GroupMember pendingMembership = createGroupMember(testGroup, currentUser, GroupMemberRole.MEMBER, GroupMemberStatus.PENDING_APPROVAL);
+        
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(currentUser.getUserId(), groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.of(pendingMembership));
+
+            // When
+            groupService.cancelJoinGroupRequest(request);
+
+            // Then
+            assertEquals(GroupMemberStatus.LEFT, pendingMembership.getStatus());
+            verify(groupMemberRepository).save(pendingMembership);
         }
     }
 

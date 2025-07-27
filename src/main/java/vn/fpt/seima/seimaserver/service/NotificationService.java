@@ -44,4 +44,10 @@ public interface NotificationService {
 
     void sendGroupJoinRequestNotification(Integer groupId, Integer requestUserId, String requestUserName);
 
+
+    void sendPendingApprovalNotificationToUser(Integer groupId, Integer userId, String groupName);
+
+
+    void sendRejectionNotificationToUser(Integer groupId, Integer userId, String groupName, String rejectedByUserName);
+
 } 

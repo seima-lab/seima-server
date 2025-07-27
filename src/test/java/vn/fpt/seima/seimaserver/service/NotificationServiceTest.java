@@ -655,5 +655,232 @@ class NotificationServiceTest {
         NotificationResponse response = result.getContent().get(0);
         assertNull(response.getSender());
     }
+
+    // Tests for sendPendingApprovalNotificationToUser
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenValidRequest_ShouldProcessSuccessfully() {
+        // Given
+        Integer groupId = 1;
+        Integer userId = 2;
+        String groupName = "Test Group";
+        
+        when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+        when(userDeviceRepository.findFcmTokensByUserIds(Arrays.asList(userId))).thenReturn(Arrays.asList("token1"));
+
+        // When
+        notificationService.sendPendingApprovalNotificationToUser(groupId, userId, groupName);
+
+        // Then
+        verify(userRepository).findById(userId);
+        verify(notificationRepository, times(2)).save(any(Notification.class)); // Called twice: initial save and sentAt update
+        verify(userDeviceRepository).findFcmTokensByUserIds(Arrays.asList(userId));
+        verify(fcmService).sendMulticastNotification(anyList(), anyString(), anyString(), anyMap());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenGroupIdIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendPendingApprovalNotificationToUser(null, 1, "Group")
+        );
+        assertEquals("Group ID must be positive", exception.getMessage());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenGroupIdIsZero_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendPendingApprovalNotificationToUser(0, 1, "Group")
+        );
+        assertEquals("Group ID must be positive", exception.getMessage());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenUserIdIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendPendingApprovalNotificationToUser(1, null, "Group")
+        );
+        assertEquals("User ID must be positive", exception.getMessage());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenUserIdIsZero_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendPendingApprovalNotificationToUser(1, 0, "Group")
+        );
+        assertEquals("User ID must be positive", exception.getMessage());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenGroupNameIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendPendingApprovalNotificationToUser(1, 1, null)
+        );
+        assertEquals("Group name cannot be empty", exception.getMessage());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenGroupNameIsEmpty_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendPendingApprovalNotificationToUser(1, 1, "")
+        );
+        assertEquals("Group name cannot be empty", exception.getMessage());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenUserNotFound_ShouldReturnEarly() {
+        // Given
+        Integer groupId = 1;
+        Integer userId = 999;
+        String groupName = "Test Group";
+        
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        // When
+        notificationService.sendPendingApprovalNotificationToUser(groupId, userId, groupName);
+
+        // Then
+        verify(userRepository).findById(userId);
+        verify(notificationRepository, never()).save(any());
+        verify(userDeviceRepository, never()).findFcmTokensByUserIds(anyList());
+        verify(fcmService, never()).sendMulticastNotification(anyList(), anyString(), anyString(), anyMap());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenNoFcmTokens_ShouldNotSendFcm() {
+        // Given
+        Integer groupId = 1;
+        Integer userId = 2;
+        String groupName = "Test Group";
+        
+        when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+        when(userDeviceRepository.findFcmTokensByUserIds(Arrays.asList(userId))).thenReturn(Collections.emptyList());
+
+        // When
+        notificationService.sendPendingApprovalNotificationToUser(groupId, userId, groupName);
+
+        // Then
+        verify(userRepository).findById(userId);
+        verify(notificationRepository, times(1)).save(any(Notification.class)); // Only called once since FCM fails
+        verify(userDeviceRepository).findFcmTokensByUserIds(Arrays.asList(userId));
+        verify(fcmService, never()).sendMulticastNotification(anyList(), anyString(), anyString(), anyMap());
+    }
+
+    // Tests for sendRejectionNotificationToUser
+    @Test
+    void sendRejectionNotificationToUser_WhenValidRequest_ShouldProcessSuccessfully() {
+        // Given
+        Integer groupId = 1;
+        Integer userId = 2;
+        String groupName = "Test Group";
+        String rejectedByUserName = "Admin User";
+        
+        when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+        when(userDeviceRepository.findFcmTokensByUserIds(Arrays.asList(userId))).thenReturn(Arrays.asList("token1"));
+
+        // When
+        notificationService.sendRejectionNotificationToUser(groupId, userId, groupName, rejectedByUserName);
+
+        // Then
+        verify(userRepository).findById(userId);
+        verify(notificationRepository, times(2)).save(any(Notification.class)); // Called twice: initial save and sentAt update
+        verify(userDeviceRepository).findFcmTokensByUserIds(Arrays.asList(userId));
+        verify(fcmService).sendMulticastNotification(anyList(), anyString(), anyString(), anyMap());
+    }
+
+    @Test
+    void sendRejectionNotificationToUser_WhenGroupIdIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendRejectionNotificationToUser(null, 1, "Group", "Admin")
+        );
+        assertEquals("Group ID must be positive", exception.getMessage());
+    }
+
+    @Test
+    void sendRejectionNotificationToUser_WhenUserIdIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendRejectionNotificationToUser(1, null, "Group", "Admin")
+        );
+        assertEquals("User ID must be positive", exception.getMessage());
+    }
+
+    @Test
+    void sendRejectionNotificationToUser_WhenGroupNameIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendRejectionNotificationToUser(1, 1, null, "Admin")
+        );
+        assertEquals("Group name cannot be empty", exception.getMessage());
+    }
+
+    @Test
+    void sendRejectionNotificationToUser_WhenRejectedByUserNameIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendRejectionNotificationToUser(1, 1, "Group", null)
+        );
+        assertEquals("Rejected by user name cannot be empty", exception.getMessage());
+    }
+
+    @Test
+    void sendRejectionNotificationToUser_WhenUserNotFound_ShouldReturnEarly() {
+        // Given
+        Integer groupId = 1;
+        Integer userId = 999;
+        String groupName = "Test Group";
+        String rejectedByUserName = "Admin User";
+        
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        // When
+        notificationService.sendRejectionNotificationToUser(groupId, userId, groupName, rejectedByUserName);
+
+        // Then
+        verify(userRepository).findById(userId);
+        verify(notificationRepository, never()).save(any());
+        verify(userDeviceRepository, never()).findFcmTokensByUserIds(anyList());
+        verify(fcmService, never()).sendMulticastNotification(anyList(), anyString(), anyString(), anyMap());
+    }
+
+    @Test
+    void sendRejectionNotificationToUser_WhenNoFcmTokens_ShouldNotSendFcm() {
+        // Given
+        Integer groupId = 1;
+        Integer userId = 2;
+        String groupName = "Test Group";
+        String rejectedByUserName = "Admin User";
+        
+        when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+        when(userDeviceRepository.findFcmTokensByUserIds(Arrays.asList(userId))).thenReturn(Collections.emptyList());
+
+        // When
+        notificationService.sendRejectionNotificationToUser(groupId, userId, groupName, rejectedByUserName);
+
+        // Then
+        verify(userRepository).findById(userId);
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+        verify(userDeviceRepository).findFcmTokensByUserIds(Arrays.asList(userId));
+        verify(fcmService, never()).sendMulticastNotification(anyList(), anyString(), anyString(), anyMap());
+    }
 }
 

@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import vn.fpt.seima.seimaserver.config.base.AppProperties;
+import vn.fpt.seima.seimaserver.dto.request.group.CancelJoinGroupRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.UpdateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.*;
@@ -746,5 +747,60 @@ public class GroupServiceImpl implements GroupService {
                 .requestedAt(groupMember.getJoinDate())
                 .activeMemberCount(activeMemberCount.intValue())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void cancelJoinGroupRequest(CancelJoinGroupRequest request) {
+        // Validate input first
+        validateCancelRequestInput(request);
+        
+        log.info("Canceling join group request for group ID: {}", request.getGroupId());
+        
+        // Get current user
+        User currentUser = getCurrentUser();
+        
+        // Find and validate group
+        Group group = groupRepository.findById(request.getGroupId())
+                .orElseThrow(() -> new GroupException("Group not found"));
+        
+        // Check if group is active
+        if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+            throw new GroupException("Group not found");
+        }
+        
+        // Find user's pending membership in this group
+        Optional<GroupMember> pendingMembershipOpt = groupMemberRepository.findByUserAndGroupAndStatus(
+                currentUser.getUserId(), request.getGroupId(), GroupMemberStatus.PENDING_APPROVAL);
+        
+        if (pendingMembershipOpt.isEmpty()) {
+            throw new GroupException("No pending join request found for this group");
+        }
+        
+        GroupMember pendingMembership = pendingMembershipOpt.get();
+        
+        // Cancel the request by setting status to LEFT
+        pendingMembership.setStatus(GroupMemberStatus.LEFT);
+        groupMemberRepository.save(pendingMembership);
+        
+        log.info("Successfully canceled join request for user {} in group {}", 
+                currentUser.getUserId(), request.getGroupId());
+    }
+    
+    /**
+     * Validate cancel join group request input
+     */
+    private void validateCancelRequestInput(CancelJoinGroupRequest request) {
+        if (request == null) {
+            throw new GroupException("Cancel request cannot be null");
+        }
+        
+        if (request.getGroupId() == null) {
+            throw new GroupException("Group ID cannot be null");
+        }
+        
+        if (request.getGroupId() <= 0) {
+            throw new GroupException("Group ID must be a positive integer");
+        }
     }
 } 

@@ -170,4 +170,5 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Intege
             "ORDER BY gm.joinDate DESC")
     List<GroupMember> findUserPendingGroups(@Param("userId") Integer userId,
                                            @Param("status") GroupMemberStatus status);
+
 }

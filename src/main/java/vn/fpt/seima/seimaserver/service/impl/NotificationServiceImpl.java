@@ -303,6 +303,117 @@ public class NotificationServiceImpl implements NotificationService {
                                      message, linkToEntity);
     }
 
+    @Override
+    @Transactional
+    public void  sendPendingApprovalNotificationToUser(Integer groupId, Integer userId, String groupName) {
+        logger.info("Sending pending approval notification to user: {} for group: {}", userId, groupId);
+        
+        // Validate input first - these exceptions should be thrown
+        if (groupId == null || groupId <= 0) {
+            throw new IllegalArgumentException("Group ID must be positive");
+        }
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("User ID must be positive");
+        }
+        if (groupName == null || groupName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Group name cannot be empty");
+        }
+        
+        try {
+            // Get user to send notification to
+            Optional<User> userOpt = userRepository.findById(userId);
+            if (userOpt.isEmpty()) {
+                logger.warn("User not found: {}", userId);
+                return;
+            }
+            User user = userOpt.get();
+            
+            // Create notification for the user themselves (system notification)
+            String title = "Join Request Pending";
+            String message = String.format("Your request to join \"%s\" group is now pending approval", groupName);
+            String linkToEntity = "seimaapp://groups/" + groupId + "/status";
+            
+            Notification notification = createNotification(user, null, groupId, 
+                                                         NotificationType.GROUP_JOIN_REQUEST, title, 
+                                                         message, linkToEntity);
+            
+            // Save notification
+            Notification savedNotification = notificationRepository.save(notification);
+            
+            // Send FCM notification
+            boolean fcmSuccess = sendFcmNotificationToUser(userId, title, message, groupId);
+            
+            // Update sent_at timestamp if FCM was successful
+            if (fcmSuccess) {
+                savedNotification.setSentAt(LocalDateTime.now());
+                notificationRepository.save(savedNotification);
+            }
+            
+            logger.info("Successfully sent pending approval notification to user: {} for group: {}", userId, groupId);
+            
+        } catch (Exception e) {
+            logger.error("Error sending pending approval notification to user: {} for group: {}", userId, groupId, e);
+            // Don't throw exception to avoid affecting main flow
+        }
+    }
+
+    @Override
+    @Transactional
+    public void sendRejectionNotificationToUser(Integer groupId, Integer userId, String groupName, String rejectedByUserName) {
+        logger.info("Sending rejection notification to user: {} for group: {} by user: {}", userId, groupId, rejectedByUserName);
+        
+        // Validate input first - these exceptions should be thrown
+        if (groupId == null || groupId <= 0) {
+            throw new IllegalArgumentException("Group ID must be positive");
+        }
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("User ID must be positive");
+        }
+        if (groupName == null || groupName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Group name cannot be empty");
+        }
+        if (rejectedByUserName == null || rejectedByUserName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Rejected by user name cannot be empty");
+        }
+        
+        try {
+            // Get user to send notification to
+            Optional<User> userOpt = userRepository.findById(userId);
+            if (userOpt.isEmpty()) {
+                logger.warn("User not found: {}", userId);
+                return;
+            }
+            User user = userOpt.get();
+            
+            // Create notification for the user themselves (system notification)
+            String title = "Join Request Rejected";
+            String message = String.format("Your request to join \"%s\" group has been rejected by %s", groupName, rejectedByUserName);
+            String linkToEntity = "seimaapp://groups/" + groupId + "/status";
+            
+            Notification notification = createNotification(user, null, groupId, 
+                                                         NotificationType.GROUP_JOIN_REJECTED, title, 
+                                                         message, linkToEntity);
+            
+            // Save notification
+            Notification savedNotification = notificationRepository.save(notification);
+            
+            // Send FCM notification
+            boolean fcmSuccess = sendFcmNotificationToUser(userId, title, message, groupId);
+            
+            // Update sent_at timestamp if FCM was successful
+            if (fcmSuccess) {
+                savedNotification.setSentAt(LocalDateTime.now());
+                notificationRepository.save(savedNotification);
+            }
+            
+            logger.info("Successfully sent rejection notification to user: {} for group: {}", userId, groupId);
+            
+        } catch (Exception e) {
+            logger.error("Error sending rejection notification to user: {} for group: {}", userId, groupId, e);
+            // Don't throw exception to avoid affecting main flow
+        }
+    }
+
 
     
     /**
@@ -458,6 +569,38 @@ public class NotificationServiceImpl implements NotificationService {
             
         } catch (Exception e) {
             logger.error("Error sending FCM notifications", e);
+            return false;
+        }
+    }
+    
+
+    private boolean sendFcmNotificationToUser(Integer userId, String title, String message, Integer groupId) {
+        logger.info("Sending FCM notification to user: {}", userId);
+        
+        try {
+            // Get FCM tokens for the specific user
+            List<String> fcmTokens = userDeviceRepository.findFcmTokensByUserIds(List.of(userId));
+            
+            if (fcmTokens.isEmpty()) {
+                logger.warn("No FCM tokens found for user: {}", userId);
+                return false;
+            }
+            
+            // Prepare notification data
+            Map<String, String> data = Map.of(
+                "type", "group_notification",
+                "groupId", groupId.toString(),
+                "notificationType", "PENDING_APPROVAL"
+            );
+            
+            // Send FCM notification
+            fcmService.sendMulticastNotification(fcmTokens, title, message, data);
+            
+            logger.info("Successfully sent FCM notification to user: {} with {} tokens", userId, fcmTokens.size());
+            return true;
+            
+        } catch (Exception e) {
+            logger.error("Error sending FCM notification to user: {}", userId, e);
             return false;
         }
     }

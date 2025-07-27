@@ -406,6 +406,20 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
             // Update token status in Redis
             boolean tokenUpdated = invitationTokenService.updateInvitationTokenStatus(invitationToken, "PENDING_APPROVAL");
 
+
+
+            // Gửi notification cho chính bản thân báo pending approval
+            try {
+                notificationService.sendPendingApprovalNotificationToUser(
+                    tokenData.getGroupId(),
+                    tokenData.getInvitedUserId(),
+                    tokenData.getGroupName()
+                );
+            } catch (Exception e) {
+                logger.error("Failed to send pending approval notification to user", e);
+                // Không fail toàn bộ process nếu notification fail
+            }
+
             // Gửi notification cho admin và owner
             try {
                 // Lấy user name của người yêu cầu join

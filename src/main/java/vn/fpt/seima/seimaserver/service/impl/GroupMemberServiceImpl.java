@@ -20,6 +20,7 @@ import vn.fpt.seima.seimaserver.repository.GroupRepository;
 import vn.fpt.seima.seimaserver.service.GroupMemberService;
 import vn.fpt.seima.seimaserver.service.GroupPermissionService;
 import vn.fpt.seima.seimaserver.service.InvitationTokenService;
+import vn.fpt.seima.seimaserver.service.NotificationService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.util.List;
@@ -35,6 +36,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
     private final GroupRepository groupRepository;
     private final GroupPermissionService groupPermissionService;
     private final InvitationTokenService invitationTokenService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -271,6 +273,20 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         } catch (Exception e) {
             log.warn("Failed to remove invitation token for user {} in group {} - continuing with rejection", 
                     request.getUserId(), groupId, e);
+        }
+
+        // Send notification to the rejected user
+        try {
+            notificationService.sendRejectionNotificationToUser(
+                groupId,
+                request.getUserId(),
+                group.getGroupName(),
+                currentUser.getUserFullName()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send rejection notification to user {} for group {}", 
+                    request.getUserId(), groupId, e);
+            // Don't fail the entire rejection process if notification fails
         }
 
         log.info("Successfully rejected group member request for user {} in group {}", 
