@@ -137,3 +137,8 @@ branch:
 firebase:
   credential-url: seima-datn-firebase-adminsdk-fbsvc-4514a05939.json
   project-id: seima-datn
+# Google Cloud Speech credentials
+google:
+  cloud:
+    credentials:
+      location: manifest-sum-466914-k5-9ef54eb71147.json
