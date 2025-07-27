@@ -1,252 +1,222 @@
 # Chat History API Documentation
 
-This document provides detailed information about the Chat History API endpoints for the chatbot functionality.
+## Overview
 
-## Base URL
-```
-/api/v1/chat-history
-```
+The Chat History API provides **read-only access** to user's continuous chat history. Each user has a single, unified chat history from the beginning to the end. This API is designed for retrieving and managing existing chat conversations.
 
-## Authentication
-All endpoints require authentication. Include the JWT token in the Authorization header:
-```
-Authorization: Bearer <your-jwt-token>
-```
+## Key Features
 
-## Endpoints
+### Continuous Conversation Model
+- Each user has **one continuous chat history**
+- All messages are part of a single conversation thread
+- Simplified API focused on conversation retrieval and management
+- No message creation via API (messages are created through other services)
 
-### 1. Create Chat Message
-**POST** `/api/v1/chat-history`
+## API Endpoints
 
-Creates a new chat message in the history.
+### 1. Get Complete Chat History
 
-**Request Body:**
-```json
-{
-  "senderType": "USER",
-  "messageContent": "Hello, how can I help you today?"
-}
-```
+**GET** `/api/v1/chat-history?page=0&size=50`
+
+Retrieves the user's complete chat history with pagination.
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 0)
+- `size` (optional): Page size (default: 50)
 
 **Response:**
 ```json
 {
-  "statusCode": 201,
-  "message": "Chat message created successfully",
-  "data": {
-    "chatId": 1,
-    "userId": 123,
-    "senderType": "USER",
-    "messageContent": "Hello, how can I help you today?",
-    "timestamp": "2024-01-15 10:30:00"
-  }
-}
-```
-
-### 2. Get User Chat History
-**GET** `/api/v1/chat-history`
-
-Retrieves all chat messages for the current user with pagination.
-
-**Parameters:**
-- `page` (optional, default: 0) - Page number
-- `size` (optional, default: 20) - Page size
-
-**Response:**
-```json
-{
-  "statusCode": 200,
+  "status": 200,
   "message": "Chat history retrieved successfully",
   "data": {
     "content": [
       {
-        "chatId": 1,
-        "userId": 123,
+        "chatId": 123,
+        "userId": 456,
         "senderType": "USER",
-        "messageContent": "Hello, how can I help you today?",
-        "timestamp": "2024-01-15 10:30:00"
+        "messageContent": "Hello, how can you help me?",
+        "timestamp": "2024-01-15T10:30:00"
+      },
+      {
+        "chatId": 124,
+        "userId": 456,
+        "senderType": "AI",
+        "messageContent": "Hello! I'm here to help you with your financial questions.",
+        "timestamp": "2024-01-15T10:30:05"
       }
     ],
-    "pageable": {
-      "sort": {...},
-      "pageNumber": 0,
-      "pageSize": 20
-    },
-    "totalElements": 1,
-    "totalPages": 1
+    "totalElements": 25,
+    "totalPages": 1,
+    "size": 50,
+    "number": 0
   }
 }
 ```
 
-### 3. Get Chat History by Date Range
-**GET** `/api/v1/chat-history/date-range`
+### 2. Get Recent Messages
 
-Retrieves chat messages within a specified date range.
+**GET** `/api/v1/chat-history/recent?limit=10`
 
-**Parameters:**
-- `startDate` (required) - Start date in ISO format (e.g., 2024-01-15T00:00:00)
-- `endDate` (required) - End date in ISO format (e.g., 2024-01-16T23:59:59)
-- `page` (optional, default: 0) - Page number
-- `size` (optional, default: 20) - Page size
+Retrieves the most recent messages from the user's chat history.
 
-**Response:** Same structure as Get User Chat History
-
-### 4. Get Chat History by Sender Type
-**GET** `/api/v1/chat-history/sender-type/{senderType}`
-
-Retrieves chat messages filtered by sender type.
-
-**Parameters:**
-- `senderType` (path) - Either "USER" or "AI"
-- `page` (optional, default: 0) - Page number
-- `size` (optional, default: 20) - Page size
-
-**Response:** Same structure as Get User Chat History
-
-### 5. Get Chat Message by ID
-**GET** `/api/v1/chat-history/{chatId}`
-
-Retrieves a specific chat message by its ID.
-
-**Parameters:**
-- `chatId` (path) - The chat message ID
+**Query Parameters:**
+- `limit` (optional): Number of recent messages to retrieve (default: 10)
 
 **Response:**
 ```json
 {
-  "statusCode": 200,
-  "message": "Chat message retrieved successfully",
-  "data": {
-    "chatId": 1,
-    "userId": 123,
-    "senderType": "USER",
-    "messageContent": "Hello, how can I help you today?",
-    "timestamp": "2024-01-15 10:30:00"
-  }
+  "status": 200,
+  "message": "Recent messages retrieved successfully",
+  "data": [
+    {
+      "chatId": 123,
+      "userId": 456,
+      "senderType": "USER",
+      "messageContent": "What's my current balance?",
+      "timestamp": "2024-01-15T10:35:00"
+    },
+    {
+      "chatId": 124,
+      "userId": 456,
+      "senderType": "AI",
+      "messageContent": "Your current balance is $1,250.00",
+      "timestamp": "2024-01-15T10:35:05"
+    }
+  ]
 }
 ```
 
-### 6. Get User Total Message Count
+### 3. Get Message Count
+
 **GET** `/api/v1/chat-history/count`
 
-Retrieves the total number of messages for the current user.
+Returns the total number of messages in the user's chat history.
 
 **Response:**
 ```json
 {
-  "statusCode": 200,
+  "status": 200,
   "message": "Message count retrieved successfully",
-  "data": 150
+  "data": 25
 }
 ```
 
-### 7. Delete User Chat History
+### 4. Clear Chat History
+
 **DELETE** `/api/v1/chat-history`
 
-Deletes all chat history for the current user.
+Clears the entire chat history for the current user.
 
 **Response:**
 ```json
 {
-  "statusCode": 200,
-  "message": "Chat history deleted successfully",
+  "status": 200,
+  "message": "Chat history cleared successfully",
   "data": null
 }
 ```
-
-## Error Responses
-
-### 400 Bad Request
-```json
-{
-  "statusCode": 400,
-  "message": "Validation error message",
-  "data": null
-}
-```
-
-### 404 Not Found
-```json
-{
-  "statusCode": 404,
-  "message": "Resource not found",
-  "data": null
-}
-```
-
-### 500 Internal Server Error
-```json
-{
-  "statusCode": 500,
-  "message": "Internal server error message",
-  "data": null
-}
-```
-
-## Data Models
-
-### SenderType Enum
-- `USER` - Message sent by the user
-- `AI` - Message sent by the AI/chatbot
-
-### CreateChatMessageRequest
-- `senderType` (SenderType, required) - Who sent the message
-- `messageContent` (String, required, max 10000 characters) - The message content
-
-### ChatMessageResponse
-- `chatId` (Integer) - Unique message ID
-- `userId` (Integer) - User ID who owns the message
-- `senderType` (SenderType) - Who sent the message
-- `messageContent` (String) - The message content
-- `timestamp` (LocalDateTime) - When the message was created
 
 ## Usage Examples
 
-### Creating a User Message
-```bash
-curl -X POST "http://localhost:8080/api/v1/chat-history" \
-  -H "Authorization: Bearer <your-jwt-token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "senderType": "USER",
-    "messageContent": "What is the weather like today?"
-  }'
+### Retrieving Conversation Context
+
+1. **Get recent messages for context:**
+   ```bash
+   GET /api/v1/chat-history/recent?limit=5
+   ```
+
+2. **Get full conversation history:**
+   ```bash
+   GET /api/v1/chat-history?page=0&size=100
+   ```
+
+3. **Check conversation length:**
+   ```bash
+   GET /api/v1/chat-history/count
+   ```
+
+4. **Clear conversation history:**
+   ```bash
+   DELETE /api/v1/chat-history
+   ```
+
+## Benefits of Read-Only Chat History API
+
+1. **Security**: No risk of unauthorized message creation
+2. **Separation of Concerns**: Message creation handled by dedicated services
+3. **Simplified Access**: Focus on retrieval and management only
+4. **Better Control**: Centralized message creation logic
+5. **Audit Trail**: Clear separation between creation and retrieval
+
+## Data Model
+
+The `ChatHistory` entity represents a continuous conversation:
+
+```java
+@Entity
+@Table(name = "chat_history")
+public class ChatHistory {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer chatId;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sender_type", nullable = false)
+    private SenderType senderType; // USER or AI
+    
+    @Column(name = "message_content", nullable = false, columnDefinition = "TEXT")
+    private String messageContent;
+    
+    @CreationTimestamp
+    @Column(name = "timestamp", nullable = false, updatable = false)
+    private LocalDateTime timestamp;
+}
 ```
 
-### Creating an AI Response
-```bash
-curl -X POST "http://localhost:8080/api/v1/chat-history" \
-  -H "Authorization: Bearer <your-jwt-token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "senderType": "AI",
-    "messageContent": "I can help you with weather information. Please provide your location."
-  }'
+## Message Creation
+
+**Note**: This API does not provide endpoints for creating chat messages. Messages are created through:
+
+1. **AI Service**: When AI generates responses
+2. **Chat Service**: When processing user inputs
+3. **Other Internal Services**: For system-generated messages
+
+## Error Handling
+
+All endpoints return consistent error responses:
+
+```json
+{
+  "status": 500,
+  "message": "Failed to retrieve chat history: User not found",
+  "data": null
+}
 ```
 
-### Getting User Chat History
-```bash
-curl -X GET "http://localhost:8080/api/v1/chat-history?page=0&size=20" \
-  -H "Authorization: Bearer <your-jwt-token>"
-```
+Common error scenarios:
+- User not authenticated
+- User not found
+- Database connection issues
+- Invalid pagination parameters
 
-### Getting Chat History by Date Range
-```bash
-curl -X GET "http://localhost:8080/api/v1/chat-history/date-range?startDate=2024-01-15T00:00:00&endDate=2024-01-16T23:59:59&page=0&size=20" \
-  -H "Authorization: Bearer <your-jwt-token>"
-```
+## Security Considerations
 
-### Getting Chat History by Sender Type
-```bash
-curl -X GET "http://localhost:8080/api/v1/chat-history/sender-type/USER?page=0&size=20" \
-  -H "Authorization: Bearer <your-jwt-token>"
-```
+- All endpoints require user authentication
+- Users can only access their own chat history
+- No message creation capabilities
+- Read-only access to conversation data
+- No cross-user data access possible
 
-## Notes
+## Integration Notes
 
-1. All endpoints require authentication using JWT tokens
-2. The API uses pagination for list endpoints to handle large datasets efficiently
-3. Users can only access their own chat history
-4. Messages are automatically timestamped when created
-5. The API supports both user messages and AI responses through the `senderType` field
-6. All chat messages are stored in chronological order for the user 
+When integrating with this API:
+
+1. **Frontend Applications**: Use for displaying conversation history
+2. **AI Services**: Use recent messages for context retrieval
+3. **Analytics**: Use for conversation analysis and insights
+4. **User Management**: Use for user conversation management 
