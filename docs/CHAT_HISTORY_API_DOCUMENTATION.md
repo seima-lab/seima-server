@@ -12,13 +12,18 @@ The Chat History API provides **read-only access** to user's continuous chat his
 - Simplified API focused on conversation retrieval and management
 - No message creation via API (messages are created through other services)
 
+### Soft Delete Support
+- Chat history deletion uses **soft delete** (records are marked as deleted but not physically removed)
+- Deleted records are automatically filtered out from all queries
+- Data integrity is maintained for audit and recovery purposes
+
 ## API Endpoints
 
 ### 1. Get Complete Chat History
 
 **GET** `/api/v1/chat-history?page=0&size=50`
 
-Retrieves the user's complete chat history with pagination.
+Retrieves the user's complete chat history with pagination (excluding soft-deleted records).
 
 **Query Parameters:**
 - `page` (optional): Page number (default: 0)
@@ -58,7 +63,7 @@ Retrieves the user's complete chat history with pagination.
 
 **GET** `/api/v1/chat-history/recent?limit=10`
 
-Retrieves the most recent messages from the user's chat history.
+Retrieves the most recent messages from the user's chat history (excluding soft-deleted records).
 
 **Query Parameters:**
 - `limit` (optional): Number of recent messages to retrieve (default: 10)
@@ -91,7 +96,7 @@ Retrieves the most recent messages from the user's chat history.
 
 **GET** `/api/v1/chat-history/count`
 
-Returns the total number of messages in the user's chat history.
+Returns the total number of non-deleted messages in the user's chat history.
 
 **Response:**
 ```json
@@ -102,11 +107,11 @@ Returns the total number of messages in the user's chat history.
 }
 ```
 
-### 4. Clear Chat History
+### 4. Soft Delete Chat History
 
 **DELETE** `/api/v1/chat-history`
 
-Clears the entire chat history for the current user.
+Performs a soft delete of the entire chat history for the current user. Records are marked as deleted but remain in the database for audit purposes.
 
 **Response:**
 ```json
@@ -136,7 +141,7 @@ Clears the entire chat history for the current user.
    GET /api/v1/chat-history/count
    ```
 
-4. **Clear conversation history:**
+4. **Soft delete conversation history:**
    ```bash
    DELETE /api/v1/chat-history
    ```
@@ -149,9 +154,17 @@ Clears the entire chat history for the current user.
 4. **Better Control**: Centralized message creation logic
 5. **Audit Trail**: Clear separation between creation and retrieval
 
+## Benefits of Soft Delete
+
+1. **Data Recovery**: Deleted records can be recovered if needed
+2. **Audit Trail**: Maintains complete history for compliance
+3. **Data Integrity**: Prevents accidental data loss
+4. **Analytics**: Allows analysis of deletion patterns
+5. **Compliance**: Meets regulatory requirements for data retention
+
 ## Data Model
 
-The `ChatHistory` entity represents a continuous conversation:
+The `ChatHistory` entity represents a continuous conversation with soft delete support:
 
 ```java
 @Entity
@@ -175,6 +188,12 @@ public class ChatHistory {
     @CreationTimestamp
     @Column(name = "timestamp", nullable = false, updatable = false)
     private LocalDateTime timestamp;
+    
+    @Column(name = "deleted", nullable = false)
+    private Boolean deleted = false;
+    
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 }
 ```
 
@@ -211,6 +230,7 @@ Common error scenarios:
 - No message creation capabilities
 - Read-only access to conversation data
 - No cross-user data access possible
+- Soft delete maintains data security and audit trail
 
 ## Integration Notes
 
@@ -219,4 +239,5 @@ When integrating with this API:
 1. **Frontend Applications**: Use for displaying conversation history
 2. **AI Services**: Use recent messages for context retrieval
 3. **Analytics**: Use for conversation analysis and insights
-4. **User Management**: Use for user conversation management 
+4. **User Management**: Use for user conversation management
+5. **Data Recovery**: Soft delete allows for potential data recovery scenarios 

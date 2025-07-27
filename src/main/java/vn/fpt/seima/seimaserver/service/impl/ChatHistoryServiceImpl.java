@@ -16,6 +16,7 @@ import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.ChatHistoryService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -51,17 +52,19 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         
         return chatHistoryPage.getContent().stream()
                 .map(chatHistoryMapper::toResponse)
+                .filter(response -> response != null) // Filter out deleted records
                 .collect(Collectors.toList());
     }
     
     @Override
     public void clearUserChatHistory() {
         User currentUser = getCurrentUser();
-        log.info("Clearing entire chat history for user: {}", currentUser.getUserId());
+        log.info("Soft deleting entire chat history for user: {}", currentUser.getUserId());
         
-        chatHistoryRepository.deleteByUserId(currentUser.getUserId());
+        LocalDateTime deletedAt = LocalDateTime.now();
+        chatHistoryRepository.softDeleteByUserId(currentUser.getUserId(), deletedAt);
         
-        log.info("Chat history cleared for user: {}", currentUser.getUserId());
+        log.info("Chat history soft deleted for user: {} at {}", currentUser.getUserId(), deletedAt);
     }
     
     @Override

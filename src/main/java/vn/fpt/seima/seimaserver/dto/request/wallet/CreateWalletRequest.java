@@ -37,4 +37,6 @@ public class CreateWalletRequest {
     private String bankName;
 
     private String iconUrl;
+
+    private String currencyCode;
 } 

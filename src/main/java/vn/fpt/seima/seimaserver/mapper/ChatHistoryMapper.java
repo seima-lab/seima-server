@@ -14,10 +14,16 @@ public class ChatHistoryMapper {
                 .user(user)
                 .senderType(request.getSenderType())
                 .messageContent(request.getMessageContent())
+                .deleted(false) // Ensure new records are not deleted
                 .build();
     }
     
     public ChatMessageResponse toResponse(ChatHistory chatHistory) {
+        // Only map non-deleted records
+        if (chatHistory.getDeleted() != null && chatHistory.getDeleted()) {
+            return null; // Return null for deleted records
+        }
+        
         return ChatMessageResponse.builder()
                 .chatId(chatHistory.getChatId())
                 .userId(chatHistory.getUser().getUserId())
