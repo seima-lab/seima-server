@@ -23,4 +23,5 @@ public class WalletResponse {
     private Boolean excludeFromTotal; // Loại trừ khỏi tổng
     private String bankName;       // Tên ngân hàng
     private String iconUrl;        // Logo của ngân hàng
+    private String currencyCode;   // Mã tiền tệ
 }
