@@ -58,4 +58,7 @@ public class Budget {
     @EqualsAndHashCode.Exclude
     @JsonIgnore
     private Set<BudgetCategoryLimit> budgetCategoryLimits;
+
+    @OneToMany(mappedBy = "budget", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<BudgetPeriod> budgetPeriods;
 }

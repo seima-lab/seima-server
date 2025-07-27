@@ -92,6 +92,11 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Intege
     Optional<GroupMember> findByUserIdAndGroupId(@Param("userId") Integer userId,
                                                  @Param("groupId") Integer groupId);
 
+    @Query("SELECT gm FROM GroupMember gm " +
+            "WHERE gm.user.userId = :userId AND gm.group.groupId = :groupId " +
+            "ORDER BY gm.joinDate DESC LIMIT 1")
+    Optional<GroupMember> findMostRecentMembershipByUserIdAndGroupId(@Param("userId") Integer userId,
+                                                                     @Param("groupId") Integer groupId);
     /**
      * Find all groups that a user has joined (active membership in active groups only)
      *
@@ -165,4 +170,4 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Intege
             "AND u.userIsActive = true")
     List<GroupMember> findAdminAndOwnerMembers(@Param("groupId") Integer groupId,
                                               @Param("status") GroupMemberStatus status);
-} 
+}

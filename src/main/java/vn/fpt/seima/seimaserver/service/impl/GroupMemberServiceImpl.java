@@ -7,10 +7,12 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.group.AcceptGroupMemberRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.RejectGroupMemberRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.UpdateMemberRoleRequest;
+import vn.fpt.seima.seimaserver.dto.request.group.TransferOwnershipRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberListResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.PendingGroupMemberListResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.PendingGroupMemberResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.OwnerExitOptionsResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.GroupException;
 import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
@@ -781,14 +783,203 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         Group group = validateGroupForExit(groupId);
         GroupMember currentMember = findActiveMemberForExit(currentUser.getUserId(), group.getGroupId());
 
-        // Validate exit permissions
-        validateExitPermissions(currentMember);
+        // For OWNER, we need special handling - return error with specific message for frontend to handle
+        if (currentMember.getRole() == GroupMemberRole.OWNER) {
+            throw new GroupException("As group owner, you must transfer ownership or delete the group before leaving.");
+        }
 
-        // Update member status to LEFT
+        // For ADMIN and MEMBER, proceed with normal exit
         currentMember.setStatus(GroupMemberStatus.LEFT);
         groupMemberRepository.save(currentMember);
 
         log.info("User {} successfully exited group {}", currentUser.getUserId(), groupId);
+    }
+
+    @Override
+    @Transactional
+    public void transferOwnership(Integer groupId, TransferOwnershipRequest request) {
+        log.info("Transferring ownership for group ID: {} to user ID: {}", groupId, request.getNewOwnerUserId());
+
+        // Validate input
+        validateTransferOwnershipInput(groupId, request);
+
+        // Get current user
+        User currentUser = getCurrentUser();
+
+        // Validate group and current user's ownership
+        Group group = validateGroupForOwnershipTransfer(groupId);
+        GroupMember currentOwner = validateCurrentUserIsOwner(currentUser.getUserId(), groupId);
+
+        // Find and validate new owner
+        GroupMember newOwner = validateNewOwnerEligibility(request.getNewOwnerUserId(), groupId);
+
+        // Perform ownership transfer
+        currentOwner.setRole(GroupMemberRole.MEMBER); // Demote current owner to member
+        newOwner.setRole(GroupMemberRole.OWNER); // Promote new member to owner
+
+        // Save changes
+        groupMemberRepository.save(currentOwner);
+        groupMemberRepository.save(newOwner);
+
+        log.info("Successfully transferred ownership of group {} from user {} to user {}", 
+                groupId, currentUser.getUserId(), request.getNewOwnerUserId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GroupMemberListResponse getEligibleMembersForOwnership(Integer groupId) {
+        log.info("Getting eligible members for ownership transfer in group ID: {}", groupId);
+
+        // Validate input
+        if (groupId == null) {
+            throw new GroupException("Group ID cannot be null");
+        }
+
+        // Get current user
+        User currentUser = getCurrentUser();
+
+        // Validate group and current user's ownership
+        Group group = validateGroupForOwnershipTransfer(groupId);
+        validateCurrentUserIsOwner(currentUser.getUserId(), groupId);
+
+        // Get all active members except current owner
+        List<GroupMember> eligibleMembers = groupMemberRepository.findActiveGroupMembers(
+                groupId, GroupMemberStatus.ACTIVE)
+                .stream()
+                .filter(member -> !member.getUser().getUserId().equals(currentUser.getUserId())) // Exclude current owner
+                .filter(member -> Boolean.TRUE.equals(member.getUser().getUserIsActive())) // Only active user accounts
+                .collect(Collectors.toList());
+
+        if (eligibleMembers.isEmpty()) {
+            throw new GroupException("No eligible members found for ownership transfer. Group must have at least one other active member.");
+        }
+
+        // Convert to response format
+        List<GroupMemberResponse> memberResponses = eligibleMembers.stream()
+                .map(this::mapToGroupMemberResponse)
+                .collect(Collectors.toList());
+
+        GroupMemberListResponse response = new GroupMemberListResponse();
+        response.setGroupId(group.getGroupId());
+        response.setGroupName(group.getGroupName());
+        response.setGroupAvatarUrl(group.getGroupAvatarUrl());
+        response.setTotalMembersCount(memberResponses.size());
+        response.setMembers(memberResponses);
+        response.setCurrentUserRole(GroupMemberRole.OWNER);
+
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OwnerExitOptionsResponse getOwnerExitOptions(Integer groupId) {
+        log.info("Getting owner exit options for group ID: {}", groupId);
+
+        // Validate input
+        if (groupId == null) {
+            throw new GroupException("Group ID cannot be null");
+        }
+
+        // Get current user
+        User currentUser = getCurrentUser();
+
+        // Validate group and current user's ownership
+        Group group = validateGroupForOwnershipTransfer(groupId);
+        validateCurrentUserIsOwner(currentUser.getUserId(), groupId);
+
+        // Count eligible members for ownership transfer
+        List<GroupMember> eligibleMembers = groupMemberRepository.findActiveGroupMembers(
+                groupId, GroupMemberStatus.ACTIVE)
+                .stream()
+                .filter(member -> !member.getUser().getUserId().equals(currentUser.getUserId())) // Exclude current owner
+                .filter(member -> Boolean.TRUE.equals(member.getUser().getUserIsActive())) // Only active user accounts
+                .collect(Collectors.toList());
+
+        int eligibleMembersCount = eligibleMembers.size();
+        boolean canTransferOwnership = eligibleMembersCount > 0;
+        boolean canDeleteGroup = true; // Owner can always delete group
+
+        String message;
+        if (canTransferOwnership) {
+            message = String.format("You have %d eligible member(s) to transfer ownership to, or you can delete the group.", 
+                    eligibleMembersCount);
+        } else {
+            message = "No other members available for ownership transfer. You can only delete the group.";
+        }
+
+        return OwnerExitOptionsResponse.builder()
+                .groupId(group.getGroupId())
+                .groupName(group.getGroupName())
+                .canTransferOwnership(canTransferOwnership)
+                .canDeleteGroup(canDeleteGroup)
+                .eligibleMembersCount(eligibleMembersCount)
+                .message(message)
+                .build();
+    }
+
+    // Helper methods for ownership transfer validation
+
+    private void validateTransferOwnershipInput(Integer groupId, TransferOwnershipRequest request) {
+        if (groupId == null) {
+            throw new GroupException("Group ID cannot be null");
+        }
+        if (request == null) {
+            throw new GroupException("Transfer ownership request cannot be null");
+        }
+        if (request.getNewOwnerUserId() == null) {
+            throw new GroupException("New owner user ID cannot be null");
+        }
+    }
+
+    private Group validateGroupForOwnershipTransfer(Integer groupId) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new GroupException("Group not found"));
+
+        if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+            throw new GroupException("Cannot transfer ownership of inactive group");
+        }
+
+        return group;
+    }
+
+    private GroupMember validateCurrentUserIsOwner(Integer userId, Integer groupId) {
+        Optional<GroupMember> memberOptional = groupMemberRepository.findByUserIdAndGroupId(userId, groupId);
+
+        if (memberOptional.isEmpty()) {
+            throw new GroupException("You are not a member of this group");
+        }
+
+        GroupMember member = memberOptional.get();
+
+        if (member.getStatus() != GroupMemberStatus.ACTIVE) {
+            throw new GroupException("You are not currently active in this group");
+        }
+
+        if (member.getRole() != GroupMemberRole.OWNER) {
+            throw new GroupException("Only group owner can transfer ownership");
+        }
+
+        return member;
+    }
+
+    private GroupMember validateNewOwnerEligibility(Integer newOwnerUserId, Integer groupId) {
+        Optional<GroupMember> memberOptional = groupMemberRepository.findByUserIdAndGroupId(newOwnerUserId, groupId);
+
+        if (memberOptional.isEmpty()) {
+            throw new GroupException("Selected user is not a member of this group");
+        }
+
+        GroupMember member = memberOptional.get();
+
+        if (member.getStatus() != GroupMemberStatus.ACTIVE) {
+            throw new GroupException("Selected user is not currently active in this group");
+        }
+
+        if (!Boolean.TRUE.equals(member.getUser().getUserIsActive())) {
+            throw new GroupException("Selected user account is not active");
+        }
+
+        return member;
     }
 
     /**

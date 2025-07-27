@@ -1,41 +1,52 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cglib.core.Local;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
+import vn.fpt.seima.seimaserver.dto.response.budget.BudgetLastResponse;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
-import vn.fpt.seima.seimaserver.entity.Budget;
-import vn.fpt.seima.seimaserver.entity.BudgetCategoryLimit;
-import vn.fpt.seima.seimaserver.entity.Category;
-import vn.fpt.seima.seimaserver.entity.User;
+import vn.fpt.seima.seimaserver.dto.response.category.CategoryResponse;
+import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.ResourceNotFoundException;
 import vn.fpt.seima.seimaserver.mapper.BudgetMapper;
-import vn.fpt.seima.seimaserver.repository.BudgetCategoryLimitRepository;
-import vn.fpt.seima.seimaserver.repository.BudgetRepository;
-import vn.fpt.seima.seimaserver.repository.UserRepository;
+import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.BudgetCategoryLimitService;
+import vn.fpt.seima.seimaserver.service.BudgetPeriodService;
 import vn.fpt.seima.seimaserver.service.BudgetService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @AllArgsConstructor
+@Slf4j
+
 public class BudgetServiceImpl implements BudgetService {
     private  BudgetRepository budgetRepository;
     private final BudgetMapper budgetMapper;
     private final BudgetCategoryLimitRepository budgetCategoryLimitRepository;
+    private final BudgetPeriodRepository budgetPeriodRepository;
+    private final BudgetPeriodService budgetPeriodService;
+    private final CategoryRepository categoryRepository;
+    private final TransactionRepository transactionRepository;
 
     @Override
     public Page<BudgetResponse> getAllBudget(Pageable pageable) {
-        Page<Budget> budgets = budgetRepository.findAll(pageable);
+        User user = UserUtils.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        Page<Budget> budgets = budgetRepository.findByUser_UserId(user.getUserId(),pageable);
 
         return budgets.map(budgetMapper::toResponse);
     }
@@ -69,7 +80,21 @@ public class BudgetServiceImpl implements BudgetService {
             throw new IllegalArgumentException("Category list must not be empty");
         }
 
+        if (!budgetRepository.countBudgetByUserId(user.getUserId())) {
+            throw new IllegalArgumentException("The user cannot have more than 5 budgets.");
+        }
+        List<Integer> categoryIds = new ArrayList<>();
+        for (Category category : request.getCategoryList()){
+            categoryIds.add(category.getCategoryId());
+        }
         Budget budget = budgetMapper.toEntity(request);
+        budget.setBudgetRemainingAmount(request.getBudgetRemainingAmount()
+                .subtract(transactionRepository.sumExpensesByCategoryAndMonth(
+                        user.getUserId(),
+                        categoryIds,
+                        request.getStartDate(),
+                        request.getEndDate()
+                        )));
         budget.setUser(user);
         Budget savedBudget = budgetRepository.save(budget);
 
@@ -80,6 +105,8 @@ public class BudgetServiceImpl implements BudgetService {
 
             budgetCategoryLimitRepository.save(budgetCategoryLimit);
         }
+        List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(savedBudget);
+        budgetPeriodRepository.saveAll(periods);
         return budgetMapper.toResponse(savedBudget);
     }
 
@@ -94,7 +121,7 @@ public class BudgetServiceImpl implements BudgetService {
             throw new IllegalArgumentException("Budget name already exists");
         }
 
-        if(request.getOverallAmountLimit().compareTo(BigDecimal.ZERO) < 0){
+        if (request.getOverallAmountLimit().compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Overall amount limit must be greater than zero");
         }
 
@@ -106,6 +133,8 @@ public class BudgetServiceImpl implements BudgetService {
             throw new IllegalArgumentException("Category list must not be empty");
         }
         budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(existingBudget.getBudgetId());
+        budgetPeriodRepository.deleteAll(budgetPeriodRepository.findByBudget_BudgetId(existingBudget.getBudgetId()));
+
         budgetMapper.updateBudgetFromDto(request, existingBudget);
         existingBudget.setUser(user);
 
@@ -117,6 +146,9 @@ public class BudgetServiceImpl implements BudgetService {
 
             budgetCategoryLimitRepository.save(budgetCategoryLimit);
         }
+        List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(updatedBudget);
+        budgetPeriodRepository.saveAll(periods);
+
         return budgetMapper.toResponse(updatedBudget);
 
     }
@@ -128,49 +160,111 @@ public class BudgetServiceImpl implements BudgetService {
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found for this id: " + id));
 
         budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(budget.getBudgetId());
-        budgetRepository.deleteById(id);
+        budgetPeriodRepository.deleteAll(budgetPeriodRepository.findByBudget_BudgetId(budget.getBudgetId()));
+        budgetRepository.deleteBudget(id);
     }
 
     @Override
     @Transactional
-    public void reduceAmount(Integer userId, Integer categoryId ,BigDecimal amount, LocalDateTime transactionDate, String type, String code) {
-        List<Budget> existingBudget =  budgetRepository.findByUserId(userId);
+    public void reduceAmount(Integer userId, Integer categoryId, BigDecimal amount, LocalDateTime transactionDate, String type, String code) {
+        List<Budget> existingBudget = budgetRepository.findByUserId(userId);
 
-        if (existingBudget == null) {
-          throw new IllegalArgumentException("Budget not found ");
+        if (existingBudget.isEmpty()) {
+            return;
         }
         for (Budget budget : existingBudget) {
-
             List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository
                     .findByTransaction(categoryId);
-
             if (budgetCategoryLimits.isEmpty()) {
-                throw new IllegalArgumentException("Budget category limit not found");
+                return;
             }
-            if(budget.getCurrencyCode().equals(code)){
-                if (transactionDate.isBefore(budget.getEndDate()) && transactionDate.isAfter(budget.getStartDate())) {
+            List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetId(budget.getBudgetId());
+            for (BudgetPeriod budgetPeriod : budgetPeriods) {
+                if (transactionDate.isBefore(budgetPeriod.getEndDate()) && transactionDate.isAfter(budgetPeriod.getStartDate())) {
                     if (type.equals("EXPENSE")) {
-                        BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
-                        budget.setBudgetRemainingAmount(newAmount);
-                    }
-                    else if (type.equals("INCOME")) {
-                        budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount());
-                    }
-                    else if (type.equals("update-subtract")){
-                        BigDecimal newAmount = budget.getBudgetRemainingAmount().subtract(amount);
-                        budget.setBudgetRemainingAmount(newAmount);
-                    }
-                    else if (type.equals("update-add")) {
-                        BigDecimal newAmount = budget.getBudgetRemainingAmount().add(amount);
-                        budget.setBudgetRemainingAmount(newAmount);
-                    }
-                    else{
-                        budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount());
+                        BigDecimal newAmount = budgetPeriod.getRemainingAmount().subtract(amount);
+                        budgetPeriod.setRemainingAmount(newAmount);
+                    } else if (type.equals("INCOME")) {
+                        budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount());
+                    } else if (type.equals("update-subtract")) {
+                        BigDecimal newAmount = budgetPeriod.getRemainingAmount().subtract(amount);
+                        budgetPeriod.setRemainingAmount(newAmount);
+                    } else if (type.equals("update-add")) {
+                        BigDecimal newAmount = budgetPeriod.getRemainingAmount().add(amount);
+                        budgetPeriod.setRemainingAmount(newAmount);
+                    } else {
+                        budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount());
                     }
                 }
 
             }
+            budgetPeriodRepository.saveAll(budgetPeriods);
+
         }
-        budgetRepository.saveAll(existingBudget);
+
     }
+
+    /**
+     * @return
+     */
+    @Override
+    public List<BudgetLastResponse> getLastBudget() {
+        User user = UserUtils.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+
+        List<Budget> budgets = budgetRepository.findByUserId(user.getUserId());
+        if (budgets.isEmpty()) {
+            throw new IllegalArgumentException("Budget not found");
+        }
+
+        List<BudgetLastResponse> responses = new ArrayList<>();
+        for (Budget budget : budgets) {
+            LocalDateTime timeNow = LocalDateTime.now();
+            List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetIdAndTime(budget.getBudgetId(), timeNow);
+            if (budgetPeriods.isEmpty()) {
+                continue;
+            }
+
+            BudgetPeriod lastPeriod = budgetPeriods.get(budgetPeriods.size() - 1);
+
+            List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository.findByBudget(budget.getBudgetId());
+            List<CategoryResponse> categoryResponses = new ArrayList<>();
+
+            for (BudgetCategoryLimit budgetCategoryLimit : budgetCategoryLimits) {
+                List<Category> result = categoryRepository.getCategoriesByCategoryId(
+                        budgetCategoryLimit.getCategory().getCategoryId()
+                );
+
+                if (result != null) {
+                    for (Category category : result) {
+                        categoryResponses.add(CategoryResponse.builder()
+                                .categoryId(category.getCategoryId())
+                                .categoryName(category.getCategoryName())
+                                .categoryIconUrl(category.getCategoryIconUrl())
+                                .build());
+                    }
+
+                }
+
+            }
+            BudgetLastResponse response = BudgetLastResponse.builder()
+                    .budgetId(budget.getBudgetId())
+                    .budgetName(budget.getBudgetName())
+                    .budgetRemainingAmount(lastPeriod.getRemainingAmount())
+                    .overallAmountLimit(lastPeriod.getAmountLimit())
+                    .startDate(lastPeriod.getStartDate())
+                    .endDate(lastPeriod.getEndDate())
+                    .periodType(budget.getPeriodType())
+                    .categories(categoryResponses)
+                    .build();
+
+            responses.add(response);
+
+        }
+
+        return responses;
+    }
+
 }

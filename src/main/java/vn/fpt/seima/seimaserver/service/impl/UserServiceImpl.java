@@ -97,7 +97,7 @@ public class UserServiceImpl implements UserService {
         // Lưu data vào bảng user_device với logic đúng
         if(userDeviceRepository.existsByDeviceId(userCreationRequestDto.getDeviceId())){
             // Device đã tồn tại → chỉ update thông tin
-            userDeviceService.updateDeviceUser(userCreationRequestDto.getDeviceId(), userCreationRequestDto.getFcmToken());
+            userDeviceService.updateDeviceUser(currentUser.getUserId(),userCreationRequestDto.getDeviceId(), userCreationRequestDto.getFcmToken());
         } else {
             // Device chưa tồn tại → tạo mới
             userDeviceService.createDevice(currentUser.getUserId(), userCreationRequestDto.getDeviceId(), userCreationRequestDto.getFcmToken());
