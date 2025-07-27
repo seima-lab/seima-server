@@ -13,6 +13,7 @@ import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.UserJoinedGroupResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberStatusResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.UserPendingGroupResponse;
 import vn.fpt.seima.seimaserver.service.GroupService;
 
 import java.util.List;
@@ -53,6 +54,14 @@ public class GroupController {
     public ApiResponse<List<UserJoinedGroupResponse>> getUserJoinedGroups() {
         List<UserJoinedGroupResponse> joinedGroups = groupService.getUserJoinedGroups();
         return new ApiResponse<>(HttpStatus.OK.value(), "User joined groups retrieved successfully", joinedGroups);
+    }
+
+    @GetMapping("/pending")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<List<UserPendingGroupResponse>> getUserPendingGroups() {
+        log.info("Request to get user pending groups");
+        List<UserPendingGroupResponse> pendingGroups = groupService.getUserPendingGroups();
+        return new ApiResponse<>(HttpStatus.OK.value(), "User pending groups retrieved successfully", pendingGroups);
     }
 
     @DeleteMapping("/{groupId}/archive")

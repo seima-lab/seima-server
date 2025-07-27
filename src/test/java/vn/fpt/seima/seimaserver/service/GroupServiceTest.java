@@ -15,6 +15,7 @@ import vn.fpt.seima.seimaserver.dto.request.group.UpdateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.UserJoinedGroupResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.UserPendingGroupResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.GroupException;
 import vn.fpt.seima.seimaserver.mapper.GroupMapper;
@@ -809,6 +810,96 @@ class GroupServiceTest {
             assertEquals("Group is already archived", exception.getMessage());
             verify(groupRepository).findById(groupId);
             verify(groupRepository, never()).save(any(Group.class));
+        }
+    }
+
+    // ===== getUserPendingGroups Tests =====
+    
+    @Test
+    void getUserPendingGroups_Success_WithMultiplePendingGroups() {
+        // Given
+        User currentUser = createTestUserWithId(1, "Test User", "test@example.com");
+        
+        Group pendingGroup1 = createTestGroupWithId(1, "Pending Group 1", true);
+        Group pendingGroup2 = createTestGroupWithId(2, "Pending Group 2", true);
+        
+        GroupMember pendingMembership1 = createGroupMember(pendingGroup1, currentUser, GroupMemberRole.MEMBER, GroupMemberStatus.PENDING_APPROVAL);
+        pendingMembership1.setJoinDate(LocalDateTime.now().minusDays(2));
+        
+        GroupMember pendingMembership2 = createGroupMember(pendingGroup2, currentUser, GroupMemberRole.MEMBER, GroupMemberStatus.PENDING_APPROVAL);
+        pendingMembership2.setJoinDate(LocalDateTime.now().minusDays(1));
+        
+        List<GroupMember> pendingMemberships = Arrays.asList(pendingMembership1, pendingMembership2);
+        
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupMemberRepository.findUserPendingGroups(currentUser.getUserId(), GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(pendingMemberships);
+            when(groupMemberRepository.countActiveGroupMembers(1, GroupMemberStatus.ACTIVE)).thenReturn(5L);
+            when(groupMemberRepository.countActiveGroupMembers(2, GroupMemberStatus.ACTIVE)).thenReturn(3L);
+
+            // When
+            List<UserPendingGroupResponse> result = groupService.getUserPendingGroups();
+
+            // Then
+            assertNotNull(result);
+            assertEquals(2, result.size());
+            
+            // Verify first group
+            UserPendingGroupResponse firstGroup = result.get(0);
+            assertEquals(1, firstGroup.getGroupId());
+            assertEquals("Pending Group 1", firstGroup.getGroupName());
+            assertEquals(5, firstGroup.getActiveMemberCount());
+            assertEquals(pendingMembership1.getJoinDate(), firstGroup.getRequestedAt());
+            
+            // Verify second group
+            UserPendingGroupResponse secondGroup = result.get(1);
+            assertEquals(2, secondGroup.getGroupId());
+            assertEquals("Pending Group 2", secondGroup.getGroupName());
+            assertEquals(3, secondGroup.getActiveMemberCount());
+            assertEquals(pendingMembership2.getJoinDate(), secondGroup.getRequestedAt());
+
+            verify(groupMemberRepository).findUserPendingGroups(currentUser.getUserId(), GroupMemberStatus.PENDING_APPROVAL);
+            verify(groupMemberRepository).countActiveGroupMembers(1, GroupMemberStatus.ACTIVE);
+            verify(groupMemberRepository).countActiveGroupMembers(2, GroupMemberStatus.ACTIVE);
+        }
+    }
+
+    @Test
+    void getUserPendingGroups_Success_WithEmptyList() {
+        // Given
+        User currentUser = createTestUserWithId(1, "Test User", "test@example.com");
+        
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            when(groupMemberRepository.findUserPendingGroups(currentUser.getUserId(), GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Collections.emptyList());
+
+            // When
+            List<UserPendingGroupResponse> result = groupService.getUserPendingGroups();
+
+            // Then
+            assertNotNull(result);
+            assertTrue(result.isEmpty());
+
+            verify(groupMemberRepository).findUserPendingGroups(currentUser.getUserId(), GroupMemberStatus.PENDING_APPROVAL);
+            verify(groupMemberRepository, never()).countActiveGroupMembers(anyInt(), any(GroupMemberStatus.class));
+        }
+    }
+
+    @Test
+    void getUserPendingGroups_ThrowsException_WhenUserNotFound() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(null);
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class,
+                    () -> groupService.getUserPendingGroups());
+
+            assertEquals("Unable to identify the current user", exception.getMessage());
+
+            verify(groupMemberRepository, never()).findUserPendingGroups(anyInt(), any(GroupMemberStatus.class));
         }
     }
 

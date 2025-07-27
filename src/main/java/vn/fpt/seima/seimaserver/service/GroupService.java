@@ -6,6 +6,7 @@ import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.UserJoinedGroupResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberStatusResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.UserPendingGroupResponse;
 import vn.fpt.seima.seimaserver.exception.GroupException;
 
 import java.util.List;
@@ -32,4 +33,7 @@ public interface GroupService {
     
     // New method for owner exit flow
     void deleteGroup(Integer groupId);
+    
+
+    List<UserPendingGroupResponse> getUserPendingGroups();
 }
