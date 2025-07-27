@@ -7,15 +7,20 @@ import vn.fpt.seima.seimaserver.dto.response.budget.FinancialHealthResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.repository.BudgetRepository;
 import vn.fpt.seima.seimaserver.repository.TransactionRepository;
+import vn.fpt.seima.seimaserver.repository.UserDeviceRepository;
 import vn.fpt.seima.seimaserver.service.BudgetService;
+import vn.fpt.seima.seimaserver.service.FcmService;
 import vn.fpt.seima.seimaserver.service.FinancialHealthService;
+import vn.fpt.seima.seimaserver.service.UserService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -23,8 +28,10 @@ import java.util.List;
 public class FinancialHealthServiceImpl implements FinancialHealthService {
     private final BudgetRepository budgetRepository;
     private final TransactionRepository transactionRepository;
-
-
+    private final FcmService fcmService;
+    private final UserDeviceRepository userDeviceRepository;
+    private static final String TITLE = "Financial Health Notification";
+    private static final String MESSAGE = "Your financial health is currently low. Consider reviewing your expenses.";
     /**
      * @return
      */
@@ -146,6 +153,19 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
         }
 
         int finalScore = savingScore + budgetScore + assetScore;
+        List<Integer> userIds = Collections.singletonList(currentUser.getUserId());
+        List<String> fcmTokens = userDeviceRepository.findFcmTokensByUserIds(userIds);
+        finalScore = 39;
+        if (finalScore < 40) {
+
+            Map<String, String> data = Map.of(
+                    "type", "group_notification",
+                    "senderUserId", currentUser.getUserId().toString(),
+                    "senderName", currentUser.getUserFullName()
+            );
+
+            fcmService.sendMulticastNotification(fcmTokens, TITLE, MESSAGE, data);
+        }
         String level;
         if (finalScore >= 80) {
             level = "Very Good";

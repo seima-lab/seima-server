@@ -71,7 +71,7 @@ public class UserController {
         // Lưu data vào bảng user_device với logic đúng
         if(userDeviceRepository.existsByDeviceId(meRequestDto.getDeviceId())) {
             // Device đã tồn tại → chỉ update thông tin
-            userDeviceService.updateDeviceUser(meRequestDto.getDeviceId(), meRequestDto.getFcmToken());
+            userDeviceService.updateDeviceUser(currentUser.getUserId(),meRequestDto.getDeviceId(), meRequestDto.getFcmToken());
         } else {
             // Device chưa tồn tại → tạo mới
             userDeviceService.createDevice(currentUser.getUserId(), meRequestDto.getDeviceId(), meRequestDto.getFcmToken());

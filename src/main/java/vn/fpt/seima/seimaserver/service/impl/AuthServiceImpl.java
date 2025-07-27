@@ -110,10 +110,7 @@ public class AuthServiceImpl implements AuthService {
     private final Map<String,Bucket> rateLimitBuckets = new ConcurrentHashMap<>();
     private static final String OTP_KEY_PREFIX = "otp-:";
 
-    @Override
-    public void logout(HttpServletRequest request) {
 
-    }
 
 
     @Override
@@ -423,7 +420,7 @@ public class AuthServiceImpl implements AuthService {
         // Lưu data vào bảng user_device với logic đúng
         if(userDeviceRepository.existsByDeviceId(loginRequestDto.getDeviceId())) {
             // Device đã tồn tại → chỉ update thông tin
-            userDeviceService.updateDeviceUser(loginRequestDto.getDeviceId(), loginRequestDto.getFcmToken());
+            userDeviceService.updateDeviceUser(user.getUserId(),loginRequestDto.getDeviceId(), loginRequestDto.getFcmToken());
         } else {
             // Device chưa tồn tại → tạo mới
             userDeviceService.createDevice(user.getUserId(), loginRequestDto.getDeviceId(), loginRequestDto.getFcmToken());
@@ -508,7 +505,7 @@ public class AuthServiceImpl implements AuthService {
         }
     }
     
-    @Override
+
     @Transactional
     public boolean resetPassword(ResetPasswordRequestDto resetPasswordRequestDto) {
         String email = resetPasswordRequestDto.getEmail();

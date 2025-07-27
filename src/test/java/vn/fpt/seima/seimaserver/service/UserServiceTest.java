@@ -106,8 +106,8 @@ class UserServiceTest {
 
         // When & Then
         ResourceNotFoundException exception = assertThrows(
-            ResourceNotFoundException.class,
-            () -> userService.findUserById(userId)
+                ResourceNotFoundException.class,
+                () -> userService.findUserById(userId)
         );
         assertEquals("User not found", exception.getMessage());
         verify(userRepository).findById(userId);
@@ -127,9 +127,9 @@ class UserServiceTest {
 
             // Then
             verify(userRepository).save(testUser);
-            verify(userDeviceService).updateDeviceUser(userCreationRequest.getDeviceId(), userCreationRequest.getFcmToken());
+            verify(userDeviceService).updateDeviceUser(testUser.getUserId(), userCreationRequest.getDeviceId(), userCreationRequest.getFcmToken());
             verify(userDeviceService, never()).createDevice(anyInt(), anyString(), anyString());
-            
+
             assertEquals(userCreationRequest.getFullName(), testUser.getUserFullName());
             assertEquals(userCreationRequest.isGender(), testUser.getUserGender());
             assertEquals(userCreationRequest.getBirthDate(), testUser.getUserDob());
@@ -142,8 +142,8 @@ class UserServiceTest {
     void processAddNewUser_WhenRequestIsNull_ShouldThrowIllegalArgumentException() {
         // When & Then
         IllegalArgumentException exception = assertThrows(
-            IllegalArgumentException.class,
-            () -> userService.processAddNewUser(null)
+                IllegalArgumentException.class,
+                () -> userService.processAddNewUser(null)
         );
         assertEquals("User creation request cannot be null", exception.getMessage());
     }
@@ -156,8 +156,8 @@ class UserServiceTest {
 
             // When & Then
             IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
-                () -> userService.processAddNewUser(userCreationRequest)
+                    IllegalStateException.class,
+                    () -> userService.processAddNewUser(userCreationRequest)
             );
             assertEquals("Authenticated user not found. Cannot process user creation/update.", exception.getMessage());
         }
@@ -172,8 +172,8 @@ class UserServiceTest {
 
             // When & Then
             NotMatchCurrentGmailException exception = assertThrows(
-                NotMatchCurrentGmailException.class,
-                () -> userService.processAddNewUser(userCreationRequest)
+                    NotMatchCurrentGmailException.class,
+                    () -> userService.processAddNewUser(userCreationRequest)
             );
             assertEquals("Email in request does not match the authenticated user's email.", exception.getMessage());
         }
@@ -191,7 +191,7 @@ class UserServiceTest {
             userService.processAddNewUser(userCreationRequest);
 
             // Then
-            verify(userDeviceService, never()).updateDeviceUser(anyString(), anyString());
+            verify(userDeviceService, never()).updateDeviceUser(anyInt(), anyString(), anyString());
             verify(userDeviceService).createDevice(testUser.getUserId(), userCreationRequest.getDeviceId(), userCreationRequest.getFcmToken());
         }
     }
@@ -217,8 +217,8 @@ class UserServiceTest {
     void deactivateUserAccount_WhenUserIdIsNull_ShouldThrowIllegalArgumentException() {
         // When & Then
         IllegalArgumentException exception = assertThrows(
-            IllegalArgumentException.class,
-            () -> userService.deactivateUserAccount(null)
+                IllegalArgumentException.class,
+                () -> userService.deactivateUserAccount(null)
         );
         assertEquals("User ID cannot be null", exception.getMessage());
     }
@@ -231,8 +231,8 @@ class UserServiceTest {
 
         // When & Then
         ResourceNotFoundException exception = assertThrows(
-            ResourceNotFoundException.class,
-            () -> userService.deactivateUserAccount(userId)
+                ResourceNotFoundException.class,
+                () -> userService.deactivateUserAccount(userId)
         );
         assertEquals("User not found with id: " + userId, exception.getMessage());
     }
@@ -276,8 +276,8 @@ class UserServiceTest {
     void updateUserProfileWithImage_WhenUserIdIsNull_ShouldThrowIllegalArgumentException() {
         // When & Then
         IllegalArgumentException exception = assertThrows(
-            IllegalArgumentException.class,
-            () -> userService.updateUserProfileWithImage(null, userUpdateRequest)
+                IllegalArgumentException.class,
+                () -> userService.updateUserProfileWithImage(null, userUpdateRequest)
         );
         assertEquals("User ID cannot be null", exception.getMessage());
     }
@@ -290,8 +290,8 @@ class UserServiceTest {
 
         // When & Then
         ResourceNotFoundException exception = assertThrows(
-            ResourceNotFoundException.class,
-            () -> userService.updateUserProfileWithImage(userId, userUpdateRequest)
+                ResourceNotFoundException.class,
+                () -> userService.updateUserProfileWithImage(userId, userUpdateRequest)
         );
         assertEquals("User not found with id: " + userId, exception.getMessage());
     }
@@ -317,12 +317,12 @@ class UserServiceTest {
         // Given
         Integer userId = 1;
         MockMultipartFile imageFile = new MockMultipartFile(
-            "image", "test.jpg", "image/jpeg", "test image content".getBytes()
+                "image", "test.jpg", "image/jpeg", "test image content".getBytes()
         );
         userUpdateRequest.setImage(imageFile);
-        
+
         Map<String, Object> uploadResult = Map.of("secure_url", "http://example.com/new-uploaded-avatar.jpg");
-        
+
         when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
         when(cloudinaryService.uploadImage(any(MultipartFile.class), eq("users/avatars"))).thenReturn(uploadResult);
         when(userRepository.save(any(User.class))).thenReturn(testUser);
@@ -343,16 +343,16 @@ class UserServiceTest {
         // Create a file larger than 5MB
         byte[] largeContent = new byte[6 * 1024 * 1024]; // 6MB
         MockMultipartFile largeImageFile = new MockMultipartFile(
-            "image", "large.jpg", "image/jpeg", largeContent
+                "image", "large.jpg", "image/jpeg", largeContent
         );
         userUpdateRequest.setImage(largeImageFile);
-        
+
         when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
 
         // When & Then
         IllegalArgumentException exception = assertThrows(
-            IllegalArgumentException.class,
-            () -> userService.updateUserProfileWithImage(userId, userUpdateRequest)
+                IllegalArgumentException.class,
+                () -> userService.updateUserProfileWithImage(userId, userUpdateRequest)
         );
         assertEquals("Image file size must be less than 5MB", exception.getMessage());
     }
@@ -362,16 +362,16 @@ class UserServiceTest {
         // Given
         Integer userId = 1;
         MockMultipartFile invalidImageFile = new MockMultipartFile(
-            "image", "test.txt", "text/plain", "test content".getBytes()
+                "image", "test.txt", "text/plain", "test content".getBytes()
         );
         userUpdateRequest.setImage(invalidImageFile);
-        
+
         when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
 
         // When & Then
         IllegalArgumentException exception = assertThrows(
-            IllegalArgumentException.class,
-            () -> userService.updateUserProfileWithImage(userId, userUpdateRequest)
+                IllegalArgumentException.class,
+                () -> userService.updateUserProfileWithImage(userId, userUpdateRequest)
         );
         assertEquals("Unsupported image format. Supported formats: jpg, jpeg, png, gif, webp", exception.getMessage());
     }
@@ -382,16 +382,16 @@ class UserServiceTest {
         Integer userId = 1;
         // File có extension hợp lệ nhưng MIME type không phải image
         MockMultipartFile invalidMimeFile = new MockMultipartFile(
-            "image", "test.jpg", "text/plain", "test content".getBytes()
+                "image", "test.jpg", "text/plain", "test content".getBytes()
         );
         userUpdateRequest.setImage(invalidMimeFile);
-        
+
         when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
 
         // When & Then
         IllegalArgumentException exception = assertThrows(
-            IllegalArgumentException.class,
-            () -> userService.updateUserProfileWithImage(userId, userUpdateRequest)
+                IllegalArgumentException.class,
+                () -> userService.updateUserProfileWithImage(userId, userUpdateRequest)
         );
         assertEquals("File must be an image", exception.getMessage());
     }
@@ -401,17 +401,17 @@ class UserServiceTest {
         // Given
         Integer userId = 1;
         MockMultipartFile imageFile = new MockMultipartFile(
-            "image", "test.jpg", "image/jpeg", "test image content".getBytes()
+                "image", "test.jpg", "image/jpeg", "test image content".getBytes()
         );
         userUpdateRequest.setImage(imageFile);
         userUpdateRequest.setRemoveCurrentAvatar(true);
-        
+
         when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
 
         // When & Then
         IllegalArgumentException exception = assertThrows(
-            IllegalArgumentException.class,
-            () -> userService.updateUserProfileWithImage(userId, userUpdateRequest)
+                IllegalArgumentException.class,
+                () -> userService.updateUserProfileWithImage(userId, userUpdateRequest)
         );
         assertEquals("Cannot provide new image and remove current avatar at the same time", exception.getMessage());
     }
@@ -421,19 +421,19 @@ class UserServiceTest {
         // Given
         Integer userId = 1;
         MockMultipartFile imageFile = new MockMultipartFile(
-            "image", "test.jpg", "image/jpeg", "test image content".getBytes()
+                "image", "test.jpg", "image/jpeg", "test image content".getBytes()
         );
         userUpdateRequest.setImage(imageFile);
-        
+
         when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
         when(cloudinaryService.uploadImage(any(MultipartFile.class), eq("users/avatars")))
-            .thenThrow(new RuntimeException("Cloudinary upload failed"));
+                .thenThrow(new RuntimeException("Cloudinary upload failed"));
 
         // When & Then
         RuntimeException exception = assertThrows(
-            RuntimeException.class,
-            () -> userService.updateUserProfileWithImage(userId, userUpdateRequest)
+                RuntimeException.class,
+                () -> userService.updateUserProfileWithImage(userId, userUpdateRequest)
         );
         assertTrue(exception.getMessage().contains("Failed to upload avatar"));
     }
-} 
+}
