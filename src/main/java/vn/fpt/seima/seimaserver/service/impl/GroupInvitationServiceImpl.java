@@ -319,13 +319,13 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
         StringBuilder message = new StringBuilder();
 
         if (emailSent && invitationToken != null) {
-            message.append("Invitation sent successfully with token link. User has been invited to join the group.");
+            message.append("The invitation has been sent successfully.");
         } else if (emailSent && invitationToken == null) {
-            message.append("Invitation sent successfully but token creation failed. User has been invited to join the group.");
+            message.append("The invitation has been sent successfully.");
         } else if (!emailSent && invitationToken != null) {
-            message.append("Invitation created with token but email delivery failed. User has been invited to join the group.");
+            message.append("Invitation created but email delivery failed.");
         } else {
-            message.append("Invitation created but both email delivery and token creation failed. User has been invited to join the group.");
+            message.append("Invitation created but email delivery failed.");
         }
 
         return message.toString();

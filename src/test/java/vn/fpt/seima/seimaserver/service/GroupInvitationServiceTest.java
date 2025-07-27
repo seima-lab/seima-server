@@ -161,14 +161,14 @@ class GroupInvitationServiceTest {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
             
             when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
+            when(groupMemberRepository.findByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
                     .thenReturn(Optional.of(mockGroupMember));
             when(groupPermissionService.canInviteMembers(GroupMemberRole.OWNER)).thenReturn(true);
             when(userRepository.findByUserEmailAndUserIsActiveTrue(TEST_EMAIL))
                     .thenReturn(Optional.of(mockTargetUser));
             when(groupMemberRepository.existsByUserAndGroupAndStatus(TEST_TARGET_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
                     .thenReturn(false);
-            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
+            when(groupMemberRepository.findByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
                     .thenReturn(Optional.empty());
             when(groupMemberRepository.save(any(GroupMember.class))).thenReturn(mockInvitation);
             when(invitationTokenService.createInvitationToken(any(InvitationTokenData.class))).thenReturn(TEST_TOKEN);
@@ -202,7 +202,7 @@ class GroupInvitationServiceTest {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
             
             when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
+            when(groupMemberRepository.findByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
                     .thenReturn(Optional.of(mockGroupMember));
             when(groupPermissionService.canInviteMembers(GroupMemberRole.OWNER)).thenReturn(true);
             when(userRepository.findByUserEmailAndUserIsActiveTrue(TEST_EMAIL))
@@ -309,7 +309,7 @@ class GroupInvitationServiceTest {
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
             when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
+            when(groupMemberRepository.findByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
                     .thenReturn(Optional.empty());
 
             // When & Then
@@ -327,7 +327,7 @@ class GroupInvitationServiceTest {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
             mockGroupMember.setRole(GroupMemberRole.MEMBER);
             when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
+            when(groupMemberRepository.findByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
                     .thenReturn(Optional.of(mockGroupMember));
             when(groupPermissionService.canInviteMembers(GroupMemberRole.MEMBER)).thenReturn(false);
 
@@ -345,7 +345,7 @@ class GroupInvitationServiceTest {
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
             when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
+            when(groupMemberRepository.findByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
                     .thenReturn(Optional.of(mockGroupMember));
             when(groupPermissionService.canInviteMembers(GroupMemberRole.OWNER)).thenReturn(true);
             when(userRepository.findByUserEmailAndUserIsActiveTrue(TEST_EMAIL))
@@ -367,7 +367,7 @@ class GroupInvitationServiceTest {
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
             when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
+            when(groupMemberRepository.findByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
                     .thenReturn(Optional.of(mockGroupMember));
             when(groupPermissionService.canInviteMembers(GroupMemberRole.OWNER)).thenReturn(true);
             when(userRepository.findByUserEmailAndUserIsActiveTrue(TEST_EMAIL))
@@ -377,7 +377,7 @@ class GroupInvitationServiceTest {
             
             GroupMember existingInvitation = new GroupMember();
             existingInvitation.setStatus(GroupMemberStatus.INVITED);
-            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
+            when(groupMemberRepository.findByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
                     .thenReturn(Optional.of(existingInvitation));
 
             // When & Then
@@ -396,14 +396,14 @@ class GroupInvitationServiceTest {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
             
             when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
+            when(groupMemberRepository.findByUserIdAndGroupId(TEST_CURRENT_USER_ID, TEST_GROUP_ID))
                     .thenReturn(Optional.of(mockGroupMember));
             when(groupPermissionService.canInviteMembers(GroupMemberRole.OWNER)).thenReturn(true);
             when(userRepository.findByUserEmailAndUserIsActiveTrue(TEST_EMAIL))
                     .thenReturn(Optional.of(mockTargetUser));
             when(groupMemberRepository.existsByUserAndGroupAndStatus(TEST_TARGET_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
                     .thenReturn(false);
-            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
+            when(groupMemberRepository.findByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
                     .thenReturn(Optional.empty());
             when(groupMemberRepository.save(any(GroupMember.class))).thenReturn(mockInvitation);
             when(invitationTokenService.createInvitationToken(any(InvitationTokenData.class))).thenReturn(TEST_TOKEN);
@@ -438,7 +438,7 @@ class GroupInvitationServiceTest {
         setupAppPropertiesMock();
         when(invitationTokenService.getInvitationTokenData(TEST_TOKEN)).thenReturn(Optional.of(mockTokenData));
         when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-        when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
+        when(groupMemberRepository.findByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
                 .thenReturn(Optional.of(mockInvitation));
         when(groupMemberRepository.save(any(GroupMember.class))).thenReturn(mockInvitation);
         when(invitationTokenService.updateInvitationTokenStatus(TEST_TOKEN, "PENDING_APPROVAL")).thenReturn(true);
@@ -471,7 +471,7 @@ class GroupInvitationServiceTest {
         mockInvitation.setStatus(GroupMemberStatus.PENDING_APPROVAL);
         when(invitationTokenService.getInvitationTokenData(TEST_TOKEN)).thenReturn(Optional.of(mockTokenData));
         when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-        when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
+        when(groupMemberRepository.findByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
                 .thenReturn(Optional.of(mockInvitation));
         when(branchLinkService.createInvitationDeepLink(TEST_GROUP_ID, TEST_TARGET_USER_ID, TEST_CURRENT_USER_ID, "RECHECK_PENDING_STATUS"))
                 .thenReturn(mockBranchLink);
@@ -498,7 +498,7 @@ class GroupInvitationServiceTest {
         mockInvitation.setStatus(GroupMemberStatus.ACTIVE);
         when(invitationTokenService.getInvitationTokenData(TEST_TOKEN)).thenReturn(Optional.of(mockTokenData));
         when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-        when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
+        when(groupMemberRepository.findByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
                 .thenReturn(Optional.of(mockInvitation));
         when(branchLinkService.createInvitationDeepLink(TEST_GROUP_ID, null, null, "VIEW_GROUP"))
                 .thenReturn(mockBranchLink);
@@ -589,7 +589,7 @@ class GroupInvitationServiceTest {
         // Given
         when(invitationTokenService.getInvitationTokenData(TEST_TOKEN)).thenReturn(Optional.of(mockTokenData));
         when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-        when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
+        when(groupMemberRepository.findByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
                 .thenReturn(Optional.empty());
 
         // When
@@ -608,7 +608,7 @@ class GroupInvitationServiceTest {
         mockInvitation.setStatus(GroupMemberStatus.LEFT);
         when(invitationTokenService.getInvitationTokenData(TEST_TOKEN)).thenReturn(Optional.of(mockTokenData));
         when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-        when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
+        when(groupMemberRepository.findByUserIdAndGroupId(TEST_TARGET_USER_ID, TEST_GROUP_ID))
                 .thenReturn(Optional.of(mockInvitation));
 
         // When
