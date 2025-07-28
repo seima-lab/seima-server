@@ -44,7 +44,10 @@ public enum NotificationType {
     // General notifications
     GENERAL_INFO("GENERAL_INFO", "General information"),
     GENERAL_WARNING("GENERAL_WARNING", "General warning"),
-    GENERAL_ERROR("GENERAL_ERROR", "General error");
+    GENERAL_ERROR("GENERAL_ERROR", "General error"),
+
+    // Financial Health
+    FINANCIAL_HEALTH_LOW("FINANCIAL_HEALTH_LOW", "Financial health low");
     
     private final String code;
     private final String description;
