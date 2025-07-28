@@ -50,4 +50,7 @@ public interface NotificationService {
 
     void sendRejectionNotificationToUser(Integer groupId, Integer userId, String groupName, String rejectedByUserName);
 
+
+    void sendAcceptanceNotificationToUser(Integer groupId, Integer userId, String groupName, String acceptedByUserName);
+
 } 

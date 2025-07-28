@@ -21,6 +21,7 @@ import vn.fpt.seima.seimaserver.service.GroupMemberService;
 import vn.fpt.seima.seimaserver.service.GroupPermissionService;
 import vn.fpt.seima.seimaserver.service.InvitationTokenService;
 import vn.fpt.seima.seimaserver.service.NotificationService;
+import vn.fpt.seima.seimaserver.service.EmailService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.util.List;
@@ -37,6 +38,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
     private final GroupPermissionService groupPermissionService;
     private final InvitationTokenService invitationTokenService;
     private final NotificationService notificationService;
+    private final EmailService emailService;
 
     @Override
     @Transactional(readOnly = true)
@@ -219,6 +221,29 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         } catch (Exception e) {
             log.warn("Failed to remove invitation token for user {} in group {} - continuing with acceptance", 
                     request.getUserId(), groupId, e);
+        }
+
+        // Send notification to the accepted user
+        try {
+            notificationService.sendAcceptanceNotificationToUser(
+                groupId,
+                request.getUserId(),
+                group.getGroupName(),
+                currentUser.getUserFullName()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send acceptance notification to user {} for group {}", 
+                    request.getUserId(), groupId, e);
+            // Don't fail the entire acceptance process if notification fails
+        }
+
+        // Send email to the accepted user
+        try {
+            sendAcceptanceEmail(pendingMember.getUser(), group, currentUser);
+        } catch (Exception e) {
+            log.error("Failed to send acceptance email to user {} for group {}", 
+                    request.getUserId(), groupId, e);
+            // Don't fail the entire acceptance process if email fails
         }
 
         log.info("Successfully accepted group member request for user {} in group {}", 
@@ -1053,6 +1078,43 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         // ADMIN and MEMBER can exit
         if (role != GroupMemberRole.ADMIN && role != GroupMemberRole.MEMBER) {
             throw new GroupException("Invalid role for exit operation");
+        }
+    }
+
+    /**
+     * Send acceptance email to the user
+     */
+    private void sendAcceptanceEmail(User acceptedUser, Group group, User acceptedByUser) {
+        try {
+            // Get member count
+            Long memberCount = groupMemberRepository.countActiveGroupMembers(
+                    group.getGroupId(), GroupMemberStatus.ACTIVE);
+
+            // Prepare email context
+            org.thymeleaf.context.Context context = new org.thymeleaf.context.Context();
+            context.setVariable("acceptedUserName", acceptedUser.getUserFullName());
+            context.setVariable("acceptedByUserName", acceptedByUser.getUserFullName());
+            context.setVariable("groupName", group.getGroupName());
+            context.setVariable("groupAvatarUrl", group.getGroupAvatarUrl());
+            context.setVariable("memberCount", memberCount.intValue());
+            context.setVariable("appName", "Seima"); // You might want to get this from AppProperties
+
+            // Send email
+            String subject = String.format("Welcome to '%s' group on Seima", group.getGroupName());
+            
+            emailService.sendEmailWithHtmlTemplate(
+                    acceptedUser.getUserEmail(),
+                    subject,
+                    "group-acceptance",
+                    context
+            );
+
+            log.info("Acceptance email sent successfully to: {}", acceptedUser.getUserEmail());
+            
+        } catch (Exception e) {
+            log.error("Failed to send acceptance email to: {} for group: {}", 
+                    acceptedUser.getUserEmail(), group.getGroupId(), e);
+            throw e; // Re-throw to be caught by the calling method
         }
     }
 } 

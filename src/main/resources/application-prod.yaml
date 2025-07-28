@@ -32,6 +32,9 @@ app:
     group-invitation:
       html-template: "group-invitation"
       subject: "Seima - Group Invitation"
+    sender:
+      name: "Seima Team"
+      email: "noreply@seima.app"
 
 
 # Server configuration

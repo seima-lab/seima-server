@@ -414,6 +414,63 @@ public class NotificationServiceImpl implements NotificationService {
         }
     }
 
+    @Override
+    @Transactional
+    public void sendAcceptanceNotificationToUser(Integer groupId, Integer userId, String groupName, String acceptedByUserName) {
+        logger.info("Sending acceptance notification to user: {} for group: {} by user: {}", userId, groupId, acceptedByUserName);
+        
+        // Validate input first - these exceptions should be thrown
+        if (groupId == null || groupId <= 0) {
+            throw new IllegalArgumentException("Group ID must be positive");
+        }
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("User ID must be positive");
+        }
+        if (groupName == null || groupName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Group name cannot be empty");
+        }
+        if (acceptedByUserName == null || acceptedByUserName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Accepted by user name cannot be empty");
+        }
+        
+        try {
+            // Get user to send notification to
+            Optional<User> userOpt = userRepository.findById(userId);
+            if (userOpt.isEmpty()) {
+                logger.warn("User not found: {}", userId);
+                return;
+            }
+            User user = userOpt.get();
+            
+            // Create notification for the user themselves (system notification)
+            String title = "Join Request Accepted";
+            String message = String.format("Your request to join \"%s\" group has been accepted by %s", groupName, acceptedByUserName);
+            String linkToEntity = "seimaapp://groups/" + groupId + "/status";
+            
+            Notification notification = createNotification(user, null, groupId, 
+                                                         NotificationType.GROUP_JOIN_APPROVED, title, 
+                                                         message, linkToEntity);
+            
+            // Save notification
+            Notification savedNotification = notificationRepository.save(notification);
+            
+            // Send FCM notification
+            boolean fcmSuccess = sendFcmNotificationToUser(userId, title, message, groupId);
+            
+            // Update sent_at timestamp if FCM was successful
+            if (fcmSuccess) {
+                savedNotification.setSentAt(LocalDateTime.now());
+                notificationRepository.save(savedNotification);
+            }
+            
+            logger.info("Successfully sent acceptance notification to user: {} for group: {}", userId, groupId);
+            
+        } catch (Exception e) {
+            logger.error("Error sending acceptance notification to user: {} for group: {}", userId, groupId, e);
+            // Don't throw exception to avoid affecting main flow
+        }
+    }
+
 
     
     /**
