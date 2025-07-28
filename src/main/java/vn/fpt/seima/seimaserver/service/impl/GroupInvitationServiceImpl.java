@@ -10,7 +10,10 @@ import org.thymeleaf.context.Context;
 import vn.fpt.seima.seimaserver.config.base.AppProperties;
 import vn.fpt.seima.seimaserver.dto.request.group.EmailInvitationRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.InvitationTokenData;
-import vn.fpt.seima.seimaserver.dto.response.group.*;
+import vn.fpt.seima.seimaserver.dto.response.group.BranchLinkResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.EmailInvitationResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.GroupInvitationLandingResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.ResultType;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.GroupException;
 import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
@@ -42,6 +45,7 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
     private final AppProperties appProperties;
     private final InvitationTokenService invitationTokenService;
     private final NotificationService notificationService;
+
 
 
 
@@ -319,13 +323,13 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
         StringBuilder message = new StringBuilder();
 
         if (emailSent && invitationToken != null) {
-            message.append("Invitation sent successfully with token link. User has been invited to join the group.");
+            message.append("The invitation has been sent successfully.");
         } else if (emailSent && invitationToken == null) {
-            message.append("Invitation sent successfully but token creation failed. User has been invited to join the group.");
+            message.append("The invitation has been sent successfully.");
         } else if (!emailSent && invitationToken != null) {
-            message.append("Invitation created with token but email delivery failed. User has been invited to join the group.");
+            message.append("Invitation created but email delivery failed.");
         } else {
-            message.append("Invitation created but both email delivery and token creation failed. User has been invited to join the group.");
+            message.append("Invitation created but email delivery failed.");
         }
 
         return message.toString();
@@ -410,16 +414,44 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
             try {
                 // Lấy user name của người yêu cầu join
                 String invitedUserName = invitation.getUser().getUserFullName();
-                
+
                 notificationService.sendGroupJoinRequestNotification(
-                    tokenData.getGroupId(), 
-                    tokenData.getInvitedUserId(), 
-                    invitedUserName
+                        tokenData.getGroupId(),
+                        tokenData.getInvitedUserId(),
+                        invitedUserName
                 );
             } catch (Exception e) {
                 logger.error("Failed to send group join request notification", e);
                 // Không fail toàn bộ process nếu notification fail
             }
+
+            // Gửi email cho admin và owner
+            try {
+                List<GroupMember> adminAndOwners = groupMemberRepository.findAdminAndOwnerMembers(
+                    group.getGroupId(), GroupMemberStatus.ACTIVE
+                );
+                for (GroupMember member : adminAndOwners) {
+                    if (!member.getUser().getUserId().equals(tokenData.getInvitedUserId())) {
+                        Context context = new Context();
+                        context.setVariable("adminName", member.getUser().getUserFullName());
+                        context.setVariable("invitedUserName", invitation.getUser().getUserFullName());
+                        context.setVariable("groupName", group.getGroupName());
+                        context.setVariable("appName", appProperties.getLabName());
+
+                        String subject = String.format("New join request for '%s' group", group.getGroupName());
+
+                        emailService.sendEmailWithHtmlTemplate(
+                            member.getUser().getUserEmail(),
+                            subject,
+                            "group-join-request-notification",
+                            context
+                        );
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Failed to send join request email to admin/owner", e);
+            }
+
 
             logger.info("Successfully processed invitation token: {} - updated status to PENDING_APPROVAL, tokenUpdated: {}",
                     invitationToken, tokenUpdated);
