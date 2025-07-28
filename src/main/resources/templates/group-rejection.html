@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:remove="all">Welcome to Group - Seima</title>
+    <title th:remove="all">Group Request Update - Seima</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f5f5f5;">
     
@@ -18,8 +18,8 @@
                     <!-- Header Section -->
                     <tr>
                         <td style="padding: 40px 30px 30px 30px; text-align: center; border-bottom: 1px solid #e5e7eb;">
-                            <h1 style="margin: 0; color: #1f2937; font-size: 24px; font-weight: bold;">🎉 Welcome to the Group!</h1>
-                            <p style="margin: 15px 0 0 0; color: #6b7280; font-size: 16px;">Your request has been approved!</p>
+                            <h1 style="margin: 0; color: #1f2937; font-size: 24px; font-weight: bold;">📋 Group Request Update</h1>
+                            <p style="margin: 15px 0 0 0; color: #6b7280; font-size: 16px;">Your group membership request has been reviewed</p>
                         </td>
                     </tr>
                     
@@ -27,10 +27,10 @@
                     <tr>
                         <td style="padding: 30px 30px 20px 30px;">
                             <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
-                                Hi <strong th:text="${acceptedUserName}">User</strong>!
+                                Hi <strong th:text="${rejectedUserName}">User</strong>!
                             </p>
                             <p style="margin: 15px 0 0 0; color: #374151; font-size: 16px; line-height: 1.5;">
-                                Great news! Your request to join a group has been approved. You're now officially a member!
+                                We wanted to let you know that your request to join a group has been reviewed by the group administrators.
                             </p>
                         </td>
                     </tr>
@@ -58,29 +58,38 @@
                         </td>
                     </tr>
                     
-
+                    <!-- Rejection Status Section -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <p style="margin: 0 0 10px 0; color: #991b1b; font-weight: bold; font-size: 14px;">❌ Request Status: Not Approved</p>
+                                        <p style="margin: 0; color: #991b1b; font-size: 16px; font-weight: 600;" th:text="'Reviewed by: ' + ${reviewedByUserName}">Reviewed by: Admin Name</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
                     
                     <!-- Message Section -->
                     <tr>
                         <td style="padding: 0 30px 20px 30px;">
                             <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
-                                You can now access all the group features and start collaborating with other members. We're excited to have you on board!
+                                Unfortunately, your request to join this group was not approved at this time. This could be due to various reasons such as group capacity, current membership policies, or other administrative decisions.
                             </p>
                         </td>
                     </tr>
                     
-                    <!-- Open App Button Section -->
-                    
-                    
-                    <!-- Benefits Section -->
+                    <!-- Next Steps Section -->
                     <tr>
                         <td style="padding: 20px 30px;">
-                            <p style="margin: 0 0 15px 0; color: #374151; font-size: 16px; font-weight: bold;">Now you can:</p>
+                            <p style="margin: 0 0 15px 0; color: #374151; font-size: 16px; font-weight: bold;">What you can do:</p>
                             <ul style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.6;">
-                                <li style="margin-bottom: 8px;">💰 Track group expenses together</li>
-                                <li style="margin-bottom: 8px;">📊 Record shared transactions</li>
-                                <li style="margin-bottom: 8px;">📈 View collaborative financial reports</li>
-                                <li style="margin-bottom: 0;">👥 Manage budgets with group members</li>
+                                <li style="margin-bottom: 8px;">🔄 Try joining other groups that might be a better fit</li>
+                                <li style="margin-bottom: 8px;">📧 Contact the group administrator if you have questions</li>
+                                <li style="margin-bottom: 8px;">👥 Create your own group and invite others</li>
+                                <li style="margin-bottom: 0;">💡 Explore other financial management features in the app</li>
                             </ul>
                         </td>
                     </tr>
@@ -89,7 +98,7 @@
                     <tr>
                         <td style="padding: 0 30px 20px 30px;">
                             <p style="margin: 0; color: #6b7280; font-size: 14px; text-align: center;">
-                                If you have any questions or need assistance, feel free to reach out to the group administrators.
+                                If you have any questions about this decision, you can contact the group administrators directly.
                             </p>
                         </td>
                     </tr>
@@ -101,7 +110,7 @@
                                 This email was sent from <strong th:text="${appName}">Seima</strong>
                             </p>
                             <p style="margin: 0; color: #6b7280; font-size: 14px;">
-                                Thank you for using our platform!
+                                Thank you for your interest in our platform!
                             </p>
                         </td>
                     </tr>

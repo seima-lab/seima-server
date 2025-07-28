@@ -1,27 +1,22 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.thymeleaf.context.Context;
+import vn.fpt.seima.seimaserver.config.base.AppProperties;
 import vn.fpt.seima.seimaserver.dto.request.group.AcceptGroupMemberRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.RejectGroupMemberRequest;
-import vn.fpt.seima.seimaserver.dto.request.group.UpdateMemberRoleRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.TransferOwnershipRequest;
-import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberListResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.PendingGroupMemberListResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.PendingGroupMemberResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.OwnerExitOptionsResponse;
+import vn.fpt.seima.seimaserver.dto.request.group.UpdateMemberRoleRequest;
+import vn.fpt.seima.seimaserver.dto.response.group.*;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.GroupException;
 import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
 import vn.fpt.seima.seimaserver.repository.GroupRepository;
-import vn.fpt.seima.seimaserver.service.GroupMemberService;
-import vn.fpt.seima.seimaserver.service.GroupPermissionService;
-import vn.fpt.seima.seimaserver.service.InvitationTokenService;
-import vn.fpt.seima.seimaserver.service.NotificationService;
-import vn.fpt.seima.seimaserver.service.EmailService;
+import vn.fpt.seima.seimaserver.service.*;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.util.List;
@@ -30,15 +25,47 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@AllArgsConstructor
+
 public class GroupMemberServiceImpl implements GroupMemberService {
-    
-    private final GroupMemberRepository groupMemberRepository;
-    private final GroupRepository groupRepository;
-    private final GroupPermissionService groupPermissionService;
-    private final InvitationTokenService invitationTokenService;
-    private final NotificationService notificationService;
-    private final EmailService emailService;
+
+    @Autowired
+    private  GroupMemberRepository groupMemberRepository;
+    @Autowired
+    private  GroupRepository groupRepository;
+    @Autowired
+    private  GroupPermissionService groupPermissionService;
+    @Autowired
+    private  InvitationTokenService invitationTokenService;
+    @Autowired
+    private  NotificationService notificationService;
+    @Autowired
+    private  EmailService emailService;
+    @Autowired
+    private  AppProperties appProperties;
+
+    @Value("${app.email.group-rejection.html-template}")
+    private String groupRejectionHtmlTemplate;
+
+    @Value("${app.email.group-rejection.subject}")
+    private String groupRejectionSubject;
+
+    @Value("${app.email.group-acceptance.html-template}")
+    private String groupAcceptanceHtmlTemplate;
+
+    @Value("${app.email.group-acceptance.subject}")
+    private String groupAcceptanceSubject;
+
+    @Value("${app.email.group-role-update.html-template}")
+    private String groupRoleUpdateHtmlTemplate;
+
+    @Value("${app.email.group-role-update.subject}")
+    private String groupRoleUpdateSubject;
+
+    @Value("${app.email.group-role-update-notification.html-template}")
+    private String groupRoleUpdateNotificationHtmlTemplate;
+
+    @Value("${app.email.group-role-update-notification.subject}")
+    private String groupRoleUpdateNotificationSubject;
 
     @Override
     @Transactional(readOnly = true)
@@ -223,20 +250,6 @@ public class GroupMemberServiceImpl implements GroupMemberService {
                     request.getUserId(), groupId, e);
         }
 
-        // Send notification to the accepted user
-        try {
-            notificationService.sendAcceptanceNotificationToUser(
-                groupId,
-                request.getUserId(),
-                group.getGroupName(),
-                currentUser.getUserFullName()
-            );
-        } catch (Exception e) {
-            log.error("Failed to send acceptance notification to user {} for group {}", 
-                    request.getUserId(), groupId, e);
-            // Don't fail the entire acceptance process if notification fails
-        }
-
         // Send email to the accepted user
         try {
             sendAcceptanceEmail(pendingMember.getUser(), group, currentUser);
@@ -285,6 +298,9 @@ public class GroupMemberServiceImpl implements GroupMemberService {
                         request.getUserId(), groupId, GroupMemberStatus.PENDING_APPROVAL)
                 .orElseThrow(() -> new GroupException("No pending request found for this user"));
 
+        // Get the rejected user
+        User rejectedUser = pendingMember.getUser();
+
         // Reject the request: change status to REJECTED
         pendingMember.setStatus(GroupMemberStatus.REJECTED);
         groupMemberRepository.save(pendingMember);
@@ -300,18 +316,13 @@ public class GroupMemberServiceImpl implements GroupMemberService {
                     request.getUserId(), groupId, e);
         }
 
-        // Send notification to the rejected user
+        // Send rejection email to the rejected user
         try {
-            notificationService.sendRejectionNotificationToUser(
-                groupId,
-                request.getUserId(),
-                group.getGroupName(),
-                currentUser.getUserFullName()
-            );
+            sendRejectionEmail(rejectedUser, group, currentUser);
         } catch (Exception e) {
-            log.error("Failed to send rejection notification to user {} for group {}", 
+            log.error("Failed to send rejection email to user {} for group {}", 
                     request.getUserId(), groupId, e);
-            // Don't fail the entire rejection process if notification fails
+            // Don't fail the entire rejection process if email fails
         }
 
         log.info("Successfully rejected group member request for user {} in group {}", 
@@ -544,7 +555,81 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         memberToRemove.setStatus(GroupMemberStatus.LEFT);
         groupMemberRepository.save(memberToRemove);
 
+        // Gửi email cho user bị xóa
+        try {
+            sendMemberRemovedEmailToRemovedUser(group, memberToRemove.getUser(), currentUser);
+        } catch (Exception e) {
+            log.error("Failed to send member removed email to user {} for group {}", memberUserId, groupId, e);
+        }
+
+        // Gửi email cho các thành viên còn lại
+        try {
+            sendMemberRemovedEmailToGroup(group, memberToRemove.getUser(), currentUser);
+        } catch (Exception e) {
+            log.error("Failed to send member removed email to group {} for user {}", groupId, memberUserId, e);
+        }
+
+        // Gửi notification cho cả nhóm (trừ user bị xóa)
+        try {
+            notificationService.sendMemberRemovedNotificationToGroup(
+                groupId,
+                memberUserId,
+                memberToRemove.getUser().getUserFullName(),
+                currentUser.getUserFullName()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send member removed notification to group {} for user {}", groupId, memberUserId, e);
+        }
+
         log.info("Successfully removed member {} from group {}", memberUserId, groupId);
+    }
+
+    /**
+     * Gửi email cho user bị xóa khỏi group
+     */
+    private void sendMemberRemovedEmailToRemovedUser(Group group, User removedUser, User removedByUser) {
+        Context context = new Context();
+        context.setVariable("removedUserName", removedUser.getUserFullName());
+        context.setVariable("removedByUserName", removedByUser.getUserFullName());
+        context.setVariable("groupName", group.getGroupName());
+        context.setVariable("groupAvatarUrl", group.getGroupAvatarUrl());
+        context.setVariable("appName", appProperties.getLabName());
+        String subject = String.format("You have been removed from '%s' group on %s", group.getGroupName(), appProperties.getLabName());
+        emailService.sendEmailWithHtmlTemplate(
+            removedUser.getUserEmail(),
+            subject,
+            "group-member-removed",
+            context
+        );
+    }
+
+    /**
+     * Gửi email cho các thành viên còn lại khi có thành viên bị xóa
+     */
+    private void sendMemberRemovedEmailToGroup(Group group, User removedUser, User removedByUser) {
+        List<GroupMember> groupMembers = groupMemberRepository.findByGroupAndStatusAndUserIdNot(
+            group.getGroupId(), GroupMemberStatus.ACTIVE, removedUser.getUserId()
+        );
+        if (groupMembers.isEmpty()) return;
+        Context context = new Context();
+        context.setVariable("removedUserName", removedUser.getUserFullName());
+        context.setVariable("removedByUserName", removedByUser.getUserFullName());
+        context.setVariable("groupName", group.getGroupName());
+        context.setVariable("groupAvatarUrl", group.getGroupAvatarUrl());
+        context.setVariable("appName", appProperties.getLabName());
+        String subject = String.format("Member removed from '%s' group on %s", group.getGroupName(), appProperties.getLabName());
+        for (GroupMember member : groupMembers) {
+            try {
+                emailService.sendEmailWithHtmlTemplate(
+                    member.getUser().getUserEmail(),
+                    subject,
+                    "group-member-removed-notification",
+                    context
+                );
+            } catch (Exception e) {
+                log.error("Failed to send member removed notification email to: {} for group: {}", member.getUser().getUserEmail(), group.getGroupId(), e);
+            }
+        }
     }
 
     @Override
@@ -567,6 +652,9 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         // Find target member
         GroupMember targetMember = findActiveMemberForRoleUpdate(memberUserId, group);
 
+        // Store previous role for email notification
+        GroupMemberRole previousRole = targetMember.getRole();
+
         // Validate business rules
         validateRoleUpdateBusinessRules(currentUserId, memberUserId, targetMember.getRole(), request.getNewRole());
 
@@ -574,8 +662,58 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         targetMember.setRole(request.getNewRole());
         groupMemberRepository.save(targetMember);
 
+        // Send role update email to the updated member
+        try {
+            sendRoleUpdateEmail(targetMember.getUser(), group, currentUserMember.getUser(), previousRole, request.getNewRole());
+        } catch (Exception e) {
+            log.error("Failed to send role update email to user {} for group {}", 
+                    memberUserId, groupId, e);
+            // Don't fail the entire update process if email fails
+        }
+
+        // Send notification to the updated user
+        try {
+            notificationService.sendRoleUpdateNotificationToUser(
+                groupId,
+                memberUserId,
+                group.getGroupName(),
+                currentUserMember.getUser().getUserFullName(),
+                previousRole,
+                request.getNewRole()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send role update notification to user {} for group {}", 
+                    groupId, memberUserId, e);
+            // Don't fail the entire update process if notification fails
+        }
+
+        // Send notification to the group about role update
+        try {
+            notificationService.sendRoleUpdateNotificationToGroup(
+                groupId,
+                memberUserId,
+                targetMember.getUser().getUserFullName(),
+                currentUserMember.getUser().getUserFullName(),
+                previousRole,
+                request.getNewRole()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send role update notification to group {} for user {}", 
+                    groupId, memberUserId, e);
+            // Don't fail the entire update process if notification fails
+        }
+
+        // Send role update email to all group members
+        try {
+            sendRoleUpdateEmailToGroup(group, targetMember.getUser(), currentUserMember.getUser(), previousRole, request.getNewRole());
+        } catch (Exception e) {
+            log.error("Failed to send role update email to group {} for user {}", 
+                    groupId, memberUserId, e);
+            // Don't fail the entire update process if email fails
+        }
+
         log.info("Successfully updated member {} role from {} to {} in group {}", 
-                memberUserId, targetMember.getRole(), request.getNewRole(), groupId);
+                memberUserId, previousRole, request.getNewRole(), groupId);
     }
 
     /**
@@ -638,7 +776,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
      * Find active member for role update
      */
     private GroupMember findActiveMemberForRoleUpdate(Integer memberUserId, Group group) {
-        Optional<GroupMember> memberOptional = groupMemberRepository.findByUserIdAndGroupId(memberUserId, group.getGroupId());
+        Optional<GroupMember> memberOptional = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(memberUserId, group.getGroupId());
 
         if (memberOptional.isEmpty()) {
             throw new GroupException("Member not found in this group");
@@ -729,7 +867,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
      */
     private GroupMember findActiveMemberToRemove(Integer groupId, Integer memberUserId) {
         // Find the member to be removed
-        Optional<GroupMember> memberOptional = groupMemberRepository.findByUserIdAndGroupId(memberUserId, groupId);
+        Optional<GroupMember> memberOptional = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(memberUserId, groupId);
         
         if (memberOptional.isEmpty()) {
             throw new GroupException("Member not found in this group");
@@ -1082,6 +1220,44 @@ public class GroupMemberServiceImpl implements GroupMemberService {
     }
 
     /**
+     * Send rejection email to the user
+     */
+    private void sendRejectionEmail(User rejectedUser, Group group, User reviewedByUser) {
+        try {
+            // Get member count
+            Long memberCount = groupMemberRepository.countActiveGroupMembers(
+                    group.getGroupId(), GroupMemberStatus.ACTIVE);
+
+            // Prepare email context
+            Context context = new Context();
+            context.setVariable("rejectedUserName", rejectedUser.getUserFullName());
+            context.setVariable("reviewedByUserName", reviewedByUser.getUserFullName());
+            context.setVariable("groupName", group.getGroupName());
+            context.setVariable("groupAvatarUrl", group.getGroupAvatarUrl());
+            context.setVariable("memberCount", memberCount.intValue());
+            context.setVariable("appName", appProperties.getLabName());
+
+            // Send email
+            String subject = String.format("Group request update for '%s' on %s", 
+                    group.getGroupName(), appProperties.getLabName());
+            
+            emailService.sendEmailWithHtmlTemplate(
+                    rejectedUser.getUserEmail(),
+                    subject,
+                    groupRejectionHtmlTemplate,
+                    context
+            );
+
+            log.info("Rejection email sent successfully to: {}", rejectedUser.getUserEmail());
+            
+        } catch (Exception e) {
+            log.error("Failed to send rejection email to: {} for group: {}", 
+                    rejectedUser.getUserEmail(), group.getGroupId(), e);
+            throw e; // Re-throw to be caught by the calling method
+        }
+    }
+
+    /**
      * Send acceptance email to the user
      */
     private void sendAcceptanceEmail(User acceptedUser, Group group, User acceptedByUser) {
@@ -1091,21 +1267,22 @@ public class GroupMemberServiceImpl implements GroupMemberService {
                     group.getGroupId(), GroupMemberStatus.ACTIVE);
 
             // Prepare email context
-            org.thymeleaf.context.Context context = new org.thymeleaf.context.Context();
+            Context context = new Context();
             context.setVariable("acceptedUserName", acceptedUser.getUserFullName());
             context.setVariable("acceptedByUserName", acceptedByUser.getUserFullName());
             context.setVariable("groupName", group.getGroupName());
             context.setVariable("groupAvatarUrl", group.getGroupAvatarUrl());
             context.setVariable("memberCount", memberCount.intValue());
-            context.setVariable("appName", "Seima"); // You might want to get this from AppProperties
+            context.setVariable("appName", appProperties.getLabName());
 
             // Send email
-            String subject = String.format("Welcome to '%s' group on Seima", group.getGroupName());
+            String subject = String.format("Welcome to '%s' group on %s", 
+                    group.getGroupName(), appProperties.getLabName());
             
             emailService.sendEmailWithHtmlTemplate(
                     acceptedUser.getUserEmail(),
                     subject,
-                    "group-acceptance",
+                    groupAcceptanceHtmlTemplate,
                     context
             );
 
@@ -1114,6 +1291,107 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         } catch (Exception e) {
             log.error("Failed to send acceptance email to: {} for group: {}", 
                     acceptedUser.getUserEmail(), group.getGroupId(), e);
+            throw e; // Re-throw to be caught by the calling method
+        }
+    }
+
+    /**
+     * Send role update email to the user
+     */
+    private void sendRoleUpdateEmail(User updatedUser, Group group, User updatedByUser, 
+                                   GroupMemberRole previousRole, GroupMemberRole newRole) {
+        try {
+            // Get member count
+            Long memberCount = groupMemberRepository.countActiveGroupMembers(
+                    group.getGroupId(), GroupMemberStatus.ACTIVE);
+
+            // Prepare email context
+            Context context = new Context();
+            context.setVariable("updatedUserName", updatedUser.getUserFullName());
+            context.setVariable("updatedByUserName", updatedByUser.getUserFullName());
+            context.setVariable("groupName", group.getGroupName());
+            context.setVariable("groupAvatarUrl", group.getGroupAvatarUrl());
+            context.setVariable("memberCount", memberCount.intValue());
+            context.setVariable("previousRole", previousRole.name());
+            context.setVariable("newRole", newRole.name());
+            context.setVariable("appName", appProperties.getLabName());
+
+            // Send email
+            String subject = String.format("Role update in '%s' group on %s", 
+                    group.getGroupName(), appProperties.getLabName());
+            
+            emailService.sendEmailWithHtmlTemplate(
+                    updatedUser.getUserEmail(),
+                    subject,
+                    groupRoleUpdateHtmlTemplate,
+                    context
+            );
+
+            log.info("Role update email sent successfully to: {}", updatedUser.getUserEmail());
+            
+        } catch (Exception e) {
+            log.error("Failed to send role update email to: {} for group: {}", 
+                    updatedUser.getUserEmail(), group.getGroupId(), e);
+            throw e; // Re-throw to be caught by the calling method
+        }
+    }
+
+    /**
+     * Send role update email to all group members
+     */
+    private void sendRoleUpdateEmailToGroup(Group group, User updatedUser, User updatedByUser, 
+                                          GroupMemberRole previousRole, GroupMemberRole newRole) {
+        try {
+            // Get all active members of the group (excluding the updated user)
+            List<GroupMember> groupMembers = groupMemberRepository.findByGroupAndStatusAndUserIdNot(
+                    group.getGroupId(), GroupMemberStatus.ACTIVE, updatedUser.getUserId());
+            
+            if (groupMembers.isEmpty()) {
+                log.warn("No active members found in group: {} (excluding updated user: {})", 
+                        group.getGroupId(), updatedUser.getUserId());
+                return;
+            }
+
+            // Get member count
+            Long memberCount = groupMemberRepository.countActiveGroupMembers(
+                    group.getGroupId(), GroupMemberStatus.ACTIVE);
+
+            // Prepare email context
+            Context context = new Context();
+            context.setVariable("updatedUserName", updatedUser.getUserFullName());
+            context.setVariable("updatedByUserName", updatedByUser.getUserFullName());
+            context.setVariable("groupName", group.getGroupName());
+            context.setVariable("groupAvatarUrl", group.getGroupAvatarUrl());
+            context.setVariable("memberCount", memberCount.intValue());
+            context.setVariable("previousRole", previousRole.name());
+            context.setVariable("newRole", newRole.name());
+            context.setVariable("appName", appProperties.getLabName());
+
+            // Send email to all group members
+            String subject = String.format("Group member role update in '%s' group on %s", 
+                    group.getGroupName(), appProperties.getLabName());
+            
+            for (GroupMember member : groupMembers) {
+                try {
+                    emailService.sendEmailWithHtmlTemplate(
+                            member.getUser().getUserEmail(),
+                            subject,
+                            groupRoleUpdateNotificationHtmlTemplate,
+                            context
+                    );
+                    log.debug("Role update notification email sent successfully to: {}", member.getUser().getUserEmail());
+                } catch (Exception e) {
+                    log.error("Failed to send role update notification email to: {} for group: {}", 
+                            member.getUser().getUserEmail(), group.getGroupId(), e);
+                    // Continue with other members even if one fails
+                }
+            }
+
+            log.info("Role update email sent to {} members in group: {}", groupMembers.size(), group.getGroupId());
+            
+        } catch (Exception e) {
+            log.error("Failed to send role update email to group: {} for user: {}", 
+                    group.getGroupId(), updatedUser.getUserId(), e);
             throw e; // Re-throw to be caught by the calling method
         }
     }

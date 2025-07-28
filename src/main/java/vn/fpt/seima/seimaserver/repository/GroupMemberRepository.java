@@ -171,4 +171,21 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Intege
     List<GroupMember> findUserPendingGroups(@Param("userId") Integer userId,
                                            @Param("status") GroupMemberStatus status);
 
+    /**
+     * Find all active members of a group excluding a specific user
+     * @param groupId the group ID
+     * @param status the membership status (should be ACTIVE)
+     * @param userId the user ID to exclude
+     * @return List of GroupMember with user eagerly loaded
+     */
+    @Query("SELECT gm FROM GroupMember gm " +
+            "JOIN FETCH gm.user u " +
+            "WHERE gm.group.groupId = :groupId AND gm.status = :status " +
+            "AND gm.user.userId != :userId " +
+            "AND u.userIsActive = true " +
+            "ORDER BY gm.joinDate ASC")
+    List<GroupMember> findByGroupAndStatusAndUserIdNot(@Param("groupId") Integer groupId,
+                                                       @Param("status") GroupMemberStatus status,
+                                                       @Param("userId") Integer userId);
+
 }

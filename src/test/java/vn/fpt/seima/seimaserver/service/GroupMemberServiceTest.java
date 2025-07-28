@@ -7,6 +7,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.thymeleaf.context.Context;
 import vn.fpt.seima.seimaserver.dto.request.group.AcceptGroupMemberRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.RejectGroupMemberRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.UpdateMemberRoleRequest;
@@ -20,6 +21,7 @@ import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
 import vn.fpt.seima.seimaserver.repository.GroupRepository;
 import vn.fpt.seima.seimaserver.service.impl.GroupMemberServiceImpl;
 import vn.fpt.seima.seimaserver.util.UserUtils;
+import vn.fpt.seima.seimaserver.config.base.AppProperties;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -45,6 +47,15 @@ class GroupMemberServiceTest {
 
     @Mock
     private InvitationTokenService invitationTokenService;
+
+    @Mock
+    private EmailService emailService;
+
+    @Mock
+    private NotificationService notificationService;
+
+    @Mock
+    private AppProperties appProperties;
 
     @InjectMocks
     private GroupMemberServiceImpl groupMemberService;
@@ -376,7 +387,7 @@ class GroupMemberServiceTest {
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
             when(groupMemberRepository.findByUserIdAndGroupId(currentUser.getUserId(), groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
-            when(groupMemberRepository.findByUserIdAndGroupId(memberUserId, groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(memberUserId, groupId))
                     .thenReturn(Optional.of(memberGroupMember));
             when(groupPermissionService.canRemoveMember(GroupMemberRole.OWNER, GroupMemberRole.MEMBER))
                     .thenReturn(true);
@@ -401,7 +412,7 @@ class GroupMemberServiceTest {
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
             when(groupMemberRepository.findByUserIdAndGroupId(adminUser.getUserId(), groupId))
                     .thenReturn(Optional.of(adminGroupMember));
-            when(groupMemberRepository.findByUserIdAndGroupId(ownerUserId, groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(ownerUserId, groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
 
             // When & Then
@@ -425,11 +436,21 @@ class GroupMemberServiceTest {
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
             when(groupMemberRepository.findByUserIdAndGroupId(currentUser.getUserId(), groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
-            when(groupMemberRepository.findByUserIdAndGroupId(memberUserId, groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(memberUserId, groupId))
                     .thenReturn(Optional.of(memberGroupMember));
             when(groupPermissionService.canUpdateMemberRole(
                     GroupMemberRole.OWNER, GroupMemberRole.MEMBER, GroupMemberRole.ADMIN))
                     .thenReturn(true);
+            
+            // Mock AppProperties
+            when(appProperties.getLabName()).thenReturn("Seima");
+            
+            // Mock email and notification services
+            doNothing().when(emailService).sendEmailWithHtmlTemplate(any(), any(), any(), any());
+            doNothing().when(notificationService).sendRoleUpdateNotificationToUser(anyInt(), anyInt(), anyString(), anyString(), any(GroupMemberRole.class), any(GroupMemberRole.class));
+            doNothing().when(notificationService).sendRoleUpdateNotificationToGroup(anyInt(), anyInt(), anyString(), anyString(), any(GroupMemberRole.class), any(GroupMemberRole.class));
+            when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(anyInt(), any(GroupMemberStatus.class), anyInt()))
+                    .thenReturn(Arrays.asList(adminGroupMember));
 
             // When
             groupMemberService.updateMemberRole(groupId, memberUserId, request);
@@ -437,6 +458,10 @@ class GroupMemberServiceTest {
             // Then
             assertEquals(GroupMemberRole.ADMIN, memberGroupMember.getRole());
             verify(groupMemberRepository).save(memberGroupMember);
+            // Verify email calls: one for the updated user, one for group members
+            verify(emailService, times(2)).sendEmailWithHtmlTemplate(any(), any(), any(), any());
+            verify(notificationService).sendRoleUpdateNotificationToUser(anyInt(), anyInt(), anyString(), anyString(), any(GroupMemberRole.class), any(GroupMemberRole.class));
+            verify(notificationService).sendRoleUpdateNotificationToGroup(anyInt(), anyInt(), anyString(), anyString(), any(GroupMemberRole.class), any(GroupMemberRole.class));
         }
     }
 
@@ -453,13 +478,63 @@ class GroupMemberServiceTest {
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
             when(groupMemberRepository.findByUserIdAndGroupId(currentUser.getUserId(), groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
-            when(groupMemberRepository.findByUserIdAndGroupId(ownUserId, groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(ownUserId, groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
 
             // When & Then
             GroupException exception = assertThrows(GroupException.class, 
                     () -> groupMemberService.updateMemberRole(groupId, ownUserId, request));
             assertEquals("Cannot update your own role", exception.getMessage());
+        }
+    }
+
+    @Test
+    void updateMemberRole_WhenOwnerPromotesMemberToAdmin_ShouldSendDifferentEmails() {
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            // Given
+            Integer groupId = 1;
+            Integer memberUserId = memberUser.getUserId();
+            UpdateMemberRoleRequest request = new UpdateMemberRoleRequest();
+            request.setNewRole(GroupMemberRole.ADMIN);
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserIdAndGroupId(currentUser.getUserId(), groupId))
+                    .thenReturn(Optional.of(ownerGroupMember));
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(memberUserId, groupId))
+                    .thenReturn(Optional.of(memberGroupMember));
+            when(groupPermissionService.canUpdateMemberRole(
+                    GroupMemberRole.OWNER, GroupMemberRole.MEMBER, GroupMemberRole.ADMIN))
+                    .thenReturn(true);
+            when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(anyInt(), any(GroupMemberStatus.class), anyInt()))
+                    .thenReturn(Arrays.asList(adminGroupMember));
+            
+            // Mock AppProperties
+            when(appProperties.getLabName()).thenReturn("Seima");
+            
+            // Mock email and notification services
+            doNothing().when(emailService).sendEmailWithHtmlTemplate(any(), any(), any(), any());
+            doNothing().when(notificationService).sendRoleUpdateNotificationToUser(anyInt(), anyInt(), anyString(), anyString(), any(GroupMemberRole.class), any(GroupMemberRole.class));
+            doNothing().when(notificationService).sendRoleUpdateNotificationToGroup(anyInt(), anyInt(), anyString(), anyString(), any(GroupMemberRole.class), any(GroupMemberRole.class));
+
+            // When
+            groupMemberService.updateMemberRole(groupId, memberUserId, request);
+
+            // Then
+            assertEquals(GroupMemberRole.ADMIN, memberGroupMember.getRole());
+            verify(groupMemberRepository).save(memberGroupMember);
+            
+            // Verify email calls with different templates
+            verify(emailService, times(2)).sendEmailWithHtmlTemplate(
+                any(), // email
+                any(), // subject
+                any(), // template
+                any()  // context
+            );
+            
+            // Verify notification calls
+            verify(notificationService).sendRoleUpdateNotificationToUser(anyInt(), anyInt(), anyString(), anyString(), any(GroupMemberRole.class), any(GroupMemberRole.class));
+            verify(notificationService).sendRoleUpdateNotificationToGroup(anyInt(), anyInt(), anyString(), anyString(), any(GroupMemberRole.class), any(GroupMemberRole.class));
         }
     }
 

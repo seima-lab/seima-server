@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.response.notification.NotificationResponse;
 import vn.fpt.seima.seimaserver.entity.Group;
 import vn.fpt.seima.seimaserver.entity.GroupMember;
+import vn.fpt.seima.seimaserver.entity.GroupMemberRole;
 import vn.fpt.seima.seimaserver.entity.GroupMemberStatus;
 import vn.fpt.seima.seimaserver.entity.Notification;
 import vn.fpt.seima.seimaserver.entity.NotificationType;
@@ -357,12 +358,16 @@ public class NotificationServiceImpl implements NotificationService {
         }
     }
 
+
+
     @Override
     @Transactional
-    public void sendRejectionNotificationToUser(Integer groupId, Integer userId, String groupName, String rejectedByUserName) {
-        logger.info("Sending rejection notification to user: {} for group: {} by user: {}", userId, groupId, rejectedByUserName);
+    public void sendRoleUpdateNotificationToUser(Integer groupId, Integer userId, String groupName, 
+                                               String updatedByUserName, GroupMemberRole previousRole, GroupMemberRole newRole) {
+        logger.info("Sending role update notification to user {} for group {} - role changed from {} to {}", 
+                   userId, groupId, previousRole, newRole);
         
-        // Validate input first - these exceptions should be thrown
+        // Validate inputs
         if (groupId == null || groupId <= 0) {
             throw new IllegalArgumentException("Group ID must be positive");
         }
@@ -372,107 +377,48 @@ public class NotificationServiceImpl implements NotificationService {
         if (groupName == null || groupName.trim().isEmpty()) {
             throw new IllegalArgumentException("Group name cannot be empty");
         }
-        if (rejectedByUserName == null || rejectedByUserName.trim().isEmpty()) {
-            throw new IllegalArgumentException("Rejected by user name cannot be empty");
+        if (updatedByUserName == null || updatedByUserName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Updated by user name cannot be empty");
+        }
+        if (previousRole == null) {
+            throw new IllegalArgumentException("Previous role cannot be null");
+        }
+        if (newRole == null) {
+            throw new IllegalArgumentException("New role cannot be null");
         }
         
         try {
-            // Get user to send notification to
-            Optional<User> userOpt = userRepository.findById(userId);
-            if (userOpt.isEmpty()) {
-                logger.warn("User not found: {}", userId);
-                return;
-            }
-            User user = userOpt.get();
+            // Get user
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
             
-            // Create notification for the user themselves (system notification)
-            String title = "Join Request Rejected";
-            String message = String.format("Your request to join \"%s\" group has been rejected by %s", groupName, rejectedByUserName);
-            String linkToEntity = "seimaapp://groups/" + groupId + "/status";
+            // Get group
+            Group group = groupRepository.findById(groupId)
+                    .orElseThrow(() -> new IllegalArgumentException("Group not found with id: " + groupId));
+            
+            // Create notification
+            String title = "Role Updated";
+            String message = String.format("Your role in '%s' has been updated from %s to %s by %s", 
+                                         groupName, previousRole, newRole, updatedByUserName);
+            String linkToEntity = String.format("/groups/%d", groupId);
             
             Notification notification = createNotification(user, null, groupId, 
-                                                         NotificationType.GROUP_JOIN_REJECTED, title, 
-                                                         message, linkToEntity);
+                                                        NotificationType.GROUP_ROLE_UPDATED, title, message, linkToEntity);
             
             // Save notification
-            Notification savedNotification = notificationRepository.save(notification);
+            notificationRepository.save(notification);
             
             // Send FCM notification
-            boolean fcmSuccess = sendFcmNotificationToUser(userId, title, message, groupId);
+            sendFcmNotificationToUser(userId, title, message, groupId);
             
-            // Update sent_at timestamp if FCM was successful
-            if (fcmSuccess) {
-                savedNotification.setSentAt(LocalDateTime.now());
-                notificationRepository.save(savedNotification);
-            }
-            
-            logger.info("Successfully sent rejection notification to user: {} for group: {}", userId, groupId);
+            logger.info("Successfully sent role update notification to user {} for group {}", userId, groupId);
             
         } catch (Exception e) {
-            logger.error("Error sending rejection notification to user: {} for group: {}", userId, groupId, e);
+            logger.error("Failed to send role update notification to user {} for group {}", userId, groupId, e);
             // Don't throw exception to avoid affecting main flow
         }
     }
 
-    @Override
-    @Transactional
-    public void sendAcceptanceNotificationToUser(Integer groupId, Integer userId, String groupName, String acceptedByUserName) {
-        logger.info("Sending acceptance notification to user: {} for group: {} by user: {}", userId, groupId, acceptedByUserName);
-        
-        // Validate input first - these exceptions should be thrown
-        if (groupId == null || groupId <= 0) {
-            throw new IllegalArgumentException("Group ID must be positive");
-        }
-        if (userId == null || userId <= 0) {
-            throw new IllegalArgumentException("User ID must be positive");
-        }
-        if (groupName == null || groupName.trim().isEmpty()) {
-            throw new IllegalArgumentException("Group name cannot be empty");
-        }
-        if (acceptedByUserName == null || acceptedByUserName.trim().isEmpty()) {
-            throw new IllegalArgumentException("Accepted by user name cannot be empty");
-        }
-        
-        try {
-            // Get user to send notification to
-            Optional<User> userOpt = userRepository.findById(userId);
-            if (userOpt.isEmpty()) {
-                logger.warn("User not found: {}", userId);
-                return;
-            }
-            User user = userOpt.get();
-            
-            // Create notification for the user themselves (system notification)
-            String title = "Join Request Accepted";
-            String message = String.format("Your request to join \"%s\" group has been accepted by %s", groupName, acceptedByUserName);
-            String linkToEntity = "seimaapp://groups/" + groupId + "/status";
-            
-            Notification notification = createNotification(user, null, groupId, 
-                                                         NotificationType.GROUP_JOIN_APPROVED, title, 
-                                                         message, linkToEntity);
-            
-            // Save notification
-            Notification savedNotification = notificationRepository.save(notification);
-            
-            // Send FCM notification
-            boolean fcmSuccess = sendFcmNotificationToUser(userId, title, message, groupId);
-            
-            // Update sent_at timestamp if FCM was successful
-            if (fcmSuccess) {
-                savedNotification.setSentAt(LocalDateTime.now());
-                notificationRepository.save(savedNotification);
-            }
-            
-            logger.info("Successfully sent acceptance notification to user: {} for group: {}", userId, groupId);
-            
-        } catch (Exception e) {
-            logger.error("Error sending acceptance notification to user: {} for group: {}", userId, groupId, e);
-            // Don't throw exception to avoid affecting main flow
-        }
-    }
-
-
-    
     /**
      * Process notifications asynchronously to avoid blocking main thread
      */
@@ -681,6 +627,85 @@ public class NotificationServiceImpl implements NotificationService {
         } catch (Exception e) {
             logger.error("Error updating notifications sent_at timestamp", e);
             // Don't rethrow - this is not critical for main flow
+        }
+    }
+
+    @Override
+    @Transactional
+    public void sendRoleUpdateNotificationToGroup(Integer groupId, Integer updatedUserId, String updatedUserName, 
+                                                String updatedByUserName, GroupMemberRole previousRole, GroupMemberRole newRole) {
+        logger.info("Sending role update notification to group: {} for user: {} by user: {}", 
+                   groupId, updatedUserId, updatedByUserName);
+        
+        // Validate inputs
+        if (groupId == null || groupId <= 0) {
+            throw new IllegalArgumentException("Group ID must be positive");
+        }
+        if (updatedUserId == null || updatedUserId <= 0) {
+            throw new IllegalArgumentException("Updated user ID must be positive");
+        }
+        if (updatedUserName == null || updatedUserName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Updated user name cannot be empty");
+        }
+        if (updatedByUserName == null || updatedByUserName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Updated by user name cannot be empty");
+        }
+        if (previousRole == null) {
+            throw new IllegalArgumentException("Previous role cannot be null");
+        }
+        if (newRole == null) {
+            throw new IllegalArgumentException("New role cannot be null");
+        }
+        
+        try {
+            // Get all active members of the group (excluding the updated user)
+            List<GroupMember> groupMembers = groupMemberRepository.findByGroupAndStatusAndUserIdNot(
+                    groupId, GroupMemberStatus.ACTIVE, updatedUserId);
+            
+            if (groupMembers.isEmpty()) {
+                logger.warn("No active members found in group: {} (excluding updated user: {})", groupId, updatedUserId);
+                return;
+            }
+            
+            // Create notification content
+            String title = "Role Updated";
+            String message = String.format("%s's role has been changed from %s to %s by %s", 
+                    updatedUserName, previousRole, newRole, updatedByUserName);
+            String linkToEntity = String.format("/groups/%d/members", groupId);
+            
+            // Send notifications to all group members
+            sendNotificationToGroupMembers(groupId, updatedUserId, updatedByUserName, 
+                                        NotificationType.GROUP_ROLE_UPDATED, title, message, linkToEntity);
+            
+            logger.info("Successfully sent role update notification to {} members in group: {}", 
+                       groupMembers.size(), groupId);
+            
+        } catch (Exception e) {
+            logger.error("Error sending role update notification to group: {} for user: {}", 
+                        groupId, updatedUserId, e);
+            // Don't throw exception to avoid affecting main flow
+        }
+    }
+
+    @Override
+    @Transactional
+    public void sendMemberRemovedNotificationToGroup(Integer groupId, Integer removedUserId, String removedUserName, String removedByUserName) {
+        logger.info("Sending member removed notification to group: {} for user: {} by user: {}", groupId, removedUserId, removedByUserName);
+        try {
+            // Get all active members of the group (excluding the removed user)
+            List<GroupMember> groupMembers = groupMemberRepository.findByGroupAndStatusAndUserIdNot(
+                    groupId, GroupMemberStatus.ACTIVE, removedUserId);
+            if (groupMembers.isEmpty()) {
+                logger.warn("No active members found in group: {} (excluding removed user: {})", groupId, removedUserId);
+                return;
+            }
+            String title = "Member Removed";
+            String message = String.format("%s has been removed from the group by %s", removedUserName, removedByUserName);
+            String linkToEntity = String.format("/groups/%d/members", groupId);
+            sendNotificationToGroupMembers(groupId, removedUserId, removedByUserName, NotificationType.GROUP_MEMBER_REMOVED, title, message, linkToEntity);
+            logger.info("Successfully sent member removed notification to {} members in group: {}", groupMembers.size(), groupId);
+        } catch (Exception e) {
+            logger.error("Error sending member removed notification to group: {} for user: {}", groupId, removedUserId, e);
         }
     }
 } 
