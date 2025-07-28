@@ -96,6 +96,7 @@ public class GeminiService {
     - Nếu không rõ họ tên đầy đủ của người mua, gán "customer_name": null.
     - Mẫu description_invoice sẽ là : "Thanh toán ..."
     - Số tiền mà có dấu chấm là số tiền lớn họ tách ra không phải số thập phân
+    - total_amount là giá trị khách hàng phải trả chứ không phải tổng tiền
     """.formatted(ocrText);
     }
 

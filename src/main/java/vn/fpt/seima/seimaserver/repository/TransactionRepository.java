@@ -27,7 +27,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
             @Param("startDate")LocalDateTime startDate,
             @Param("endDate")LocalDateTime endDate);
 
-    @Query("SELECT t FROM Transaction t WHERE t.transactionType != :type and t.user.userId = :userId and t.group.groupId is null")
+    @Query("SELECT t FROM Transaction t WHERE t.transactionType != :type and t.user.userId = :userId")
     Page<Transaction> findByType(
                                         @Param("transaction_type") TransactionType type,
                                         @Param("userId") Integer userId,
@@ -68,10 +68,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
     void deleteByCategory_CategoryId(Integer categoryId);
 
     List<Transaction> findAllByCategory_CategoryId(Integer categoryId);
+
     @Query("SELECT t FROM Transaction t " +
             "WHERE t.user.userId = :userId AND t.category.categoryId = :categoryId " +
             "AND t.transactionDate BETWEEN :start AND :end " +
-            "AND t.transactionType IN ('EXPENSE', 'INCOME')")
+            "AND t.transactionType IN ('EXPENSE', 'INCOME')" +
+            "and t.group.groupId is null")
     List<Transaction> findExpensesByUserAndDateRange(
             @Param("categoryId") Integer categoryId,
             @Param("userId") Integer userId,
@@ -95,6 +97,16 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
                                              @Param("from") LocalDateTime from,
                                              @Param("to") LocalDateTime to);
 
-
+    @Query("SELECT t FROM Transaction t " +
+            "WHERE t.transactionType != 'INACTIVE' " +
+            "AND t.transactionDate BETWEEN :startDate AND :endDate " +
+            "and t.user.userId = :userId and " +
+            "t.category.categoryId = :categoryId and " +
+            "t.group.groupId is null ")
+    Page<Transaction> getTransactionByBudget(@Param("userId") Integer userId,
+                                             @Param("categoryId") Integer categoryId,
+                                             @Param("startDate") LocalDateTime startDate,
+                                             @Param("endDate") LocalDateTime endDate,
+                                             Pageable pageable);
 }
 
