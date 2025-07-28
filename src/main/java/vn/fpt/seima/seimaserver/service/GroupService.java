@@ -29,7 +29,7 @@ public interface GroupService {
 
     GroupMemberStatusResponse getCurrentUserGroupStatus(Integer groupId);
     
-    // New method for owner exit flow
+
     void deleteGroup(Integer groupId);
     
 

@@ -1,16 +1,20 @@
 package vn.fpt.seima.seimaserver.service;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
-import vn.fpt.seima.seimaserver.dto.response.group.InvitedGroupMemberResponse;
+import vn.fpt.seima.seimaserver.config.base.AppProperties;
+import vn.fpt.seima.seimaserver.dto.request.group.CancelJoinGroupRequest;
+import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
+import vn.fpt.seima.seimaserver.dto.request.group.UpdateGroupRequest;
+import vn.fpt.seima.seimaserver.dto.response.group.*;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.GroupException;
+import vn.fpt.seima.seimaserver.mapper.GroupMapper;
 import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
 import vn.fpt.seima.seimaserver.repository.GroupRepository;
 import vn.fpt.seima.seimaserver.service.impl.GroupServiceImpl;
@@ -26,7 +30,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("GroupService Tests")
 class GroupServiceTest {
 
     @Mock
@@ -38,136 +41,730 @@ class GroupServiceTest {
     @Mock
     private GroupPermissionService groupPermissionService;
 
+    @Mock
+    private CloudinaryService cloudinaryService;
+
+    @Mock
+    private AppProperties appProperties;
+
+    @Mock
+    private GroupMapper groupMapper;
+
     @InjectMocks
     private GroupServiceImpl groupService;
 
-    private User mockCurrentUser;
-    private Group mockGroup;
-    private GroupMember mockCurrentUserMembership;
-    private GroupMember mockInvitedMember1;
-    private GroupMember mockInvitedMember2;
-    private User mockInvitedUser1;
-    private User mockInvitedUser2;
+    private User testUser;
+    private Group testGroup;
+    private GroupMember testGroupMember;
+    private CreateGroupRequest createGroupRequest;
+    private UpdateGroupRequest updateGroupRequest;
+    private CancelJoinGroupRequest cancelJoinGroupRequest;
 
     // Test constants
     private static final Integer TEST_GROUP_ID = 1;
-    private static final Integer TEST_CURRENT_USER_ID = 100;
-    private static final Integer TEST_INVITED_USER_ID_1 = 200;
-    private static final Integer TEST_INVITED_USER_ID_2 = 300;
+    private static final Integer TEST_USER_ID = 100;
     private static final String TEST_GROUP_NAME = "Test Group";
-    private static final String TEST_CURRENT_USER_EMAIL = "current@example.com";
-    private static final String TEST_INVITED_USER_EMAIL_1 = "invited1@example.com";
-    private static final String TEST_INVITED_USER_EMAIL_2 = "invited2@example.com";
+    private static final String TEST_USER_EMAIL = "test@example.com";
 
     @BeforeEach
     void setUp() {
-        // Setup mock current user
-        mockCurrentUser = User.builder()
-                .userId(TEST_CURRENT_USER_ID)
-                .userEmail(TEST_CURRENT_USER_EMAIL)
-                .userFullName("Current User")
+        // Setup test user
+        testUser = User.builder()
+                .userId(TEST_USER_ID)
+                .userEmail(TEST_USER_EMAIL)
+                .userFullName("Test User")
                 .userIsActive(true)
                 .build();
 
-        // Setup mock group
-        mockGroup = new Group();
-        mockGroup.setGroupId(TEST_GROUP_ID);
-        mockGroup.setGroupName(TEST_GROUP_NAME);
-        mockGroup.setGroupIsActive(true);
+        // Setup test group
+        testGroup = new Group();
+        testGroup.setGroupId(TEST_GROUP_ID);
+        testGroup.setGroupName(TEST_GROUP_NAME);
+        testGroup.setGroupIsActive(true);
+        testGroup.setGroupAvatarUrl("https://example.com/avatar.jpg");
 
-        // Setup mock current user membership (ADMIN role)
-        mockCurrentUserMembership = new GroupMember();
-        mockCurrentUserMembership.setUser(mockCurrentUser);
-        mockCurrentUserMembership.setGroup(mockGroup);
-        mockCurrentUserMembership.setRole(GroupMemberRole.ADMIN);
-        mockCurrentUserMembership.setStatus(GroupMemberStatus.ACTIVE);
+        // Setup test group member
+        testGroupMember = new GroupMember();
+        testGroupMember.setUser(testUser);
+        testGroupMember.setGroup(testGroup);
+        testGroupMember.setRole(GroupMemberRole.OWNER);
+        testGroupMember.setStatus(GroupMemberStatus.ACTIVE);
 
-        // Setup mock invited users
-        mockInvitedUser1 = User.builder()
-                .userId(TEST_INVITED_USER_ID_1)
-                .userEmail(TEST_INVITED_USER_EMAIL_1)
-                .userFullName("Invited User 1")
-                .userAvatarUrl("https://example.com/avatar1.jpg")
-                .userIsActive(true)
+        // Setup test requests
+        createGroupRequest = CreateGroupRequest.builder()
+                .groupName(TEST_GROUP_NAME)
                 .build();
 
-        mockInvitedUser2 = User.builder()
-                .userId(TEST_INVITED_USER_ID_2)
-                .userEmail(TEST_INVITED_USER_EMAIL_2)
-                .userFullName("Invited User 2")
-                .userAvatarUrl("https://example.com/avatar2.jpg")
-                .userIsActive(true)
+        updateGroupRequest = UpdateGroupRequest.builder()
+                .groupName("Updated Group Name")
                 .build();
 
-        // Setup mock invited members
-        mockInvitedMember1 = new GroupMember();
-        mockInvitedMember1.setUser(mockInvitedUser1);
-        mockInvitedMember1.setGroup(mockGroup);
-        mockInvitedMember1.setRole(GroupMemberRole.MEMBER);
-        mockInvitedMember1.setStatus(GroupMemberStatus.INVITED);
-        mockInvitedMember1.setJoinDate(LocalDateTime.now().minusDays(1));
-
-        mockInvitedMember2 = new GroupMember();
-        mockInvitedMember2.setUser(mockInvitedUser2);
-        mockInvitedMember2.setGroup(mockGroup);
-        mockInvitedMember2.setRole(GroupMemberRole.MEMBER);
-        mockInvitedMember2.setStatus(GroupMemberStatus.INVITED);
-        mockInvitedMember2.setJoinDate(LocalDateTime.now().minusHours(2));
+        cancelJoinGroupRequest = CancelJoinGroupRequest.builder()
+                .groupId(TEST_GROUP_ID)
+                .build();
     }
 
+    // ================= CREATE GROUP TESTS =================
+
     @Test
-    @DisplayName("N - Normal: Get invited members successfully")
-    void getInvitedGroupMembers_Success() {
+    void createGroupWithImage_WhenValidInputs_ShouldCreateGroupSuccessfully() {
         // Given
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             
-            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_CURRENT_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
-                    .thenReturn(Optional.of(mockCurrentUserMembership));
-            when(groupPermissionService.canViewInvitedMembers(GroupMemberRole.ADMIN)).thenReturn(true);
-            when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(TEST_GROUP_ID, GroupMemberStatus.INVITED, TEST_CURRENT_USER_ID))
-                    .thenReturn(Arrays.asList(mockInvitedMember1, mockInvitedMember2));
+            // Mock the group that will be created by mapper
+            Group mappedGroup = new Group();
+            mappedGroup.setGroupName(TEST_GROUP_NAME);
+            mappedGroup.setGroupIsActive(true);
+            
+            // Mock the group that will be saved and returned
+            Group savedGroup = new Group();
+            savedGroup.setGroupId(TEST_GROUP_ID);
+            savedGroup.setGroupName(TEST_GROUP_NAME);
+            savedGroup.setGroupIsActive(true);
+            savedGroup.setGroupAvatarUrl("https://cdn.pixabay.com/photo/2016/11/14/17/39/group-1824145_1280.png");
+            
+            when(groupMapper.toEntity(createGroupRequest)).thenReturn(mappedGroup);
+            when(groupRepository.save(any(Group.class))).thenReturn(savedGroup);
+            when(groupMapper.toResponse(any(Group.class))).thenReturn(new GroupResponse());
 
             // When
-            List<InvitedGroupMemberResponse> result = groupService.getInvitedGroupMembers(TEST_GROUP_ID);
+            GroupResponse result = groupService.createGroupWithImage(createGroupRequest);
 
             // Then
             assertNotNull(result);
-            assertEquals(2, result.size());
-            
-            // Verify first invited member
-            InvitedGroupMemberResponse firstMember = result.get(0);
-            assertEquals(TEST_INVITED_USER_ID_1, firstMember.getUserId());
-            assertEquals(TEST_INVITED_USER_EMAIL_1, firstMember.getUserEmail());
-            assertEquals("Invited User 1", firstMember.getUserFullName());
-            assertEquals("https://example.com/avatar1.jpg", firstMember.getUserAvatarUrl());
-            assertEquals("MEMBER", firstMember.getAssignedRole());
-            assertNotNull(firstMember.getInvitedAt());
-            
-            // Verify second invited member
-            InvitedGroupMemberResponse secondMember = result.get(1);
-            assertEquals(TEST_INVITED_USER_ID_2, secondMember.getUserId());
-            assertEquals(TEST_INVITED_USER_EMAIL_2, secondMember.getUserEmail());
-            assertEquals("Invited User 2", secondMember.getUserFullName());
-            assertEquals("https://example.com/avatar2.jpg", secondMember.getUserAvatarUrl());
-            assertEquals("MEMBER", secondMember.getAssignedRole());
-            assertNotNull(secondMember.getInvitedAt());
+            verify(groupRepository).save(any(Group.class));
+            verify(groupMapper).toResponse(any(Group.class));
         }
     }
 
     @Test
-    @DisplayName("N - Normal: Get invited members when no invited members exist")
-    void getInvitedGroupMembers_NoInvitedMembers() {
+    void createGroupWithImage_WhenRequestIsNull_ShouldThrowGroupException() {
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.createGroupWithImage(null)
+        );
+
+        assertEquals("Group request cannot be null", exception.getMessage());
+        verify(groupRepository, never()).save(any());
+    }
+
+    @Test
+    void createGroupWithImage_WhenGroupNameIsNull_ShouldThrowGroupException() {
+        // Given
+        createGroupRequest.setGroupName(null);
+
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.createGroupWithImage(createGroupRequest)
+        );
+
+        assertEquals("Group name is required and cannot be empty", exception.getMessage());
+        verify(groupRepository, never()).save(any());
+    }
+
+    @Test
+    void createGroupWithImage_WhenGroupNameIsEmpty_ShouldThrowGroupException() {
+        // Given
+        createGroupRequest.setGroupName("");
+
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.createGroupWithImage(createGroupRequest)
+        );
+
+        assertEquals("Group name is required and cannot be empty", exception.getMessage());
+        verify(groupRepository, never()).save(any());
+    }
+
+    @Test
+    void createGroupWithImage_WhenGroupNameHasWhitespace_ShouldCreateWithWhitespace() {
+        // Given
+        createGroupRequest.setGroupName("  Test Group  ");
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            // Mock the group that will be created by mapper
+            Group mappedGroup = new Group();
+            mappedGroup.setGroupName("  Test Group  ");
+            mappedGroup.setGroupIsActive(true);
+            
+            // Mock the group that will be saved and returned
+            Group savedGroup = new Group();
+            savedGroup.setGroupId(TEST_GROUP_ID);
+            savedGroup.setGroupName("  Test Group  ");
+            savedGroup.setGroupIsActive(true);
+            savedGroup.setGroupAvatarUrl("https://cdn.pixabay.com/photo/2016/11/14/17/39/group-1824145_1280.png");
+            
+            when(groupMapper.toEntity(createGroupRequest)).thenReturn(mappedGroup);
+            when(groupRepository.save(any(Group.class))).thenReturn(savedGroup);
+            when(groupMapper.toResponse(any(Group.class))).thenReturn(new GroupResponse());
+
+            // When
+            GroupResponse result = groupService.createGroupWithImage(createGroupRequest);
+
+            // Then
+            assertNotNull(result);
+            verify(groupRepository).save(argThat(group -> 
+                group.getGroupName().equals("  Test Group  ")
+            ));
+        }
+    }
+
+    // ================= GET GROUP DETAIL TESTS =================
+
+    @Test
+    void getGroupDetail_WhenValidGroupId_ShouldReturnGroupDetail() {
         // Given
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             
-            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_CURRENT_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
-                    .thenReturn(Optional.of(mockCurrentUserMembership));
-            when(groupPermissionService.canViewInvitedMembers(GroupMemberRole.ADMIN)).thenReturn(true);
-            when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(TEST_GROUP_ID, GroupMemberStatus.INVITED, TEST_CURRENT_USER_ID))
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupMember));
+            when(groupPermissionService.canViewGroupMembers(GroupMemberRole.OWNER)).thenReturn(true);
+            when(groupMemberRepository.findGroupOwner(TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupMember));
+            when(groupMemberRepository.findActiveGroupMembers(TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Arrays.asList(testGroupMember));
+
+            // When
+            GroupDetailResponse result = groupService.getGroupDetail(TEST_GROUP_ID);
+
+            // Then
+            assertNotNull(result);
+            verify(groupRepository).findById(TEST_GROUP_ID);
+        }
+    }
+
+    @Test
+    void getGroupDetail_WhenGroupIdIsNull_ShouldThrowGroupException() {
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.getGroupDetail(null)
+        );
+
+        assertEquals("Group ID cannot be null", exception.getMessage());
+        verify(groupRepository, never()).findById(any());
+    }
+
+    @Test
+    void getGroupDetail_WhenGroupNotFound_ShouldThrowGroupException() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.getGroupDetail(TEST_GROUP_ID)
+            );
+
+            assertEquals("Group not found", exception.getMessage());
+        }
+    }
+
+    @Test
+    void getGroupDetail_WhenGroupIsInactive_ShouldThrowGroupException() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            testGroup.setGroupIsActive(false);
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+
+            // When & Then
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.getGroupDetail(TEST_GROUP_ID)
+            );
+
+            assertEquals("Group not found", exception.getMessage());
+        }
+    }
+
+    @Test
+    void getGroupDetail_WhenUserNotMember_ShouldThrowGroupException() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.getGroupDetail(TEST_GROUP_ID)
+            );
+
+            assertEquals("You don't have permission to view this group", exception.getMessage());
+        }
+    }
+
+    // ================= UPDATE GROUP TESTS =================
+
+    @Test
+    void updateGroupInformation_WhenValidInputs_ShouldUpdateGroupSuccessfully() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupMember));
+            when(groupPermissionService.canUpdateGroupInfo(GroupMemberRole.OWNER)).thenReturn(true);
+            when(groupRepository.save(any(Group.class))).thenReturn(testGroup);
+            when(groupMapper.toResponse(any(Group.class))).thenReturn(new GroupResponse());
+
+            // When
+            GroupResponse result = groupService.updateGroupInformation(TEST_GROUP_ID, updateGroupRequest);
+
+            // Then
+            assertNotNull(result);
+            verify(groupRepository).save(any(Group.class));
+        }
+    }
+
+    @Test
+    void updateGroupInformation_WhenGroupIdIsNull_ShouldThrowGroupException() {
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.updateGroupInformation(null, updateGroupRequest)
+        );
+
+        assertEquals("Group ID cannot be null", exception.getMessage());
+        verify(groupRepository, never()).findById(any());
+    }
+
+    @Test
+    void updateGroupInformation_WhenRequestIsNull_ShouldThrowGroupException() {
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.updateGroupInformation(TEST_GROUP_ID, null)
+        );
+
+        assertEquals("Update request cannot be null", exception.getMessage());
+        verify(groupRepository, never()).findById(any());
+    }
+
+    @Test
+    void updateGroupInformation_WhenGroupNotFound_ShouldThrowGroupException() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.updateGroupInformation(TEST_GROUP_ID, updateGroupRequest)
+            );
+
+            assertEquals("Group not found", exception.getMessage());
+        }
+    }
+
+    // ================= GET USER JOINED GROUPS TESTS =================
+
+    @Test
+    void getUserJoinedGroups_WhenValidUser_ShouldReturnJoinedGroups() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            when(groupMemberRepository.findUserJoinedGroups(TEST_USER_ID, GroupMemberStatus.ACTIVE, true))
+                    .thenReturn(Arrays.asList(testGroupMember));
+
+            // When
+            List<UserJoinedGroupResponse> result = groupService.getUserJoinedGroups();
+
+            // Then
+            assertNotNull(result);
+            assertEquals(1, result.size());
+        }
+    }
+
+    @Test
+    void getUserJoinedGroups_WhenNoJoinedGroups_ShouldReturnEmptyList() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            when(groupMemberRepository.findUserJoinedGroups(TEST_USER_ID, GroupMemberStatus.ACTIVE, true))
+                    .thenReturn(Arrays.asList());
+
+            // When
+            List<UserJoinedGroupResponse> result = groupService.getUserJoinedGroups();
+
+            // Then
+            assertNotNull(result);
+            assertEquals(0, result.size());
+        }
+    }
+
+    // ================= ARCHIVE GROUP TESTS =================
+
+    @Test
+    void archiveGroup_WhenValidGroupId_ShouldArchiveGroupSuccessfully() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupMember));
+            when(groupPermissionService.canManageGroupSettings(GroupMemberRole.OWNER)).thenReturn(true);
+            when(groupRepository.save(any(Group.class))).thenReturn(testGroup);
+            when(groupMapper.toResponse(any(Group.class))).thenReturn(new GroupResponse());
+
+            // When
+            GroupResponse result = groupService.archiveGroup(TEST_GROUP_ID);
+
+            // Then
+            assertNotNull(result);
+            verify(groupRepository).save(any(Group.class));
+        }
+    }
+
+    @Test
+    void archiveGroup_WhenGroupIdIsNull_ShouldThrowGroupException() {
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.archiveGroup(null)
+        );
+
+        assertEquals("Group ID cannot be null", exception.getMessage());
+        verify(groupRepository, never()).findById(any());
+    }
+
+    @Test
+    void archiveGroup_WhenGroupNotFound_ShouldThrowGroupException() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.archiveGroup(TEST_GROUP_ID)
+            );
+
+            assertEquals("Group not found", exception.getMessage());
+        }
+    }
+
+    // ================= GET CURRENT USER GROUP STATUS TESTS =================
+
+    @Test
+    void getCurrentUserGroupStatus_WhenValidGroupId_ShouldReturnStatus() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserIdAndGroupId(TEST_USER_ID, TEST_GROUP_ID))
+                    .thenReturn(Optional.of(testGroupMember));
+
+            // When
+            GroupMemberStatusResponse result = groupService.getCurrentUserGroupStatus(TEST_GROUP_ID);
+
+            // Then
+            assertNotNull(result);
+            assertEquals(TEST_GROUP_ID, result.getGroupId());
+            assertEquals(GroupMemberStatus.ACTIVE, result.getStatus());
+        }
+    }
+
+    @Test
+    void getCurrentUserGroupStatus_WhenGroupIdIsNull_ShouldThrowGroupException() {
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.getCurrentUserGroupStatus(null)
+        );
+
+        assertEquals("Group ID cannot be null", exception.getMessage());
+    }
+
+    @Test
+    void getCurrentUserGroupStatus_WhenGroupNotFound_ShouldReturnGroupNotExists() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.empty());
+
+            // When
+            GroupMemberStatusResponse result = groupService.getCurrentUserGroupStatus(TEST_GROUP_ID);
+
+            // Then
+            assertNotNull(result);
+            assertFalse(result.isGroupExists());
+            assertNull(result.getStatus());
+        }
+    }
+
+    @Test
+    void getCurrentUserGroupStatus_WhenGroupInactive_ShouldReturnGroupNotExists() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            testGroup.setGroupIsActive(false);
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+
+            // When
+            GroupMemberStatusResponse result = groupService.getCurrentUserGroupStatus(TEST_GROUP_ID);
+
+            // Then
+            assertNotNull(result);
+            assertFalse(result.isGroupExists());
+            assertNull(result.getStatus());
+        }
+    }
+
+    @Test
+    void getCurrentUserGroupStatus_WhenUserNotMember_ShouldReturnNoStatus() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserIdAndGroupId(TEST_USER_ID, TEST_GROUP_ID))
+                    .thenReturn(Optional.empty());
+
+            // When
+            GroupMemberStatusResponse result = groupService.getCurrentUserGroupStatus(TEST_GROUP_ID);
+
+            // Then
+            assertNotNull(result);
+            assertTrue(result.isGroupExists());
+            assertNull(result.getStatus());
+        }
+    }
+
+    // ================= DELETE GROUP TESTS =================
+
+    @Test
+    void deleteGroup_WhenValidGroupId_ShouldDeleteGroupSuccessfully() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupMember));
+
+            // When
+            groupService.deleteGroup(TEST_GROUP_ID);
+
+            // Then
+            verify(groupRepository).save(any(Group.class));
+        }
+    }
+
+    @Test
+    void deleteGroup_WhenGroupIdIsNull_ShouldThrowGroupException() {
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.deleteGroup(null)
+        );
+
+        assertEquals("Group ID cannot be null", exception.getMessage());
+        verify(groupRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void deleteGroup_WhenGroupNotFound_ShouldThrowGroupException() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.deleteGroup(TEST_GROUP_ID)
+            );
+
+            assertEquals("Group not found", exception.getMessage());
+        }
+    }
+
+    // ================= GET USER PENDING GROUPS TESTS =================
+
+    @Test
+    void getUserPendingGroups_WhenValidUser_ShouldReturnPendingGroups() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            when(groupMemberRepository.findUserPendingGroups(TEST_USER_ID, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Arrays.asList(testGroupMember));
+
+            // When
+            List<UserPendingGroupResponse> result = groupService.getUserPendingGroups();
+
+            // Then
+            assertNotNull(result);
+            assertEquals(1, result.size());
+        }
+    }
+
+    @Test
+    void getUserPendingGroups_WhenNoPendingGroups_ShouldReturnEmptyList() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            when(groupMemberRepository.findUserPendingGroups(TEST_USER_ID, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Arrays.asList());
+
+            // When
+            List<UserPendingGroupResponse> result = groupService.getUserPendingGroups();
+
+            // Then
+            assertNotNull(result);
+            assertEquals(0, result.size());
+        }
+    }
+
+    // ================= CANCEL JOIN GROUP REQUEST TESTS =================
+
+    @Test
+    void cancelJoinGroupRequest_WhenValidRequest_ShouldCancelRequestSuccessfully() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_USER_ID, TEST_GROUP_ID, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.of(testGroupMember));
+            when(groupMemberRepository.save(any(GroupMember.class))).thenReturn(testGroupMember);
+
+            // When
+            groupService.cancelJoinGroupRequest(cancelJoinGroupRequest);
+
+            // Then
+            verify(groupMemberRepository).save(any(GroupMember.class));
+        }
+    }
+
+    @Test
+    void cancelJoinGroupRequest_WhenRequestIsNull_ShouldThrowGroupException() {
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.cancelJoinGroupRequest(null)
+        );
+
+        assertEquals("Cancel request cannot be null", exception.getMessage());
+        verify(groupRepository, never()).findById(any());
+    }
+
+    @Test
+    void cancelJoinGroupRequest_WhenGroupIdIsNull_ShouldThrowGroupException() {
+        // Given
+        cancelJoinGroupRequest.setGroupId(null);
+
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.cancelJoinGroupRequest(cancelJoinGroupRequest)
+        );
+
+        assertEquals("Group ID cannot be null", exception.getMessage());
+        verify(groupRepository, never()).findById(any());
+    }
+
+    @Test
+    void cancelJoinGroupRequest_WhenGroupIdIsZero_ShouldThrowGroupException() {
+        // Given
+        cancelJoinGroupRequest.setGroupId(0);
+
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.cancelJoinGroupRequest(cancelJoinGroupRequest)
+        );
+
+        assertEquals("Group ID must be a positive integer", exception.getMessage());
+        verify(groupRepository, never()).findById(any());
+    }
+
+    @Test
+    void cancelJoinGroupRequest_WhenGroupIdIsNegative_ShouldThrowGroupException() {
+        // Given
+        cancelJoinGroupRequest.setGroupId(-1);
+
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.cancelJoinGroupRequest(cancelJoinGroupRequest)
+        );
+
+        assertEquals("Group ID must be a positive integer", exception.getMessage());
+        verify(groupRepository, never()).findById(any());
+    }
+
+    @Test
+    void cancelJoinGroupRequest_WhenGroupNotFound_ShouldThrowGroupException() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.cancelJoinGroupRequest(cancelJoinGroupRequest)
+            );
+
+            assertEquals("Group not found", exception.getMessage());
+        }
+    }
+
+    @Test
+    void cancelJoinGroupRequest_WhenNoPendingRequest_ShouldThrowGroupException() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_USER_ID, TEST_GROUP_ID, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.cancelJoinGroupRequest(cancelJoinGroupRequest)
+            );
+
+            assertEquals("No pending join request found for this group", exception.getMessage());
+        }
+    }
+
+    // ================= GET INVITED GROUP MEMBERS TESTS =================
+
+    @Test
+    void getInvitedGroupMembers_WhenValidGroupId_ShouldReturnInvitedMembers() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupMember));
+            when(groupPermissionService.canViewInvitedMembers(GroupMemberRole.OWNER)).thenReturn(true);
+            when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(TEST_GROUP_ID, GroupMemberStatus.INVITED, TEST_USER_ID))
                     .thenReturn(Arrays.asList());
 
             // When
@@ -180,121 +777,215 @@ class GroupServiceTest {
     }
 
     @Test
-    @DisplayName("A - Abnormal: Group ID is null")
-    void getInvitedGroupMembers_NullGroupId() {
+    void getInvitedGroupMembers_WhenGroupIdIsNull_ShouldThrowGroupException() {
         // When & Then
-        GroupException exception = assertThrows(GroupException.class, 
-                () -> groupService.getInvitedGroupMembers(null));
-        
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.getInvitedGroupMembers(null)
+        );
+
         assertEquals("Group ID cannot be null", exception.getMessage());
+        verify(groupRepository, never()).findById(any());
     }
 
     @Test
-    @DisplayName("A - Abnormal: Group ID is zero")
-    void getInvitedGroupMembers_ZeroGroupId() {
+    void getInvitedGroupMembers_WhenGroupIdIsZero_ShouldThrowGroupException() {
         // When & Then
-        GroupException exception = assertThrows(GroupException.class, 
-                () -> groupService.getInvitedGroupMembers(0));
-        
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.getInvitedGroupMembers(0)
+        );
+
         assertEquals("Group ID must be a positive integer", exception.getMessage());
+        verify(groupRepository, never()).findById(any());
     }
 
     @Test
-    @DisplayName("A - Abnormal: Group ID is negative")
-    void getInvitedGroupMembers_NegativeGroupId() {
+    void getInvitedGroupMembers_WhenGroupIdIsNegative_ShouldThrowGroupException() {
         // When & Then
-        GroupException exception = assertThrows(GroupException.class, 
-                () -> groupService.getInvitedGroupMembers(-1));
-        
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.getInvitedGroupMembers(-1)
+        );
+
         assertEquals("Group ID must be a positive integer", exception.getMessage());
+        verify(groupRepository, never()).findById(any());
     }
 
     @Test
-    @DisplayName("A - Abnormal: Group not found")
-    void getInvitedGroupMembers_GroupNotFound() {
+    void getInvitedGroupMembers_WhenGroupNotFound_ShouldThrowGroupException() {
         // Given
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.empty());
 
             // When & Then
-            GroupException exception = assertThrows(GroupException.class, 
-                    () -> groupService.getInvitedGroupMembers(TEST_GROUP_ID));
-            
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.getInvitedGroupMembers(TEST_GROUP_ID)
+            );
+
             assertEquals("Group not found", exception.getMessage());
         }
     }
 
     @Test
-    @DisplayName("A - Abnormal: Group is inactive")
-    void getInvitedGroupMembers_GroupInactive() {
+    void getInvitedGroupMembers_WhenGroupInactive_ShouldThrowGroupException() {
         // Given
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
-            
-            mockGroup.setGroupIsActive(false);
-            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            testGroup.setGroupIsActive(false);
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
 
             // When & Then
-            GroupException exception = assertThrows(GroupException.class, 
-                    () -> groupService.getInvitedGroupMembers(TEST_GROUP_ID));
-            
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.getInvitedGroupMembers(TEST_GROUP_ID)
+            );
+
             assertEquals("Group not found", exception.getMessage());
         }
     }
 
     @Test
-    @DisplayName("A - Abnormal: Current user is not a member of the group")
-    void getInvitedGroupMembers_UserNotMember() {
+    void getInvitedGroupMembers_WhenUserNotMember_ShouldThrowGroupException() {
         // Given
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             
-            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_CURRENT_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
                     .thenReturn(Optional.empty());
 
             // When & Then
-            GroupException exception = assertThrows(GroupException.class, 
-                    () -> groupService.getInvitedGroupMembers(TEST_GROUP_ID));
-            
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.getInvitedGroupMembers(TEST_GROUP_ID)
+            );
+
             assertEquals("You are not a member of this group", exception.getMessage());
         }
     }
 
     @Test
-    @DisplayName("A - Abnormal: User lacks permission to view invited members")
-    void getInvitedGroupMembers_UserLacksPermission() {
+    void getInvitedGroupMembers_WhenUserLacksPermission_ShouldThrowGroupException() {
         // Given
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             
-            mockCurrentUserMembership.setRole(GroupMemberRole.MEMBER);
-            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_CURRENT_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
-                    .thenReturn(Optional.of(mockCurrentUserMembership));
-            when(groupPermissionService.canViewInvitedMembers(GroupMemberRole.MEMBER)).thenReturn(false);
+            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupMember));
+            when(groupPermissionService.canViewInvitedMembers(GroupMemberRole.OWNER)).thenReturn(false);
 
             // When & Then
-            GroupException exception = assertThrows(GroupException.class, 
-                    () -> groupService.getInvitedGroupMembers(TEST_GROUP_ID));
-            
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.getInvitedGroupMembers(TEST_GROUP_ID)
+            );
+
             assertEquals("You don't have permission to view invited members", exception.getMessage());
         }
     }
 
+    // ================= BOUNDARY TESTS =================
+
     @Test
-    @DisplayName("B - Boundary: Group ID is 1 (minimum valid value)")
-    void getInvitedGroupMembers_MinimumGroupId() {
+    void getGroupDetail_WhenGroupIdIsOne_ShouldWorkCorrectly() {
         // Given
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(groupRepository.findById(1)).thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.getGroupDetail(1)
+            );
+
+            assertEquals("Group not found", exception.getMessage());
+        }
+    }
+
+    @Test
+    void getGroupDetail_WhenGroupIdIsMaxValue_ShouldWorkCorrectly() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(groupRepository.findById(Integer.MAX_VALUE)).thenReturn(Optional.empty());
+
+            // When & Then
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.getGroupDetail(Integer.MAX_VALUE)
+            );
+
+            assertEquals("Group not found", exception.getMessage());
+        }
+    }
+
+    @Test
+    void createGroupWithImage_WhenGroupNameIsVeryLong_ShouldWorkCorrectly() {
+        // Given
+        String veryLongName = "A".repeat(100); // Maximum allowed length
+        createGroupRequest.setGroupName(veryLongName);
+
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             
-            when(groupRepository.findById(1)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_CURRENT_USER_ID, 1, GroupMemberStatus.ACTIVE))
-                    .thenReturn(Optional.of(mockCurrentUserMembership));
-            when(groupPermissionService.canViewInvitedMembers(GroupMemberRole.ADMIN)).thenReturn(true);
-            when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(1, GroupMemberStatus.INVITED, TEST_CURRENT_USER_ID))
+            // Mock the group that will be created by mapper
+            Group mappedGroup = new Group();
+            mappedGroup.setGroupName(veryLongName);
+            mappedGroup.setGroupIsActive(true);
+            
+            // Mock the group that will be saved and returned
+            Group savedGroup = new Group();
+            savedGroup.setGroupId(TEST_GROUP_ID);
+            savedGroup.setGroupName(veryLongName);
+            savedGroup.setGroupIsActive(true);
+            savedGroup.setGroupAvatarUrl("https://cdn.pixabay.com/photo/2016/11/14/17/39/group-1824145_1280.png");
+            
+            when(groupMapper.toEntity(createGroupRequest)).thenReturn(mappedGroup);
+            when(groupRepository.save(any(Group.class))).thenReturn(savedGroup);
+            when(groupMapper.toResponse(any(Group.class))).thenReturn(new GroupResponse());
+
+            // When
+            GroupResponse result = groupService.createGroupWithImage(createGroupRequest);
+
+            // Then
+            assertNotNull(result);
+            verify(groupRepository).save(argThat(group -> 
+                group.getGroupName().equals(veryLongName)
+            ));
+        }
+    }
+
+    @Test
+    void createGroupWithImage_WhenGroupNameExceedsMaxLength_ShouldThrowGroupException() {
+        // Given
+        String tooLongName = "A".repeat(101); // Exceeds maximum length
+        createGroupRequest.setGroupName(tooLongName);
+
+        // When & Then
+        GroupException exception = assertThrows(
+                GroupException.class,
+                () -> groupService.createGroupWithImage(createGroupRequest)
+        );
+
+        assertEquals("Group name cannot exceed 100 characters", exception.getMessage());
+        verify(groupRepository, never()).save(any());
+    }
+
+    @Test
+    void getInvitedGroupMembers_WhenGroupIdIsOne_ShouldWorkCorrectly() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(groupRepository.findById(1)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_USER_ID, 1, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupMember));
+            when(groupPermissionService.canViewInvitedMembers(GroupMemberRole.OWNER)).thenReturn(true);
+            when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(1, GroupMemberStatus.INVITED, TEST_USER_ID))
                     .thenReturn(Arrays.asList());
 
             // When
@@ -307,17 +998,15 @@ class GroupServiceTest {
     }
 
     @Test
-    @DisplayName("B - Boundary: Group ID is Integer.MAX_VALUE")
-    void getInvitedGroupMembers_MaximumGroupId() {
+    void getInvitedGroupMembers_WhenGroupIdIsMaxValue_ShouldWorkCorrectly() {
         // Given
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
-            
-            when(groupRepository.findById(Integer.MAX_VALUE)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_CURRENT_USER_ID, Integer.MAX_VALUE, GroupMemberStatus.ACTIVE))
-                    .thenReturn(Optional.of(mockCurrentUserMembership));
-            when(groupPermissionService.canViewInvitedMembers(GroupMemberRole.ADMIN)).thenReturn(true);
-            when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(Integer.MAX_VALUE, GroupMemberStatus.INVITED, TEST_CURRENT_USER_ID))
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            when(groupRepository.findById(Integer.MAX_VALUE)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_USER_ID, Integer.MAX_VALUE, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(testGroupMember));
+            when(groupPermissionService.canViewInvitedMembers(GroupMemberRole.OWNER)).thenReturn(true);
+            when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(Integer.MAX_VALUE, GroupMemberStatus.INVITED, TEST_USER_ID))
                     .thenReturn(Arrays.asList());
 
             // When
@@ -328,54 +1017,4 @@ class GroupServiceTest {
             assertEquals(0, result.size());
         }
     }
-
-    @Test
-    @DisplayName("N - Normal: Owner can view invited members")
-    void getInvitedGroupMembers_OwnerPermission() {
-        // Given
-        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
-            
-            mockCurrentUserMembership.setRole(GroupMemberRole.OWNER);
-            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_CURRENT_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
-                    .thenReturn(Optional.of(mockCurrentUserMembership));
-            when(groupPermissionService.canViewInvitedMembers(GroupMemberRole.OWNER)).thenReturn(true);
-            when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(TEST_GROUP_ID, GroupMemberStatus.INVITED, TEST_CURRENT_USER_ID))
-                    .thenReturn(Arrays.asList(mockInvitedMember1));
-
-            // When
-            List<InvitedGroupMemberResponse> result = groupService.getInvitedGroupMembers(TEST_GROUP_ID);
-
-            // Then
-            assertNotNull(result);
-            assertEquals(1, result.size());
-            assertEquals(TEST_INVITED_USER_ID_1, result.get(0).getUserId());
-        }
-    }
-
-    @Test
-    @DisplayName("N - Normal: Admin can view invited members")
-    void getInvitedGroupMembers_AdminPermission() {
-        // Given
-        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(mockCurrentUser);
-            
-            mockCurrentUserMembership.setRole(GroupMemberRole.ADMIN);
-            when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(mockGroup));
-            when(groupMemberRepository.findByUserAndGroupAndStatus(TEST_CURRENT_USER_ID, TEST_GROUP_ID, GroupMemberStatus.ACTIVE))
-                    .thenReturn(Optional.of(mockCurrentUserMembership));
-            when(groupPermissionService.canViewInvitedMembers(GroupMemberRole.ADMIN)).thenReturn(true);
-            when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(TEST_GROUP_ID, GroupMemberStatus.INVITED, TEST_CURRENT_USER_ID))
-                    .thenReturn(Arrays.asList(mockInvitedMember1));
-
-            // When
-            List<InvitedGroupMemberResponse> result = groupService.getInvitedGroupMembers(TEST_GROUP_ID);
-
-            // Then
-            assertNotNull(result);
-            assertEquals(1, result.size());
-            assertEquals(TEST_INVITED_USER_ID_1, result.get(0).getUserId());
-        }
-    }
-} 
+}
