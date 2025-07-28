@@ -1,6 +1,7 @@
 package vn.fpt.seima.seimaserver.dto.request.group;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -10,6 +11,7 @@ import jakarta.validation.constraints.NotNull;
  * Request DTO for canceling a join group request
  */
 @Data
+@Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class CancelJoinGroupRequest {
