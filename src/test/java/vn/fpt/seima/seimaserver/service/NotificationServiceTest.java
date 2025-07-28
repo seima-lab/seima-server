@@ -655,5 +655,247 @@ class NotificationServiceTest {
         NotificationResponse response = result.getContent().get(0);
         assertNull(response.getSender());
     }
+
+    // Tests for sendPendingApprovalNotificationToUser
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenValidRequest_ShouldProcessSuccessfully() {
+        // Given
+        Integer groupId = 1;
+        Integer userId = 2;
+        String groupName = "Test Group";
+        
+        when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+        when(userDeviceRepository.findFcmTokensByUserIds(Arrays.asList(userId))).thenReturn(Arrays.asList("token1"));
+
+        // When
+        notificationService.sendPendingApprovalNotificationToUser(groupId, userId, groupName);
+
+        // Then
+        verify(userRepository).findById(userId);
+        verify(notificationRepository, times(2)).save(any(Notification.class)); // Called twice: initial save and sentAt update
+        verify(userDeviceRepository).findFcmTokensByUserIds(Arrays.asList(userId));
+        verify(fcmService).sendMulticastNotification(anyList(), anyString(), anyString(), anyMap());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenGroupIdIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendPendingApprovalNotificationToUser(null, 1, "Group")
+        );
+        assertEquals("Group ID must be positive", exception.getMessage());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenGroupIdIsZero_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendPendingApprovalNotificationToUser(0, 1, "Group")
+        );
+        assertEquals("Group ID must be positive", exception.getMessage());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenUserIdIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendPendingApprovalNotificationToUser(1, null, "Group")
+        );
+        assertEquals("User ID must be positive", exception.getMessage());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenUserIdIsZero_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendPendingApprovalNotificationToUser(1, 0, "Group")
+        );
+        assertEquals("User ID must be positive", exception.getMessage());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenGroupNameIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendPendingApprovalNotificationToUser(1, 1, null)
+        );
+        assertEquals("Group name cannot be empty", exception.getMessage());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenGroupNameIsEmpty_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendPendingApprovalNotificationToUser(1, 1, "")
+        );
+        assertEquals("Group name cannot be empty", exception.getMessage());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenUserNotFound_ShouldReturnEarly() {
+        // Given
+        Integer groupId = 1;
+        Integer userId = 999;
+        String groupName = "Test Group";
+        
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        // When
+        notificationService.sendPendingApprovalNotificationToUser(groupId, userId, groupName);
+
+        // Then
+        verify(userRepository).findById(userId);
+        verify(notificationRepository, never()).save(any());
+        verify(userDeviceRepository, never()).findFcmTokensByUserIds(anyList());
+        verify(fcmService, never()).sendMulticastNotification(anyList(), anyString(), anyString(), anyMap());
+    }
+
+    @Test
+    void sendPendingApprovalNotificationToUser_WhenNoFcmTokens_ShouldNotSendFcm() {
+        // Given
+        Integer groupId = 1;
+        Integer userId = 2;
+        String groupName = "Test Group";
+        
+        when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
+        when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
+        when(userDeviceRepository.findFcmTokensByUserIds(Arrays.asList(userId))).thenReturn(Collections.emptyList());
+
+        // When
+        notificationService.sendPendingApprovalNotificationToUser(groupId, userId, groupName);
+
+        // Then
+        verify(userRepository).findById(userId);
+        verify(notificationRepository, times(1)).save(any(Notification.class)); // Only called once since FCM fails
+        verify(userDeviceRepository).findFcmTokensByUserIds(Arrays.asList(userId));
+        verify(fcmService, never()).sendMulticastNotification(anyList(), anyString(), anyString(), anyMap());
+    }
+
+    // Tests for sendRoleUpdateNotificationToGroup
+    @Test
+    void sendRoleUpdateNotificationToGroup_WhenValidRequest_ShouldProcessSuccessfully() {
+        // Given
+        Integer groupId = 1;
+        Integer updatedUserId = 2;
+        String updatedUserName = "Updated User";
+        String updatedByUserName = "Admin User";
+        GroupMemberRole previousRole = GroupMemberRole.MEMBER;
+        GroupMemberRole newRole = GroupMemberRole.ADMIN;
+        
+        List<GroupMember> groupMembers = Arrays.asList(testGroupMember);
+        when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(groupId, GroupMemberStatus.ACTIVE, updatedUserId))
+                .thenReturn(groupMembers);
+        
+        // Mock findAdminAndOwnerMembers for sendNotificationToGroupMembers
+        when(groupMemberRepository.findAdminAndOwnerMembers(groupId, GroupMemberStatus.ACTIVE))
+                .thenReturn(Arrays.asList(testGroupMember));
+        
+        // Mock userRepository for sender user
+        when(userRepository.findById(updatedUserId)).thenReturn(Optional.of(testUser));
+
+        // When
+        notificationService.sendRoleUpdateNotificationToGroup(groupId, updatedUserId, updatedUserName, 
+                                                          updatedByUserName, previousRole, newRole);
+
+        // Then
+        verify(groupMemberRepository).findByGroupAndStatusAndUserIdNot(groupId, GroupMemberStatus.ACTIVE, updatedUserId);
+        verify(notificationRepository, atLeastOnce()).saveAll(anyList());
+    }
+
+    @Test
+    void sendRoleUpdateNotificationToGroup_WhenNoMembersFound_ShouldReturnEarly() {
+        // Given
+        Integer groupId = 1;
+        Integer updatedUserId = 2;
+        String updatedUserName = "Updated User";
+        String updatedByUserName = "Admin User";
+        GroupMemberRole previousRole = GroupMemberRole.MEMBER;
+        GroupMemberRole newRole = GroupMemberRole.ADMIN;
+        
+        when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(groupId, GroupMemberStatus.ACTIVE, updatedUserId))
+                .thenReturn(Collections.emptyList());
+
+        // When
+        notificationService.sendRoleUpdateNotificationToGroup(groupId, updatedUserId, updatedUserName, 
+                                                          updatedByUserName, previousRole, newRole);
+
+        // Then
+        verify(groupMemberRepository).findByGroupAndStatusAndUserIdNot(groupId, GroupMemberStatus.ACTIVE, updatedUserId);
+        verify(notificationRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void sendRoleUpdateNotificationToGroup_WhenGroupIdIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendRoleUpdateNotificationToGroup(null, 1, "User", "Admin", 
+                                                                         GroupMemberRole.MEMBER, GroupMemberRole.ADMIN)
+        );
+        assertEquals("Group ID must be positive", exception.getMessage());
+    }
+
+    @Test
+    void sendRoleUpdateNotificationToGroup_WhenUpdatedUserIdIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendRoleUpdateNotificationToGroup(1, null, "User", "Admin", 
+                                                                         GroupMemberRole.MEMBER, GroupMemberRole.ADMIN)
+        );
+        assertEquals("Updated user ID must be positive", exception.getMessage());
+    }
+
+    @Test
+    void sendRoleUpdateNotificationToGroup_WhenUpdatedUserNameIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendRoleUpdateNotificationToGroup(1, 1, null, "Admin", 
+                                                                         GroupMemberRole.MEMBER, GroupMemberRole.ADMIN)
+        );
+        assertEquals("Updated user name cannot be empty", exception.getMessage());
+    }
+
+    @Test
+    void sendRoleUpdateNotificationToGroup_WhenUpdatedByUserNameIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendRoleUpdateNotificationToGroup(1, 1, "User", null, 
+                                                                         GroupMemberRole.MEMBER, GroupMemberRole.ADMIN)
+        );
+        assertEquals("Updated by user name cannot be empty", exception.getMessage());
+    }
+
+    @Test
+    void sendRoleUpdateNotificationToGroup_WhenPreviousRoleIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendRoleUpdateNotificationToGroup(1, 1, "User", "Admin", 
+                                                                         null, GroupMemberRole.ADMIN)
+        );
+        assertEquals("Previous role cannot be null", exception.getMessage());
+    }
+
+    @Test
+    void sendRoleUpdateNotificationToGroup_WhenNewRoleIsNull_ShouldThrowIllegalArgumentException() {
+        // When & Then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> notificationService.sendRoleUpdateNotificationToGroup(1, 1, "User", "Admin", 
+                                                                         GroupMemberRole.MEMBER, null)
+        );
+        assertEquals("New role cannot be null", exception.getMessage());
+    }
+
 }
 

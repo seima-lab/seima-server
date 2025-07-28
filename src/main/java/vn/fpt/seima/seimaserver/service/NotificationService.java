@@ -3,6 +3,7 @@ package vn.fpt.seima.seimaserver.service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import vn.fpt.seima.seimaserver.dto.response.notification.NotificationResponse;
+import vn.fpt.seima.seimaserver.entity.GroupMemberRole;
 import vn.fpt.seima.seimaserver.entity.Notification;
 import vn.fpt.seima.seimaserver.entity.NotificationType;
 
@@ -43,5 +44,19 @@ public interface NotificationService {
                                        String linkToEntity);
 
     void sendGroupJoinRequestNotification(Integer groupId, Integer requestUserId, String requestUserName);
+
+
+    void sendPendingApprovalNotificationToUser(Integer groupId, Integer userId, String groupName);
+
+
+
+
+    void sendRoleUpdateNotificationToUser(Integer groupId, Integer userId, String groupName, 
+                                        String updatedByUserName, GroupMemberRole previousRole, GroupMemberRole newRole);
+
+    void sendRoleUpdateNotificationToGroup(Integer groupId, Integer updatedUserId, String updatedUserName, 
+                                         String updatedByUserName, GroupMemberRole previousRole, GroupMemberRole newRole);
+
+    void sendMemberRemovedNotificationToGroup(Integer groupId, Integer removedUserId, String removedUserName, String removedByUserName);
 
 } 

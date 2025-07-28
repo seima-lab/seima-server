@@ -32,6 +32,18 @@ app:
     group-invitation:
       html-template: "group-invitation"
       subject: "Seima - Group Invitation"
+    group-acceptance:
+      html-template: "group-acceptance"
+      subject: "Seima - Welcome to Group"
+    group-rejection:
+      html-template: "group-rejection"
+      subject: "Seima - Group Request Update"
+    group-role-update:
+      html-template: "group-role-update"
+      subject: "Seima - Role Update"
+    sender:
+      name: "Seima Team"
+      email: "noreply@seima.app"
 
 
 # Server configuration
