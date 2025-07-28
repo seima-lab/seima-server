@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
 import vn.fpt.seima.seimaserver.dto.response.transaction.*;
+import vn.fpt.seima.seimaserver.entity.Budget;
 import vn.fpt.seima.seimaserver.entity.PeriodType;
 import vn.fpt.seima.seimaserver.entity.TransactionType;
 
@@ -39,4 +40,6 @@ public interface TransactionService {
     TransactionCategoryReportResponse getCategoryReport(PeriodType type, Integer id, LocalDate dateFrom, LocalDate dateTo);
 
     TransactionDetailReportResponse getCategoryReportDetail( Integer id, LocalDate dateFrom, LocalDate dateTo);
+
+    Page<TransactionResponse> getTransactionByBudget(Integer budgetId, Pageable pageable);
 }
