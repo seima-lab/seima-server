@@ -75,4 +75,6 @@ public class GroupMemberController {
         OwnerExitOptionsResponse options = groupMemberService.getOwnerExitOptions(groupId);
         return new ApiResponse<>(HttpStatus.OK.value(), "Owner exit options retrieved successfully", options);
     }
+
+    
 } 
