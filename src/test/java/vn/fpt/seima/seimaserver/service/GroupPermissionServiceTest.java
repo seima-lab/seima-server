@@ -164,4 +164,13 @@ class GroupPermissionServiceTest {
         
         assertEquals("Operation: TEST_OP, Current Role: null, Target Role: MEMBER", description);
     }
+
+    @Test
+    @DisplayName("canViewInvitedMembers - Only Owner and Admin can view")
+    void canViewInvitedMembers_ShouldAllowOwnerAndAdmin() {
+        assertTrue(groupPermissionService.canViewInvitedMembers(GroupMemberRole.OWNER));
+        assertTrue(groupPermissionService.canViewInvitedMembers(GroupMemberRole.ADMIN));
+        assertFalse(groupPermissionService.canViewInvitedMembers(GroupMemberRole.MEMBER));
+        assertFalse(groupPermissionService.canViewInvitedMembers(null));
+    }
 } 

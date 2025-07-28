@@ -110,6 +110,14 @@ public class GroupPermissionService {
         return role == GroupMemberRole.OWNER || role == GroupMemberRole.ADMIN;
     }
     
+    /**
+     * Check if user can view invited members in a group
+     * Only OWNER and ADMIN can view invited members
+     */
+    public boolean canViewInvitedMembers(GroupMemberRole role) {
+        return role == GroupMemberRole.OWNER || role == GroupMemberRole.ADMIN;
+    }
+    
     public String getPermissionDescription(String operation, GroupMemberRole currentRole, GroupMemberRole targetRole) {
         return String.format("Operation: %s, Current Role: %s, Target Role: %s", 
             operation, currentRole, targetRole);
