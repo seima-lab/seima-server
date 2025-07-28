@@ -792,6 +792,13 @@ class NotificationServiceTest {
         List<GroupMember> groupMembers = Arrays.asList(testGroupMember);
         when(groupMemberRepository.findByGroupAndStatusAndUserIdNot(groupId, GroupMemberStatus.ACTIVE, updatedUserId))
                 .thenReturn(groupMembers);
+        
+        // Mock findAdminAndOwnerMembers for sendNotificationToGroupMembers
+        when(groupMemberRepository.findAdminAndOwnerMembers(groupId, GroupMemberStatus.ACTIVE))
+                .thenReturn(Arrays.asList(testGroupMember));
+        
+        // Mock userRepository for sender user
+        when(userRepository.findById(updatedUserId)).thenReturn(Optional.of(testUser));
 
         // When
         notificationService.sendRoleUpdateNotificationToGroup(groupId, updatedUserId, updatedUserName, 
@@ -799,7 +806,7 @@ class NotificationServiceTest {
 
         // Then
         verify(groupMemberRepository).findByGroupAndStatusAndUserIdNot(groupId, GroupMemberStatus.ACTIVE, updatedUserId);
-        verify(notificationRepository, atLeastOnce()).save(any(Notification.class));
+        verify(notificationRepository, atLeastOnce()).saveAll(anyList());
     }
 
     @Test
@@ -821,7 +828,7 @@ class NotificationServiceTest {
 
         // Then
         verify(groupMemberRepository).findByGroupAndStatusAndUserIdNot(groupId, GroupMemberStatus.ACTIVE, updatedUserId);
-        verify(notificationRepository, never()).save(any(Notification.class));
+        verify(notificationRepository, never()).saveAll(anyList());
     }
 
     @Test
