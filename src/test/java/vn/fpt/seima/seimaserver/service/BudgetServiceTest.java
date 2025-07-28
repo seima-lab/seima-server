@@ -13,9 +13,7 @@ import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.mapper.BudgetMapper;
-import vn.fpt.seima.seimaserver.repository.BudgetCategoryLimitRepository;
-import vn.fpt.seima.seimaserver.repository.BudgetPeriodRepository;
-import vn.fpt.seima.seimaserver.repository.BudgetRepository;
+import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.impl.BudgetServiceImpl;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
@@ -33,6 +31,13 @@ class BudgetServiceTest {
     @Mock private BudgetCategoryLimitRepository budgetCategoryLimitRepository;
     @Mock private BudgetMapper budgetMapper;
     @Mock private BudgetPeriodRepository budgetPeriodRepository;
+    private UserDeviceRepository userDeviceRepository;
+    @Mock
+    private FcmService fcmService;
+    @Mock
+    private User mockUser;
+    @Mock
+    private NotificationRepository notificationRepository;
     @InjectMocks private BudgetServiceImpl budgetService;
 
     private User user;
@@ -86,17 +91,16 @@ class BudgetServiceTest {
     }
 
     @Test
-    void reduceAmount_ShouldReduceRemainingAmount() {
-        Budget budget = new Budget();
-        budget.setBudgetId(1);
-        when(budgetRepository.findByUserId(anyInt())).thenReturn(List.of(budget));
-        when(budgetCategoryLimitRepository.findByTransaction(anyInt())).thenReturn(Collections.emptyList());
+    void reduceAmount_userNull_shouldReturnImmediately() {
+        when(UserUtils.getCurrentUser()).thenReturn(null);
 
-        // Act
         budgetService.reduceAmount(1, 1, BigDecimal.TEN, LocalDateTime.now(), "EXPENSE", "code");
 
-        // Assert
-        verify(budgetPeriodRepository, never()).saveAll(any());
+        verify(budgetRepository).findByUserId(1);
+        verifyNoMoreInteractions(fcmService, notificationRepository);
     }
+
+
+
 
 }
