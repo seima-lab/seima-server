@@ -41,6 +41,18 @@ app:
     group-role-update:
       html-template: "group-role-update"
       subject: "Seima - Role Update"
+    group-role-update-notification:
+      html-template: "group-role-update-notification"
+      subject: "Seima - Group Member Role Update"
+    group-join-request-notification:
+      html-template: "group-join-request-notification"
+      subject: "Seima - New Join Request"
+    group-member-removed:
+      html-template: "group-member-removed"
+      subject: "Seima - You have been removed from group"
+    group-member-removed-notification:
+      html-template: "group-member-removed-notification"
+      subject: "Seima - Member Removed Notification"
     sender:
       name: "Seima Team"
       email: "noreply@seima.app"
