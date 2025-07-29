@@ -16,6 +16,7 @@ import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.UserJoinedGroupResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberStatusResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.UserPendingGroupResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.InvitedGroupMemberResponse;
 import vn.fpt.seima.seimaserver.service.GroupService;
 
 import java.util.List;
@@ -65,6 +66,7 @@ public class GroupController {
         List<UserPendingGroupResponse> pendingGroups = groupService.getUserPendingGroups();
         return new ApiResponse<>(HttpStatus.OK.value(), "User pending groups retrieved successfully", pendingGroups);
     }
+    
 
     @PostMapping("/cancel-join")
     @ResponseStatus(HttpStatus.OK)
@@ -101,5 +103,19 @@ public class GroupController {
     public ApiResponse<Object> deleteGroup(@PathVariable Integer groupId) {
         groupService.deleteGroup(groupId);
         return new ApiResponse<>(HttpStatus.OK.value(), "Group deleted successfully", null);
+    }
+    
+    @GetMapping("/{groupId}/invited-members")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<List<InvitedGroupMemberResponse>> getInvitedGroupMembers(@PathVariable Integer groupId) {
+        log.info("Request to get invited members for group ID: {}", groupId);
+        
+        List<InvitedGroupMemberResponse> invitedMembers = groupService.getInvitedGroupMembers(groupId);
+        
+        return new ApiResponse<>(
+            HttpStatus.OK.value(),
+            "Invited members retrieved successfully",
+            invitedMembers
+        );
     }
 } 

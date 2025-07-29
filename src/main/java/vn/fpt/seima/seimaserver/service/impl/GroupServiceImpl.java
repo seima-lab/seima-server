@@ -11,6 +11,7 @@ import vn.fpt.seima.seimaserver.dto.request.group.CancelJoinGroupRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.UpdateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.*;
+import vn.fpt.seima.seimaserver.dto.response.group.InvitedGroupMemberResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.GroupException;
 import vn.fpt.seima.seimaserver.mapper.GroupMapper;
@@ -802,5 +803,83 @@ public class GroupServiceImpl implements GroupService {
         if (request.getGroupId() <= 0) {
             throw new GroupException("Group ID must be a positive integer");
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InvitedGroupMemberResponse> getInvitedGroupMembers(Integer groupId) {
+        log.info("Getting invited members for group ID: {}", groupId);
+        
+        // Validate input
+        if (groupId == null) {
+            throw new GroupException("Group ID cannot be null");
+        }
+        
+        if (groupId <= 0) {
+            throw new GroupException("Group ID must be a positive integer");
+        }
+        
+        // Get current user
+        User currentUser = getCurrentUser();
+        
+        // Find and validate group
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new GroupException("Group not found"));
+        
+        // Check if group is active
+        if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+            throw new GroupException("Group not found");
+        }
+        
+        // Validate current user's membership and permission
+        validateUserPermissionToViewInvitedMembers(groupId, currentUser);
+        
+        // Find all invited members in the group
+        List<GroupMember> invitedMembers = groupMemberRepository.findByGroupAndStatusAndUserIdNot(
+                groupId, GroupMemberStatus.INVITED, currentUser.getUserId());
+        
+
+        List<InvitedGroupMemberResponse> invitedMembersResponse = invitedMembers.stream()
+                .map(this::mapToInvitedGroupMemberResponse)
+                .collect(Collectors.toList());
+        
+        log.info("Found {} invited members in group {}", invitedMembersResponse.size(), groupId);
+        
+        return invitedMembersResponse;
+    }
+    
+    /**
+     * Validate user has permission to view invited members
+     */
+    private void validateUserPermissionToViewInvitedMembers(Integer groupId, User currentUser) {
+        // Check if user is an active member of the group
+        Optional<GroupMember> currentUserMembership = groupMemberRepository.findByUserAndGroupAndStatus(
+                currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE);
+        
+        if (currentUserMembership.isEmpty()) {
+            throw new GroupException("You are not a member of this group");
+        }
+        
+        // Check if user has permission to view invited members (ADMIN or OWNER)
+        GroupMemberRole currentUserRole = currentUserMembership.get().getRole();
+        if (!groupPermissionService.canViewInvitedMembers(currentUserRole)) {
+            throw new GroupException("You don't have permission to view invited members");
+        }
+    }
+    
+    /**
+     * Map GroupMember entity to InvitedGroupMemberResponse DTO
+     */
+    private InvitedGroupMemberResponse mapToInvitedGroupMemberResponse(GroupMember groupMember) {
+        User user = groupMember.getUser();
+        
+        return InvitedGroupMemberResponse.builder()
+                .userId(user.getUserId())
+                .userEmail(user.getUserEmail())
+                .userFullName(user.getUserFullName())
+                .userAvatarUrl(user.getUserAvatarUrl())
+                .invitedAt(groupMember.getJoinDate())
+                .assignedRole(groupMember.getRole().name())
+                .build();
     }
 } 

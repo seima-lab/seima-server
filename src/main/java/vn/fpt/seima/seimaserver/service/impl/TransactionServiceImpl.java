@@ -611,14 +611,9 @@ public class TransactionServiceImpl implements TransactionService {
                 group.setCategoryId(tx.getCategory().getCategoryId());
                 group.setCategoryName(tx.getCategory().getCategoryName());
                 group.setCategoryIconUrl(tx.getCategory().getCategoryIconUrl());
-                group.setTransactionId(tx.getTransactionId());
-                group.setTransactionType(tx.getTransactionType());
-                group.setTransactionDate(tx.getTransactionDate());
-                group.setAmount(tx.getAmount());
-                group.setCurrencyCode(tx.getCurrencyCode());
-                group.setDescription(tx.getDescription());
-            }
 
+            }
+            group.getTransactionDetailList().add(new TransactionDetailReportResponse.TransactionDetail(tx.getTransactionId(), tx.getTransactionType(),tx.getAmount() ,tx.getCurrencyCode(), tx.getTransactionDate(), tx.getDescription()) );
             result.put(key, group);
         }
 
