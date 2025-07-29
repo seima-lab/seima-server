@@ -41,8 +41,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
 
     @Query("SELECT t FROM Transaction t " +
             "WHERE t.transactionType != :type " +
-            "AND t.transactionDate BETWEEN :startDate AND :endDate and (:groupId IS NULL OR t.group.groupId = :groupId)" +
-            "and t.user.userId = :userId")
+            "AND t.transactionDate BETWEEN :startDate AND :endDate " +
+            "AND ((:groupId IS NULL AND t.group.groupId IS NULL) OR (:groupId IS NOT NULL AND t.group.groupId = :groupId)) " +
+            "AND t.user.userId = :userId")
     Page<Transaction> findByDate(
             @Param("type") TransactionType type,
             @Param("startDate") LocalDateTime startDate,
@@ -56,8 +57,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
             "WHERE t.user = :user " +
             "AND (:categoryId IS NULL OR t.category.categoryId = :categoryId) " +
             "AND t.transactionDate BETWEEN :startDate AND :endDate " +
-            "AND t.transactionType != 'INACTIVE'" +
-            "and (:groupId IS NULL OR t.group.groupId = :groupId)")
+            "AND t.transactionType != 'INACTIVE' " +
+            "AND ((:groupId IS NULL AND t.group.groupId IS NULL) " +
+            "OR (:groupId IS NOT NULL AND t.group.groupId = :groupId))")
     List<Transaction> listReportByUserAndCategoryAndTransactionDateBetween(
             @Param("user") User user,
             @Param("categoryId") Integer categoryId,
