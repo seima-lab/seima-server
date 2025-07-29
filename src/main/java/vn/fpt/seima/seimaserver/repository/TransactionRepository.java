@@ -20,7 +20,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
     @Query("SELECT t FROM Transaction t " +
             "WHERE t.transactionType != :type " +
             "AND t.transactionDate BETWEEN :startDate AND :endDate " +
-            "and t.user.userId = :userId")
+            "and t.user.userId = :userId and t.group.groupId is null")
     List<Transaction> findAllByUserAndTransactionDateBetween(
             @Param("userId") Integer userId,
             @Param("type") TransactionType type,
