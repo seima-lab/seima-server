@@ -627,14 +627,13 @@ public class TransactionServiceImpl implements TransactionService {
      */
     @Override
     public Page<TransactionResponse> getTransactionByBudget(Integer budgetId, Pageable pageable) {
-        Page<Transaction> transactions =  null;
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
         }
         Budget budget = budgetRepository.findById(budgetId).orElseThrow(()
                 -> new IllegalArgumentException("Not found budget with id: " + budgetId));
-
+        List<Integer> categoryIds = new ArrayList<>();
         List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository.findByBudget(budgetId);
         if (budgetCategoryLimits.isEmpty()) {
             throw new IllegalArgumentException("Not found budget with id: " + budgetId);
@@ -644,16 +643,15 @@ public class TransactionServiceImpl implements TransactionService {
             if (categories.isEmpty()) {
                 throw new IllegalArgumentException("Not found category with id: " + budgetCategoryLimit.getCategory().getCategoryId());
             }
-            for (Category category : categories) {
-                transactions = transactionRepository.getTransactionByBudget(
-                        currentUser.getUserId(),
-                        category.getCategoryId(),
-                        budget.getStartDate(),
-                        budget.getEndDate(),
-                        pageable
-                );
-            }
+            categoryIds.addAll(categories.stream().map(Category::getCategoryId).collect(Collectors.toList()));
         }
+        Page<Transaction> transactions = transactionRepository.getTransactionByBudget(
+                currentUser.getUserId(),
+                categoryIds,
+                budget.getStartDate(),
+                budget.getEndDate(),
+                pageable
+        );
         return transactions.map(transactionMapper::toResponse);
     }
 

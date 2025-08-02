@@ -103,10 +103,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
             "WHERE t.transactionType != 'INACTIVE' " +
             "AND t.transactionDate BETWEEN :startDate AND :endDate " +
             "and t.user.userId = :userId and " +
-            "t.category.categoryId = :categoryId and " +
-            "t.group.groupId is null ")
+            "t.category.categoryId in (:categoryId) and " +
+            "t.group is null ")
     Page<Transaction> getTransactionByBudget(@Param("userId") Integer userId,
-                                             @Param("categoryId") Integer categoryId,
+                                             @Param("categoryId") List<Integer> categoryId,
                                              @Param("startDate") LocalDateTime startDate,
                                              @Param("endDate") LocalDateTime endDate,
                                              Pageable pageable);
