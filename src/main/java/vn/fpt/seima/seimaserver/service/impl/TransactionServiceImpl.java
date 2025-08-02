@@ -45,6 +45,7 @@ public class TransactionServiceImpl implements TransactionService {
     private final GroupMemberRepository groupMemberRepository;
     private final BudgetCategoryLimitRepository budgetCategoryLimitRepository;
     private final BudgetRepository budgetRepository;
+    private final BudgetPeriodRepository budgetPeriodRepository;
 
     @Override
     public Page<TransactionResponse> getAllTransaction( Pageable pageable) {
@@ -241,13 +242,15 @@ public class TransactionServiceImpl implements TransactionService {
             for (BudgetCategoryLimit budgetCategoryLimit : budgetCategoryLimits) {
                 Budget budget = budgetRepository.findById(budgetCategoryLimit.getBudget().getBudgetId())
                         .orElse(null);
-
                 if (budget == null) {
                     continue;
                 }
-                if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate())){
-                    budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount().add(transaction.getAmount()));
-                    budgetRepository.save(budget);
+                List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetIdAndTime(budget.getBudgetId(), transaction.getTransactionDate());
+
+                for (BudgetPeriod budgetPeriod : budgetPeriods) {
+                    if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate()))
+                        budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount().add(transaction.getAmount()));
+                    budgetPeriodRepository.save(budgetPeriod);
                 }
             }
 
