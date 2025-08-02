@@ -96,13 +96,7 @@ public class BudgetServiceImpl implements BudgetService {
             categoryIds.add(category.getCategoryId());
         }
         Budget budget = budgetMapper.toEntity(request);
-        budget.setBudgetRemainingAmount(request.getBudgetRemainingAmount()
-                .subtract(transactionRepository.sumExpensesByCategoryAndMonth(
-                        user.getUserId(),
-                        categoryIds,
-                        request.getStartDate(),
-                        request.getEndDate()
-                        )));
+
         budget.setUser(user);
         Budget savedBudget = budgetRepository.save(budget);
 
@@ -113,7 +107,22 @@ public class BudgetServiceImpl implements BudgetService {
 
             budgetCategoryLimitRepository.save(budgetCategoryLimit);
         }
+        List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
+                user.getUserId(),
+                categoryIds,
+                request.getStartDate(),
+                request.getEndDate()
+        );
         List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(savedBudget);
+        for (Transaction transaction : transactions) {
+            for (BudgetPeriod period : periods) {
+                if (!transaction.getTransactionDate().isBefore(period.getStartDate()) &&
+                        !transaction.getTransactionDate().isAfter(period.getEndDate())) {
+                    period.setRemainingAmount(period.getRemainingAmount().subtract(transaction.getAmount()));
+                }
+            }
+        }
+
         budgetPeriodRepository.saveAll(periods);
         return budgetMapper.toResponse(savedBudget);
     }
@@ -147,14 +156,32 @@ public class BudgetServiceImpl implements BudgetService {
         existingBudget.setUser(user);
 
         Budget updatedBudget = budgetRepository.save(existingBudget);
+        List<Integer> categoryIds = new ArrayList<>();
+
         for (Category category : request.getCategoryList()) {
             BudgetCategoryLimit budgetCategoryLimit = new BudgetCategoryLimit();
             budgetCategoryLimit.setCategory(category);
             budgetCategoryLimit.setBudget(existingBudget);
+            categoryIds.add(category.getCategoryId());
 
             budgetCategoryLimitRepository.save(budgetCategoryLimit);
         }
+        List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
+                user.getUserId(),
+                categoryIds,
+                request.getStartDate(),
+                request.getEndDate()
+        );
         List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(updatedBudget);
+        for (Transaction transaction : transactions) {
+            for (BudgetPeriod period : periods) {
+                if (!transaction.getTransactionDate().isBefore(period.getStartDate()) &&
+                        !transaction.getTransactionDate().isAfter(period.getEndDate())) {
+                    period.setRemainingAmount(period.getRemainingAmount().subtract(transaction.getAmount()));
+                }
+            }
+        }
+
         budgetPeriodRepository.saveAll(periods);
 
         return budgetMapper.toResponse(updatedBudget);
@@ -287,6 +314,7 @@ public class BudgetServiceImpl implements BudgetService {
                     .startDate(lastPeriod.getStartDate())
                     .endDate(lastPeriod.getEndDate())
                     .periodType(budget.getPeriodType())
+                    .status(lastPeriod.getStatus())
                     .categories(categoryResponses)
                     .build();
 
