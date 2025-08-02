@@ -223,7 +223,7 @@ public class TransactionController {
 
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
         } catch (Exception ex) {
-            return new ApiResponse<>(500, "An unexpected error occurred", null);
+            return new ApiResponse<>(500, ex.getMessage(), null);
         }
     }
 } 

@@ -45,6 +45,7 @@ public class TransactionServiceImpl implements TransactionService {
     private final GroupMemberRepository groupMemberRepository;
     private final BudgetCategoryLimitRepository budgetCategoryLimitRepository;
     private final BudgetRepository budgetRepository;
+    private final BudgetPeriodRepository budgetPeriodRepository;
 
     @Override
     public Page<TransactionResponse> getAllTransaction( Pageable pageable) {
@@ -241,13 +242,15 @@ public class TransactionServiceImpl implements TransactionService {
             for (BudgetCategoryLimit budgetCategoryLimit : budgetCategoryLimits) {
                 Budget budget = budgetRepository.findById(budgetCategoryLimit.getBudget().getBudgetId())
                         .orElse(null);
-
                 if (budget == null) {
                     continue;
                 }
-                if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate())){
-                    budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount().add(transaction.getAmount()));
-                    budgetRepository.save(budget);
+                List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetIdAndTime(budget.getBudgetId(), transaction.getTransactionDate());
+
+                for (BudgetPeriod budgetPeriod : budgetPeriods) {
+                    if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate()))
+                        budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount().add(transaction.getAmount()));
+                    budgetPeriodRepository.save(budgetPeriod);
                 }
             }
 
@@ -471,8 +474,10 @@ public class TransactionServiceImpl implements TransactionService {
             case PeriodType.CUSTOM:
                 if (days > 30) {
                     groupBy = "month";
-                } else {
+                } else if (days > 7) {
                     groupBy = "week";
+                } else {
+                    groupBy = "day";
                 }
                 break;
             default:
@@ -627,14 +632,13 @@ public class TransactionServiceImpl implements TransactionService {
      */
     @Override
     public Page<TransactionResponse> getTransactionByBudget(Integer budgetId, Pageable pageable) {
-        Page<Transaction> transactions =  null;
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
         }
         Budget budget = budgetRepository.findById(budgetId).orElseThrow(()
                 -> new IllegalArgumentException("Not found budget with id: " + budgetId));
-
+        List<Integer> categoryIds = new ArrayList<>();
         List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository.findByBudget(budgetId);
         if (budgetCategoryLimits.isEmpty()) {
             throw new IllegalArgumentException("Not found budget with id: " + budgetId);
@@ -644,16 +648,15 @@ public class TransactionServiceImpl implements TransactionService {
             if (categories.isEmpty()) {
                 throw new IllegalArgumentException("Not found category with id: " + budgetCategoryLimit.getCategory().getCategoryId());
             }
-            for (Category category : categories) {
-                transactions = transactionRepository.getTransactionByBudget(
-                        currentUser.getUserId(),
-                        category.getCategoryId(),
-                        budget.getStartDate(),
-                        budget.getEndDate(),
-                        pageable
-                );
-            }
+            categoryIds.addAll(categories.stream().map(Category::getCategoryId).collect(Collectors.toList()));
         }
+        Page<Transaction> transactions = transactionRepository.getTransactionByBudget(
+                currentUser.getUserId(),
+                categoryIds,
+                budget.getStartDate(),
+                budget.getEndDate(),
+                pageable
+        );
         return transactions.map(transactionMapper::toResponse);
     }
 

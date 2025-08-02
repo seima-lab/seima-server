@@ -35,7 +35,7 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
     private final ObjectMapper objectMapper;
 
     /**
-     * @return
+     * @return FinancialHealthResponse
      */
     @Override
     public FinancialHealthResponse calculateScore() {
@@ -66,17 +66,18 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
                     .divide(totalIncome, 2, RoundingMode.HALF_UP)
                     .multiply(BigDecimal.valueOf(100));
             savingScore = savingRate.intValue() * 40 / 100;
-            if (savingScore >40) {
+            if (savingScore > 40) {
                 savingScore = 40;
+            } else if (savingScore < 0) {
+                savingScore = 0;
             }
         }
         List<Budget> budgets = budgetRepository.findByUserId(currentUser.getUserId());
         int compliantBudgets = 0;
-        List<Integer> categoriesId = new ArrayList<>();
 
         for (Budget budget : budgets) {
             for (BudgetCategoryLimit categoryLimit : budget.getBudgetCategoryLimits()) {
-                categoriesId.add(categoryLimit.getCategory().getCategoryId());
+                List<Integer> categoriesId = List.of(categoryLimit.getCategory().getCategoryId());
                 BigDecimal actualSpent = transactionRepository.sumExpensesByCategoryAndMonth(
                         currentUser.getUserId(),
                         categoriesId,
@@ -99,6 +100,8 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
 
             if (budgetScore > 30) {
                 budgetScore = 30;
+            } else if (budgetScore < 0) {
+                budgetScore = 0;
             }
         }
 
