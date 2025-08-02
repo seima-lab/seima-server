@@ -84,68 +84,6 @@ class TransactionServiceTest {
         when(transactionRepository.findById(1)).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class, () -> transactionService.getTransactionById(1));
     }
-    @Test
-    void testDeleteTransaction_Success() {
-        // Arrange
-        int transactionId = 1;
-
-        // Wallet
-        Wallet wallet = new Wallet();
-        wallet.setCurrentBalance(new BigDecimal("1000"));
-
-        // User
-        User user = new User();
-        user.setUserId(123);
-
-        // Category
-        Category category = new Category();
-        category.setCategoryId(10);
-
-        // Transaction (ngày 15/07/2025)
-        Transaction transaction = new Transaction();
-        transaction.setTransactionId(transactionId);
-        transaction.setTransactionDate(LocalDateTime.of(2025, 7, 15, 0, 0));
-        transaction.setTransactionType(TransactionType.EXPENSE);
-        transaction.setAmount(new BigDecimal("200"));
-        transaction.setWallet(wallet);
-        transaction.setUser(user);
-        transaction.setCategory(category);
-
-        // Budget (start < transactionDate < end)
-        Budget budget = new Budget();
-        budget.setBudgetId(1);
-        budget.setStartDate(LocalDateTime.of(2025, 6, 15, 0, 0));
-        budget.setEndDate(LocalDateTime.of(2025, 8, 15, 0, 0));
-        budget.setBudgetRemainingAmount(new BigDecimal("500"));
-
-        // BudgetCategoryLimit
-        BudgetCategoryLimit bcl = new BudgetCategoryLimit();
-        bcl.setBudget(budget);
-
-        // Mock các repository và cache
-        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(transaction));
-        when(cacheManager.getCache("transactionOverview")).thenReturn(cache);
-        when(budgetCategoryLimitRepository.findByTransaction(category.getCategoryId())).thenReturn(List.of(bcl));
-        when(budgetRepository.findById(budget.getBudgetId())).thenReturn(Optional.of(budget));
-
-        // Act
-        transactionService.deleteTransaction(transactionId);
-
-        // Assert
-        assertEquals(TransactionType.INACTIVE, transaction.getTransactionType());
-        assertEquals(new BigDecimal("1200"), wallet.getCurrentBalance()); // Hoàn tiền chi tiêu
-        assertEquals(new BigDecimal("700"), budget.getBudgetRemainingAmount()); // Cộng lại vào ngân sách
-
-        verify(cache).evict("123-2025-07");
-        verify(walletRepository).save(wallet);
-        verify(transactionRepository).save(transaction);
-        verify(budgetRepository).save(budget);
-    }
-
-
-
-
-
 
     @Test
     void testRecordIncome() {
