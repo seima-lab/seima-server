@@ -474,8 +474,10 @@ public class TransactionServiceImpl implements TransactionService {
             case PeriodType.CUSTOM:
                 if (days > 30) {
                     groupBy = "month";
-                } else {
+                } else if (days > 7) {
                     groupBy = "week";
+                } else {
+                    groupBy = "day";
                 }
                 break;
             default:
