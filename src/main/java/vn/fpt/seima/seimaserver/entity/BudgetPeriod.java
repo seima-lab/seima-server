@@ -32,4 +32,7 @@ public class BudgetPeriod {
 
     @Column(name = "remaining_amount", precision = 18, scale = 2)
     private BigDecimal remainingAmount;
+
+    @Column(name = "status")
+    private BudgetPeriodStatus status;
 }
