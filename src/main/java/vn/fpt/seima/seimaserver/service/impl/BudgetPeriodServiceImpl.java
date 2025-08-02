@@ -5,10 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import vn.fpt.seima.seimaserver.dto.response.budgetPeriod.BudgetPeriodResponse;
-import vn.fpt.seima.seimaserver.entity.Budget;
-import vn.fpt.seima.seimaserver.entity.BudgetPeriod;
-import vn.fpt.seima.seimaserver.entity.PeriodType;
-import vn.fpt.seima.seimaserver.entity.User;
+import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.mapper.BudgetMapper;
 import vn.fpt.seima.seimaserver.mapper.BudgetPeriodMapper;
 import vn.fpt.seima.seimaserver.repository.BudgetPeriodRepository;
@@ -16,7 +13,10 @@ import vn.fpt.seima.seimaserver.repository.BudgetRepository;
 import vn.fpt.seima.seimaserver.service.BudgetPeriodService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.Period;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,40 +36,50 @@ public class BudgetPeriodServiceImpl implements BudgetPeriodService {
         int index = 1;
 
         while (!start.isAfter(end)) {
-            LocalDateTime periodEnd;
+            LocalDateTime expectedEnd;
+            int expectedDays = 0;
+
             switch (budget.getPeriodType()) {
                 case WEEKLY:
-                    periodEnd = start.plusDays(6);
+                    expectedEnd = start.plusDays(6);
+                    expectedDays = 7;
                     break;
                 case MONTHLY:
-                    periodEnd = start.plusMonths(1).minusDays(1);
+                    expectedEnd = start.plusMonths(1).minusDays(1);
+                    expectedDays = Period.between(start.toLocalDate(), expectedEnd.toLocalDate()).getDays() + 1;
                     break;
                 case YEARLY:
-                    periodEnd = start.plusYears(1).minusDays(1);
+                    expectedEnd = start.plusYears(1).minusDays(1);
+                    expectedDays = Period.between(start.toLocalDate(), expectedEnd.toLocalDate()).getDays() + 1;
                     break;
                 default:
-                    periodEnd = end;
+                    expectedEnd = end;
+                    expectedDays = (int) ChronoUnit.DAYS.between(start.toLocalDate(), expectedEnd.toLocalDate()) + 1;
             }
 
-            if (periodEnd.isAfter(end)) {
-                periodEnd = end;
+            if (expectedEnd.isAfter(end)) {
+                expectedEnd = end;
             }
+
+            // Tính actual days của chu kỳ hiện tại
+            int actualDays = (int) ChronoUnit.DAYS.between(start.toLocalDate(), expectedEnd.toLocalDate()) + 1;
 
             BudgetPeriod period = new BudgetPeriod();
             period.setBudget(budget);
             period.setPeriodIndex(index++);
             period.setStartDate(start);
-            period.setEndDate(periodEnd);
+            period.setEndDate(expectedEnd);
             period.setAmountLimit(budget.getOverallAmountLimit());
             period.setRemainingAmount(budget.getOverallAmountLimit());
 
-            periods.add(period);
-
-            start = periodEnd.plusDays(1);
-
-            if (budget.getPeriodType() == PeriodType.NONE || budget.getPeriodType() == PeriodType.CUSTOM) {
-                break;
+            if (actualDays < expectedDays) {
+                period.setStatus(BudgetPeriodStatus.INACTIVE);
+            } else {
+                period.setStatus(BudgetPeriodStatus.ACTIVE);
             }
+
+            periods.add(period);
+            start = expectedEnd.plusDays(1);
         }
 
         return periods;
@@ -81,7 +91,7 @@ public class BudgetPeriodServiceImpl implements BudgetPeriodService {
         Budget budget = budgetRepository.findById(budgetId)
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found with id: " + budgetId));
 
-        Page<BudgetPeriod> budgetPeriods = budgetPeriodRepository.getListBudgetPeriods(budget,pageable);
+        Page<BudgetPeriod> budgetPeriods = budgetPeriodRepository.getListBudgetPeriods(budget, BudgetPeriodStatus.ACTIVE,pageable);
 
         return budgetPeriods.map(budgetPeriodMapper::toResponse);
     }
