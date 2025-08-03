@@ -210,4 +210,20 @@ public class TransactionController {
             return new ApiResponse<>(500, ex.getMessage(), null);
         }
     }
+
+    @GetMapping("/view-history-transactions-by-budget/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<Page<TransactionResponse>> viewHistoryTransactionsByBudget(
+            @PathVariable int id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            Pageable pageable = PageRequest.of(page, size);
+            Page<TransactionResponse> transactions = transactionService.getTransactionByBudget(id, pageable);
+
+            return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
+        } catch (Exception ex) {
+            return new ApiResponse<>(500, ex.getMessage(), null);
+        }
+    }
 } 

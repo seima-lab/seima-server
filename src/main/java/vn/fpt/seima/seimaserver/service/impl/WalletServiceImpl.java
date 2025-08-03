@@ -55,6 +55,13 @@ public class WalletServiceImpl implements WalletService {
         wallet.setUser(currentUser);
         wallet.setWalletType(walletType);
         wallet.setIsDeleted(false);
+        
+        // Set currency code if provided, otherwise use default
+        if (request.getCurrencyCode() != null && !request.getCurrencyCode().trim().isEmpty()) {
+            wallet.setCurrencyCode(request.getCurrencyCode());
+        } else {
+            wallet.setCurrencyCode("VND"); // Default currency
+        }
 
         wallet = walletRepository.save(wallet);
         return walletMapper.toResponse(wallet);
@@ -100,6 +107,11 @@ public class WalletServiceImpl implements WalletService {
             WalletType walletType = walletTypeRepository.findById(request.getWalletTypeId())
                     .orElseThrow(() -> new WalletException("Wallet type not found with id: " + request.getWalletTypeId()));
             existingWallet.setWalletType(walletType);
+        }
+
+        // Update currency code if provided
+        if (request.getCurrencyCode() != null && !request.getCurrencyCode().trim().isEmpty()) {
+            existingWallet.setCurrencyCode(request.getCurrencyCode());
         }
 
         walletMapper.updateEntity(existingWallet, request);

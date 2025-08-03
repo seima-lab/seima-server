@@ -20,12 +20,15 @@ import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.BudgetCategoryLimitService;
 import vn.fpt.seima.seimaserver.service.BudgetPeriodService;
 import vn.fpt.seima.seimaserver.service.BudgetService;
+import vn.fpt.seima.seimaserver.service.FcmService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @AllArgsConstructor
@@ -39,6 +42,11 @@ public class BudgetServiceImpl implements BudgetService {
     private final BudgetPeriodService budgetPeriodService;
     private final CategoryRepository categoryRepository;
     private final TransactionRepository transactionRepository;
+    private FcmService fcmService;
+    private UserDeviceRepository userDeviceRepository;
+    private NotificationRepository notificationRepository;
+    private static final String TITLE = "Budget Notification";
+    private static final String MESSAGE = "Your spending has exceeded the set threshold. Please review your expenses.";
 
     @Override
     public Page<BudgetResponse> getAllBudget(Pageable pageable) {
@@ -88,13 +96,7 @@ public class BudgetServiceImpl implements BudgetService {
             categoryIds.add(category.getCategoryId());
         }
         Budget budget = budgetMapper.toEntity(request);
-        budget.setBudgetRemainingAmount(request.getBudgetRemainingAmount()
-                .subtract(transactionRepository.sumExpensesByCategoryAndMonth(
-                        user.getUserId(),
-                        categoryIds,
-                        request.getStartDate(),
-                        request.getEndDate()
-                        )));
+
         budget.setUser(user);
         Budget savedBudget = budgetRepository.save(budget);
 
@@ -105,7 +107,22 @@ public class BudgetServiceImpl implements BudgetService {
 
             budgetCategoryLimitRepository.save(budgetCategoryLimit);
         }
+        List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
+                user.getUserId(),
+                categoryIds,
+                request.getStartDate(),
+                request.getEndDate()
+        );
         List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(savedBudget);
+        for (Transaction transaction : transactions) {
+            for (BudgetPeriod period : periods) {
+                if (!transaction.getTransactionDate().isBefore(period.getStartDate()) &&
+                        !transaction.getTransactionDate().isAfter(period.getEndDate())) {
+                    period.setRemainingAmount(period.getRemainingAmount().subtract(transaction.getAmount()));
+                }
+            }
+        }
+
         budgetPeriodRepository.saveAll(periods);
         return budgetMapper.toResponse(savedBudget);
     }
@@ -139,14 +156,32 @@ public class BudgetServiceImpl implements BudgetService {
         existingBudget.setUser(user);
 
         Budget updatedBudget = budgetRepository.save(existingBudget);
+        List<Integer> categoryIds = new ArrayList<>();
+
         for (Category category : request.getCategoryList()) {
             BudgetCategoryLimit budgetCategoryLimit = new BudgetCategoryLimit();
             budgetCategoryLimit.setCategory(category);
             budgetCategoryLimit.setBudget(existingBudget);
+            categoryIds.add(category.getCategoryId());
 
             budgetCategoryLimitRepository.save(budgetCategoryLimit);
         }
+        List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
+                user.getUserId(),
+                categoryIds,
+                request.getStartDate(),
+                request.getEndDate()
+        );
         List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(updatedBudget);
+        for (Transaction transaction : transactions) {
+            for (BudgetPeriod period : periods) {
+                if (!transaction.getTransactionDate().isBefore(period.getStartDate()) &&
+                        !transaction.getTransactionDate().isAfter(period.getEndDate())) {
+                    period.setRemainingAmount(period.getRemainingAmount().subtract(transaction.getAmount()));
+                }
+            }
+        }
+
         budgetPeriodRepository.saveAll(periods);
 
         return budgetMapper.toResponse(updatedBudget);
@@ -168,7 +203,12 @@ public class BudgetServiceImpl implements BudgetService {
     @Transactional
     public void reduceAmount(Integer userId, Integer categoryId, BigDecimal amount, LocalDateTime transactionDate, String type, String code) {
         List<Budget> existingBudget = budgetRepository.findByUserId(userId);
-
+        User user = UserUtils.getCurrentUser();
+        if (user == null) {
+            return;
+        }
+        List<Integer> userIds = Collections.singletonList(user.getUserId());
+        List<String> fcmTokens = userDeviceRepository.findFcmTokensByUserIds(userIds);
         if (existingBudget.isEmpty()) {
             return;
         }
@@ -184,6 +224,23 @@ public class BudgetServiceImpl implements BudgetService {
                     if (type.equals("EXPENSE")) {
                         BigDecimal newAmount = budgetPeriod.getRemainingAmount().subtract(amount);
                         budgetPeriod.setRemainingAmount(newAmount);
+                        if (newAmount.compareTo(BigDecimal.ZERO) < 0) {
+                            Map<String, String> data = Map.of(
+                                    "type", "budget_notification",
+                                    "senderUserId", userId.toString(),
+                                    "senderName", user.getUserFullName()
+                            );
+
+                            fcmService.sendMulticastNotification(fcmTokens, TITLE, MESSAGE, data);
+
+                            Notification notification = new Notification();
+                            notification.setMessage(MESSAGE);
+                            notification.setReceiver(user);
+                            notification.setNotificationType(NotificationType.BUDGET_LIMIT_EXCEEDED);
+                            notification.setTitle(TITLE);
+                            notification.setSender(user);
+                            notificationRepository.save(notification);
+                        }
                     } else if (type.equals("INCOME")) {
                         budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount());
                     } else if (type.equals("update-subtract")) {
@@ -257,6 +314,7 @@ public class BudgetServiceImpl implements BudgetService {
                     .startDate(lastPeriod.getStartDate())
                     .endDate(lastPeriod.getEndDate())
                     .periodType(budget.getPeriodType())
+                    .status(lastPeriod.getStatus())
                     .categories(categoryResponses)
                     .build();
 

@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
@@ -28,12 +29,18 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    @Value("${app.email.sender.name:Seima Team}")
+    private String senderName;
+
+    @Value("${app.email.sender.email:noreply@seima.app}")
+    private String senderEmail;
+
     // 1.Send mail simple Text
     @Override
     public void sendSimpleMessage(String to, String subject, String text) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            message.setFrom(senderName + " <" + fromEmail + ">");
             message.setTo(to);
             message.setSubject(subject);
             message.setText(text);
@@ -51,7 +58,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name()); // true = multipart message
 
-            helper.setFrom(fromEmail);
+            helper.setFrom(senderName + " <" + fromEmail + ">");
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(htmlBody, true); // true = isHtml
@@ -70,7 +77,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true); // true = multipart message
 
-            helper.setFrom(fromEmail);
+            helper.setFrom(senderName + " <" + fromEmail + ">");
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(text);
@@ -85,6 +92,7 @@ public class EmailServiceImpl implements EmailService {
 
     // Send with html Template having data in template
     @Override
+    @Async("taskExecutor")
     public void sendEmailWithHtmlTemplate(String to, String subject, String templateName, Context context) {
         if (templateEngine == null) {
             logger.error("TemplateEngine not configured. Cannot send email with template.");
@@ -119,7 +127,7 @@ public class EmailServiceImpl implements EmailService {
             String htmlContent = templateEngine.process(templateName, context);
 
             helper.setTo(to);
-            helper.setFrom(fromEmail);
+            helper.setFrom(senderName + " <" + fromEmail + ">");
             helper.setSubject(subject);
             helper.setText(htmlContent, true); // true = isHtml
             javaMailSender.send(mimeMessage);

@@ -1,8 +1,7 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.AllArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
@@ -31,10 +30,10 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
-    private static final Logger log = LoggerFactory.getLogger(TransactionServiceImpl.class);
     private final TransactionRepository transactionRepository;
     private final CategoryRepository categoryRepository;
     private final WalletRepository walletRepository;
@@ -46,6 +45,7 @@ public class TransactionServiceImpl implements TransactionService {
     private final GroupMemberRepository groupMemberRepository;
     private final BudgetCategoryLimitRepository budgetCategoryLimitRepository;
     private final BudgetRepository budgetRepository;
+    private final BudgetPeriodRepository budgetPeriodRepository;
 
     @Override
     public Page<TransactionResponse> getAllTransaction( Pageable pageable) {
@@ -242,13 +242,15 @@ public class TransactionServiceImpl implements TransactionService {
             for (BudgetCategoryLimit budgetCategoryLimit : budgetCategoryLimits) {
                 Budget budget = budgetRepository.findById(budgetCategoryLimit.getBudget().getBudgetId())
                         .orElse(null);
-
                 if (budget == null) {
                     continue;
                 }
-                if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate())){
-                    budget.setBudgetRemainingAmount(budget.getBudgetRemainingAmount().add(transaction.getAmount()));
-                    budgetRepository.save(budget);
+                List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetIdAndTime(budget.getBudgetId(), transaction.getTransactionDate());
+
+                for (BudgetPeriod budgetPeriod : budgetPeriods) {
+                    if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate()))
+                        budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount().add(transaction.getAmount()));
+                    budgetPeriodRepository.save(budgetPeriod);
                 }
             }
 
@@ -280,7 +282,10 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Cacheable(value = "transactionOverview", key = "#userId + '-' + #month.toString()")
     public TransactionOverviewResponse getTransactionOverview(Integer userId, YearMonth month) {
-
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
         if (month == null) {
             month = YearMonth.now();
         }
@@ -462,21 +467,24 @@ public class TransactionServiceImpl implements TransactionService {
                 groupBy = "week";
                 break;
             case PeriodType.YEARLY:
-                groupBy = "2-month";
+                groupBy = "month";
+                dateFrom = LocalDate.of(now.getYear(), 1, 1);
+                dateTo = now;;
                 break;
             case PeriodType.CUSTOM:
                 if (days > 30) {
                     groupBy = "month";
-                } else {
+                } else if (days > 7) {
                     groupBy = "week";
+                } else {
+                    groupBy = "day";
                 }
                 break;
             default:
                 throw new IllegalArgumentException("Invalid type: " + type);
         }
-
         List<Transaction> transactions = transactionRepository.findExpensesByUserAndDateRange(
-                categoryId, currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.atTime(23, 59, 59));
+                categoryId, currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.plusDays(1).atStartOfDay());
 
         Map<String, TransactionCategoryReportResponse.GroupAmount> result = new LinkedHashMap<>();
         Map<String, LocalDate> keyDateMap = new HashMap<>();
@@ -496,11 +504,9 @@ public class TransactionServiceImpl implements TransactionService {
                     LocalDate firstDayOfMonth = dateFrom.withDayOfMonth(1);
                     LocalDate lastDayOfMonth = dateFrom.withDayOfMonth(dateFrom.lengthOfMonth());
 
-                    DayOfWeek firstDow = firstDayOfMonth.getDayOfWeek();
                     LocalDate weekStart;
                     LocalDate weekEnd;
 
-                    // Tìm tuần bắt đầu
                     if (date.isBefore(firstDayOfMonth)) {
                         key = "before_month";
                         sortDate = date;
@@ -522,16 +528,14 @@ public class TransactionServiceImpl implements TransactionService {
                     break;
 
                 case "month":
-                    key = date.getMonth().toString();
-                    sortDate = LocalDate.of(date.getYear(), date.getMonthValue(), 1);
-                    break;
-
-                case "2-month":
-                    int group = (date.getMonthValue() - 1) / 2 + 1;
-                    int startMonth = (group - 1) * 2 + 1;
-                    int endMonth = group * 2;
-                    key = "Group_" + group + " (" + startMonth + "-" + endMonth + ")";
-                    sortDate = LocalDate.of(date.getYear(), startMonth, 1);
+                    LocalDate monthStart = LocalDate.of(date.getYear(), date.getMonthValue(), 1);
+                    LocalDate monthEnd = monthStart.withDayOfMonth(monthStart.lengthOfMonth());
+                    LocalDate today = LocalDate.now();
+                    if (monthEnd.isAfter(today)) {
+                        monthEnd = today;
+                    }
+                    key = monthStart + "_to_" + monthEnd;
+                    sortDate = monthStart;
                     break;
 
                 default:
@@ -612,12 +616,48 @@ public class TransactionServiceImpl implements TransactionService {
                 group.setCategoryId(tx.getCategory().getCategoryId());
                 group.setCategoryName(tx.getCategory().getCategoryName());
                 group.setCategoryIconUrl(tx.getCategory().getCategoryIconUrl());
-            }
 
+            }
+            group.getTransactionDetailList().add(new TransactionDetailReportResponse.TransactionDetail(tx.getTransactionId(), tx.getTransactionType(),tx.getAmount() ,tx.getCurrencyCode(), tx.getTransactionDate(), tx.getDescription()) );
             result.put(key, group);
         }
 
         return new TransactionDetailReportResponse(totalExpense, totalIncome, result);
+    }
+
+    /**
+     * @param budgetId budget of transactions
+     * @param pageable paging date
+     * @return transaction response
+     */
+    @Override
+    public Page<TransactionResponse> getTransactionByBudget(Integer budgetId, Pageable pageable) {
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        Budget budget = budgetRepository.findById(budgetId).orElseThrow(()
+                -> new IllegalArgumentException("Not found budget with id: " + budgetId));
+        List<Integer> categoryIds = new ArrayList<>();
+        List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository.findByBudget(budgetId);
+        if (budgetCategoryLimits.isEmpty()) {
+            throw new IllegalArgumentException("Not found budget with id: " + budgetId);
+        }
+        for (BudgetCategoryLimit budgetCategoryLimit : budgetCategoryLimits) {
+            List<Category> categories = categoryRepository.getCategoriesByCategoryId(budgetCategoryLimit.getCategory().getCategoryId());
+            if (categories.isEmpty()) {
+                throw new IllegalArgumentException("Not found category with id: " + budgetCategoryLimit.getCategory().getCategoryId());
+            }
+            categoryIds.addAll(categories.stream().map(Category::getCategoryId).collect(Collectors.toList()));
+        }
+        Page<Transaction> transactions = transactionRepository.getTransactionByBudget(
+                currentUser.getUserId(),
+                categoryIds,
+                budget.getStartDate(),
+                budget.getEndDate(),
+                pageable
+        );
+        return transactions.map(transactionMapper::toResponse);
     }
 
 }

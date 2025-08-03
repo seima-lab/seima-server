@@ -1,5 +1,6 @@
 package vn.fpt.seima.seimaserver.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -9,10 +10,13 @@ import org.springframework.web.bind.annotation.*;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.group.CreateGroupRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.UpdateGroupRequest;
+import vn.fpt.seima.seimaserver.dto.request.group.CancelJoinGroupRequest;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupDetailResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.UserJoinedGroupResponse;
 import vn.fpt.seima.seimaserver.dto.response.group.GroupMemberStatusResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.UserPendingGroupResponse;
+import vn.fpt.seima.seimaserver.dto.response.group.InvitedGroupMemberResponse;
 import vn.fpt.seima.seimaserver.service.GroupService;
 
 import java.util.List;
@@ -54,6 +58,23 @@ public class GroupController {
         List<UserJoinedGroupResponse> joinedGroups = groupService.getUserJoinedGroups();
         return new ApiResponse<>(HttpStatus.OK.value(), "User joined groups retrieved successfully", joinedGroups);
     }
+    
+    @GetMapping("/pending")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<List<UserPendingGroupResponse>> getUserPendingGroups() {
+        log.info("Request to get user pending groups");
+        List<UserPendingGroupResponse> pendingGroups = groupService.getUserPendingGroups();
+        return new ApiResponse<>(HttpStatus.OK.value(), "User pending groups retrieved successfully", pendingGroups);
+    }
+    
+
+    @PostMapping("/cancel-join")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<Object> cancelJoinGroupRequest(@Valid @RequestBody CancelJoinGroupRequest request) {
+        log.info("Request to cancel join group request for group ID: {}", request.getGroupId());
+        groupService.cancelJoinGroupRequest(request);
+        return new ApiResponse<>(HttpStatus.OK.value(), "Join group request canceled successfully", null);
+    }
 
     @DeleteMapping("/{groupId}/archive")
     @ResponseStatus(HttpStatus.OK)
@@ -82,5 +103,19 @@ public class GroupController {
     public ApiResponse<Object> deleteGroup(@PathVariable Integer groupId) {
         groupService.deleteGroup(groupId);
         return new ApiResponse<>(HttpStatus.OK.value(), "Group deleted successfully", null);
+    }
+    
+    @GetMapping("/{groupId}/invited-members")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<List<InvitedGroupMemberResponse>> getInvitedGroupMembers(@PathVariable Integer groupId) {
+        log.info("Request to get invited members for group ID: {}", groupId);
+        
+        List<InvitedGroupMemberResponse> invitedMembers = groupService.getInvitedGroupMembers(groupId);
+        
+        return new ApiResponse<>(
+            HttpStatus.OK.value(),
+            "Invited members retrieved successfully",
+            invitedMembers
+        );
     }
 } 

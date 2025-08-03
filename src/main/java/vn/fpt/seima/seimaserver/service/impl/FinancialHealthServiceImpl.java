@@ -1,21 +1,24 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import vn.fpt.seima.seimaserver.dto.response.budget.FinancialHealthResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.repository.BudgetRepository;
+import vn.fpt.seima.seimaserver.repository.NotificationRepository;
 import vn.fpt.seima.seimaserver.repository.TransactionRepository;
-import vn.fpt.seima.seimaserver.service.BudgetService;
-import vn.fpt.seima.seimaserver.service.FinancialHealthService;
+import vn.fpt.seima.seimaserver.repository.UserDeviceRepository;
+import vn.fpt.seima.seimaserver.service.*;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -23,10 +26,16 @@ import java.util.List;
 public class FinancialHealthServiceImpl implements FinancialHealthService {
     private final BudgetRepository budgetRepository;
     private final TransactionRepository transactionRepository;
-
+    private final FcmService fcmService;
+    private final UserDeviceRepository userDeviceRepository;
+    private final NotificationRepository notificationRepository;
+    private final RedisService redisService;
+    private static final String TITLE = "Financial Health Notification";
+    private static final String MESSAGE = "Your financial health is currently low. Consider reviewing your expenses.";
+    private final ObjectMapper objectMapper;
 
     /**
-     * @return
+     * @return FinancialHealthResponse
      */
     @Override
     public FinancialHealthResponse calculateScore() {
@@ -57,17 +66,18 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
                     .divide(totalIncome, 2, RoundingMode.HALF_UP)
                     .multiply(BigDecimal.valueOf(100));
             savingScore = savingRate.intValue() * 40 / 100;
-            if (savingScore >40) {
+            if (savingScore > 40) {
                 savingScore = 40;
+            } else if (savingScore < 0) {
+                savingScore = 0;
             }
         }
         List<Budget> budgets = budgetRepository.findByUserId(currentUser.getUserId());
         int compliantBudgets = 0;
-        List<Integer> categoriesId = new ArrayList<>();
 
         for (Budget budget : budgets) {
             for (BudgetCategoryLimit categoryLimit : budget.getBudgetCategoryLimits()) {
-                categoriesId.add(categoryLimit.getCategory().getCategoryId());
+                List<Integer> categoriesId = List.of(categoryLimit.getCategory().getCategoryId());
                 BigDecimal actualSpent = transactionRepository.sumExpensesByCategoryAndMonth(
                         currentUser.getUserId(),
                         categoriesId,
@@ -90,6 +100,8 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
 
             if (budgetScore > 30) {
                 budgetScore = 30;
+            } else if (budgetScore < 0) {
+                budgetScore = 0;
             }
         }
 
@@ -146,6 +158,9 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
         }
 
         int finalScore = savingScore + budgetScore + assetScore;
+        List<Integer> userIds = Collections.singletonList(currentUser.getUserId());
+        List<String> fcmTokens = userDeviceRepository.findFcmTokensByUserIds(userIds);
+
         String level;
         if (finalScore >= 80) {
             level = "Very Good";
@@ -156,7 +171,50 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
         } else {
             level = "Low";
         }
-
-        return new FinancialHealthResponse(finalScore, level);
+        saveToRedisAndNotifyIfChanged(currentUser, finalScore, level, fcmTokens);
+        return new FinancialHealthResponse(finalScore, level, LocalDateTime.now());
     }
+    private void saveToRedisAndNotifyIfChanged(User currentUser, int finalScore, String level, List<String> fcmTokens) {
+        String redisKey = "financial_health:" + currentUser.getUserId();
+        Object rawData = redisService.get(redisKey);
+
+        FinancialHealthResponse oldData = null;
+        if (rawData != null) {
+            oldData = objectMapper.convertValue(rawData, FinancialHealthResponse.class);
+        }
+        boolean levelChanged = false;
+        String prevLevel = null;
+        if (oldData != null ) {
+            prevLevel =  oldData.getLevel();
+            if (!prevLevel.equals(level)) {
+                levelChanged = true;
+            }
+        }
+
+        if (levelChanged) {
+            Map<String, String> data = Map.of(
+                    "type", "financial_health_notification",
+                    "senderUserId", currentUser.getUserId().toString(),
+                    "senderName", currentUser.getUserFullName()
+            );
+
+            fcmService.sendMulticastNotification(fcmTokens, TITLE, MESSAGE, data);
+
+            Notification notification = new Notification();
+            notification.setMessage(MESSAGE);
+            notification.setReceiver(currentUser);
+            notification.setNotificationType(NotificationType.FINANCIAL_HEALTH_LOW);
+            notification.setTitle(TITLE);
+            notification.setSender(currentUser);
+            notificationRepository.save(notification);
+        }
+        Map<String, String> redisData = new HashMap<>();
+        redisData.put("score", String.valueOf(finalScore));
+        redisData.put("level", level);
+        redisData.put("updatedAt", LocalDateTime.now().toString());
+
+        redisService.set(redisKey, redisData);
+        redisService.setTimeToLive(redisKey, Duration.ofDays(30).toDays());
+    }
+
 }
