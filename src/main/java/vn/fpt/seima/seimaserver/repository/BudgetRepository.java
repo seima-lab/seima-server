@@ -24,6 +24,9 @@ public interface BudgetRepository extends JpaRepository<Budget, Integer> {
 
     Page<Budget> findByUser_UserId(Integer userId, Pageable pageable);
 
+    @Query("SELECT b FROM Budget b WHERE b.user.id = :userId AND b.budgetName LIKE %:budgetName%")
+    Page<Budget> findByUser_UserIdAndBudgetNameContaining(@Param("userId") Integer userId, @Param("budgetName") String budgetName, Pageable pageable);
+
     @Modifying
     @Query(value = "DELETE FROM budget WHERE budget_id = :budgetId", nativeQuery = true)
     void deleteBudget(@Param("budgetId") Integer budgetId);

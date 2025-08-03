@@ -265,6 +265,21 @@ public class BudgetServiceImpl implements BudgetService {
         }
 
         return responses;
+
+    }
+
+    @Override
+    public Page<BudgetResponse> getBudgetByName(String budgetName, Pageable pageable) {
+        User user = UserUtils.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        if (budgetName == null || budgetName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Budget name must not be null or empty");
+        }
+        
+        Page<Budget> budgets = budgetRepository.findByUser_UserIdAndBudgetNameContaining(user.getUserId(), budgetName.trim(), pageable);
+        return budgets.map(budgetMapper::toResponse);
     }
 
 }
