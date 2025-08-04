@@ -162,14 +162,20 @@ public class BudgetServiceImpl implements BudgetService {
             throw new IllegalArgumentException("Budget name already exists");
         }
 
-
-
         User user = UserUtils.getCurrentUser();
         if (user == null) {
             throw new IllegalArgumentException("User must not be null");
         }
         if (request.getCategoryList().isEmpty()) {
             throw new IllegalArgumentException("Category list must not be empty");
+        }
+        if (request.getStartDate() == null) {
+            throw new IllegalArgumentException("Start date must not be null");
+        }
+        if (request.getEndDate() != null) {
+            if (request.getStartDate().isBefore(request.getEndDate())) {
+                throw new IllegalArgumentException("Start date must be before end date");
+            }
         }
         if (request.getEndDate() == null) {
             request.setEndDate(LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59));
