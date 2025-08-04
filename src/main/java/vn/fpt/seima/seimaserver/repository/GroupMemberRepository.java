@@ -4,6 +4,7 @@ import io.lettuce.core.dynamic.annotation.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import vn.fpt.seima.seimaserver.entity.Group;
 import vn.fpt.seima.seimaserver.entity.GroupMember;
 import vn.fpt.seima.seimaserver.entity.GroupMemberRole;
 import vn.fpt.seima.seimaserver.entity.GroupMemberStatus;
@@ -188,4 +189,8 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Intege
                                                        @Param("status") GroupMemberStatus status,
                                                        @Param("userId") Integer userId);
 
+    @Query("SELECT gm FROM GroupMember gm " +
+            "JOIN gm.group g " +
+            "WHERE g.groupIsActive = true and g.groupId = :groupId")
+    List<GroupMember> findActiveGroupMembers(@Param("groupId") Integer groupId);
 }

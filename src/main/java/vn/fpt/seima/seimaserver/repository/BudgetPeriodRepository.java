@@ -25,4 +25,9 @@ public interface BudgetPeriodRepository extends JpaRepository<BudgetPeriod, Inte
     @Query("SELECT bp FROM BudgetPeriod bp WHERE bp.budget.budgetId = :budgetId and :timeNow between bp.startDate and bp.endDate")
     List<BudgetPeriod> findByBudget_BudgetIdAndTime(Integer budgetId, LocalDateTime timeNow);
 
+    @Query("SELECT bp FROM BudgetPeriod bp WHERE bp.budget = :budget AND bp.status = :status and bp.startDate >= :date " +
+            "union  SELECT bp FROM BudgetPeriod bp WHERE bp.budget = :budget AND bp.status = :status and :date between  bp.startDate  and bp.endDate")
+    List<BudgetPeriod> getListBudgetPeriodsFuture(@Param("budget") Budget budget,
+                                                  @Param("status") BudgetPeriodStatus status,
+                                                  @Param("date") LocalDateTime date);
 }
