@@ -179,9 +179,10 @@ public class TransactionController {
             @PathVariable int id,
             @RequestParam(value = "type") PeriodType type,
             @RequestParam(required = false ) LocalDate startDate,
-            @RequestParam(required = false) LocalDate endDate) {
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) Integer groupId) {
         try {
-            TransactionCategoryReportResponse report = transactionService.getCategoryReport(type, id, startDate, endDate);
+            TransactionCategoryReportResponse report = transactionService.getCategoryReport(type, id, startDate, endDate, groupId);
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", report);
         } catch (IllegalArgumentException ex) {
             return new ApiResponse<>(500, ex.getMessage(), null);
@@ -192,9 +193,10 @@ public class TransactionController {
     public ApiResponse<TransactionDetailReportResponse> getExpenseIncomeReport(
             @PathVariable int id,
             @RequestParam(required = false ) LocalDate startDate,
-            @RequestParam(required = false) LocalDate endDate) {
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) Integer groupId) {
         try {
-            TransactionDetailReportResponse report = transactionService.getCategoryReportDetail(id, startDate, endDate);
+            TransactionDetailReportResponse report = transactionService.getCategoryReportDetail(id, startDate, endDate, groupId);
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", report);
         } catch (IllegalArgumentException ex) {
             return new ApiResponse<>(500, ex.getMessage(), null);

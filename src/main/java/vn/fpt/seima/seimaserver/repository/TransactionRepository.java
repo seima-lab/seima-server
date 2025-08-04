@@ -75,12 +75,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
             "WHERE t.user.userId = :userId AND t.category.categoryId = :categoryId " +
             "AND t.transactionDate BETWEEN :start AND :end " +
             "AND t.transactionType IN ('EXPENSE', 'INCOME')" +
-            "and t.group.groupId is null")
+            "AND ((:groupId IS NULL AND t.group.groupId IS NULL) " +
+            "OR (:groupId IS NOT NULL AND t.group.groupId = :groupId))")
     List<Transaction> findExpensesByUserAndDateRange(
             @Param("categoryId") Integer categoryId,
             @Param("userId") Integer userId,
             @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end);
+            @Param("end") LocalDateTime end,
+            @Param("groupId") Integer groupId
+            );
 
     @Query("SELECT t FROM Transaction t " +
             "WHERE t.user.userId = :userId " +
