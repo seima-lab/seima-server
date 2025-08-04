@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import vn.fpt.seima.seimaserver.config.base.ApiResponse;
 import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
+import vn.fpt.seima.seimaserver.dto.request.budget.UpdateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetLastResponse;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.dto.response.budgetPeriod.BudgetPeriodResponse;
@@ -65,15 +66,15 @@ public class BudgetController {
     }
 
     @PutMapping("/update/{id}")
-    public ApiResponse<BudgetResponse> updateBudget(@RequestBody CreateBudgetRequest request, @PathVariable int id) {
+    public ApiResponse<BudgetResponse> updateBudget(@RequestBody UpdateBudgetRequest request, @PathVariable int id) {
         try {
             BudgetResponse budgetUpdate = budgetService.updateBudget(id, request);
 
             return new ApiResponse<>(HttpStatus.OK.value(), "Budget updated successfully", budgetUpdate);
         } catch (IllegalArgumentException ex) {
             return new ApiResponse<>(400, ex.getMessage(), null);
-        } catch (Exception ex) {
-            return new ApiResponse<>(500, "An unexpected error occurred", null);
+        } catch (RuntimeException ex) {
+            return new ApiResponse<>(500,  ex.getMessage(), null);
         }
     }
 

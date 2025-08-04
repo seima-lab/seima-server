@@ -363,15 +363,24 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     public TransactionReportResponse getTransactionReport(Integer categoryId,LocalDate startDate, LocalDate endDate, Integer groupId) {
+        List<User> listUser = new ArrayList<>();
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
         }
+        listUser.add(currentUser);
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
+        if (groupId != null) {
+            List<GroupMember> groupMembers = groupMemberRepository.findActiveGroupMembers(groupId);
+            for (GroupMember groupMember : groupMembers) {
+                listUser.add(groupMember.getUser());
+
+            }
+        }
         List<Transaction> transactions =
-                transactionRepository.listReportByUserAndCategoryAndTransactionDateBetween(currentUser,categoryId, startDateTime, endDateTime, groupId );
+                transactionRepository.listReportByUserAndCategoryAndTransactionDateBetween(listUser,categoryId, startDateTime, endDateTime, groupId );
 
         BigDecimal totalIncome = BigDecimal.ZERO;
         BigDecimal totalExpense = BigDecimal.ZERO;
@@ -449,14 +458,22 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     public TransactionCategoryReportResponse getCategoryReport(PeriodType type, Integer categoryId, LocalDate dateFrom, LocalDate dateTo, Integer groupId) {
+        List<User> listUser = new ArrayList<>();
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
         }
+        listUser.add(currentUser);
         if (categoryId == null) {
             throw new IllegalArgumentException("CategoryId must not be null");
         }
+        if (groupId != null) {
+            List<GroupMember> groupMembers = groupMemberRepository.findActiveGroupMembers(groupId);
+            for (GroupMember groupMember : groupMembers) {
+                listUser.add(groupMember.getUser());
 
+            }
+        }
         LocalDate now = LocalDate.now();
         if (dateFrom == null || dateTo == null) {
             dateFrom = now.withDayOfMonth(1);
@@ -493,7 +510,7 @@ public class TransactionServiceImpl implements TransactionService {
                 throw new IllegalArgumentException("Invalid type: " + type);
         }
         List<Transaction> transactions = transactionRepository.findExpensesByUserAndDateRange(
-                categoryId, currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.plusDays(1).atStartOfDay(), groupId);
+                categoryId, listUser, dateFrom.atStartOfDay(), dateTo.plusDays(1).atStartOfDay(), groupId);
 
         Map<String, TransactionCategoryReportResponse.GroupAmount> result = new LinkedHashMap<>();
         Map<String, LocalDate> keyDateMap = new HashMap<>();
@@ -588,10 +605,12 @@ public class TransactionServiceImpl implements TransactionService {
      */
     @Override
     public TransactionDetailReportResponse getCategoryReportDetail(Integer categoryId, LocalDate dateFrom, LocalDate dateTo, Integer groupId) {
+        List<User> listUser = new ArrayList<>();
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
         }
+        listUser.add(currentUser);
         if (categoryId == null) {
             throw new IllegalArgumentException("CategoryId must not be null");
         }
@@ -600,9 +619,15 @@ public class TransactionServiceImpl implements TransactionService {
             dateFrom = now.withDayOfMonth(1);
             dateTo = now.withDayOfMonth(now.lengthOfMonth());
         }
+        if (groupId != null) {
+            List<GroupMember> groupMembers = groupMemberRepository.findActiveGroupMembers(groupId);
+            for (GroupMember groupMember : groupMembers) {
+                listUser.add(groupMember.getUser());
 
+            }
+        }
         List<Transaction> transactions = transactionRepository.findExpensesByUserAndDateRange(
-                categoryId, currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.atTime(23, 59, 59), groupId);
+                categoryId, listUser, dateFrom.atStartOfDay(), dateTo.atTime(23, 59, 59), groupId);
 
         Map<String, TransactionDetailReportResponse.GroupDetail> result = new LinkedHashMap<>();
         BigDecimal totalExpense = BigDecimal.ZERO;
