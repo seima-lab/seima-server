@@ -73,7 +73,7 @@ public class BudgetController {
             return new ApiResponse<>(HttpStatus.OK.value(), "Budget updated successfully", budgetUpdate);
         } catch (IllegalArgumentException ex) {
             return new ApiResponse<>(400, ex.getMessage(), null);
-        } catch (Exception ex) {
+        } catch (RuntimeException ex) {
             return new ApiResponse<>(500,  ex.getMessage(), null);
         }
     }

@@ -97,7 +97,7 @@ public class BudgetServiceImpl implements BudgetService {
             throw new IllegalArgumentException("Start date must not be null");
         }
         if (request.getEndDate() != null) {
-            if (request.getStartDate().isBefore(request.getEndDate())) {
+            if (!request.getStartDate().isBefore(request.getEndDate())) {
                 throw new IllegalArgumentException("Start date must be before end date");
             }
         }
@@ -144,78 +144,105 @@ public class BudgetServiceImpl implements BudgetService {
     @Override
     @Transactional
     public BudgetResponse updateBudget(Integer id, UpdateBudgetRequest request) {
-        Budget existingBudget = budgetRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Budget not found for this id: " + id));
+        try{
+            Budget existingBudget = budgetRepository.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Budget not found for this id: " + id));
 
-        if (request.getOverallAmountLimit().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Overall amount limit must be greater than zero");
-        }
-        if (request.isUpdateAmount()) {
-            LocalDateTime dateTime = LocalDateTime.now();
-            List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.getListBudgetPeriodsFuture(existingBudget, BudgetPeriodStatus.ACTIVE, dateTime);
-            for (BudgetPeriod budgetPeriod : budgetPeriods) {
-                budgetPeriod.setAmountLimit(request.getOverallAmountLimit());
+            User user = UserUtils.getCurrentUser();
+            if (user == null) {
+                throw new IllegalArgumentException("User must not be null");
             }
-        }
-        if (budgetRepository.existsByBudgetName(request.getBudgetName()) &&
-                !existingBudget.getBudgetName().equals(request.getBudgetName())) {
-            throw new IllegalArgumentException("Budget name already exists");
-        }
 
-        User user = UserUtils.getCurrentUser();
-        if (user == null) {
-            throw new IllegalArgumentException("User must not be null");
-        }
-        if (request.getCategoryList().isEmpty()) {
-            throw new IllegalArgumentException("Category list must not be empty");
-        }
-        if (request.getStartDate() == null) {
-            throw new IllegalArgumentException("Start date must not be null");
-        }
-        if (request.getEndDate() != null) {
-            if (request.getStartDate().isBefore(request.getEndDate())) {
-                throw new IllegalArgumentException("Start date must be before end date");
+            if (request.getOverallAmountLimit().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Overall amount limit must be greater than zero");
             }
-        }
-        if (request.getEndDate() == null) {
-            request.setEndDate(LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59));
-        }
-        budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(existingBudget.getBudgetId());
-        budgetPeriodRepository.deleteAll(budgetPeriodRepository.findByBudget_BudgetId(existingBudget.getBudgetId()));
 
-        budgetMapper.updateBudgetFromDto(request, existingBudget);
-        existingBudget.setUser(user);
+            if (request.getCategoryList() == null || request.getCategoryList().isEmpty()) {
+                throw new IllegalArgumentException("Category list must not be empty");
+            }
 
-        Budget updatedBudget = budgetRepository.save(existingBudget);
-        List<Integer> categoryIds = new ArrayList<>();
+            List<Integer> categoryIds = new ArrayList<>();
+            budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(existingBudget.getBudgetId());
+            for (Category category : request.getCategoryList()) {
+                BudgetCategoryLimit budgetCategoryLimit = new BudgetCategoryLimit();
+                budgetCategoryLimit.setCategory(category);
+                budgetCategoryLimit.setBudget(existingBudget);
+                budgetCategoryLimitRepository.save(budgetCategoryLimit);
+                categoryIds.add(category.getCategoryId());
+            }
+            Budget updatedBudget;
+            if (request.isUpdateAmount()) {
+                LocalDateTime now = LocalDateTime.now();
+                List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.getListBudgetPeriodsFuture(
+                        existingBudget, BudgetPeriodStatus.ACTIVE, now);
 
-        for (Category category : request.getCategoryList()) {
-            BudgetCategoryLimit budgetCategoryLimit = new BudgetCategoryLimit();
-            budgetCategoryLimit.setCategory(category);
-            budgetCategoryLimit.setBudget(existingBudget);
-            categoryIds.add(category.getCategoryId());
-
-            budgetCategoryLimitRepository.save(budgetCategoryLimit);
-        }
-        List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
-                user.getUserId(),
-                categoryIds,
-                request.getStartDate(),
-                request.getEndDate()
-        );
-        List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(updatedBudget);
-        for (Transaction transaction : transactions) {
-            for (BudgetPeriod period : periods) {
-                if (!transaction.getTransactionDate().isBefore(period.getStartDate()) &&
-                        !transaction.getTransactionDate().isAfter(period.getEndDate())) {
-                    period.setRemainingAmount(period.getRemainingAmount().subtract(transaction.getAmount()));
+                for (BudgetPeriod budgetPeriod : budgetPeriods) {
+                    budgetPeriod.setAmountLimit(request.getOverallAmountLimit());
+                    budgetPeriod.setRemainingAmount(request.getOverallAmountLimit());
                 }
+
+                List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
+                        user.getUserId(), categoryIds, existingBudget.getStartDate(), existingBudget.getEndDate());
+
+                for (Transaction transaction : transactions) {
+                    for (BudgetPeriod period : budgetPeriods) {
+                        if (!transaction.getTransactionDate().isBefore(period.getStartDate())
+                                && !transaction.getTransactionDate().isAfter(period.getEndDate())) {
+                            period.setRemainingAmount(period.getRemainingAmount().subtract(transaction.getAmount()));
+                        }
+                    }
+                }
+
+                budgetPeriodRepository.saveAll(budgetPeriods);
+                existingBudget.setOverallAmountLimit(request.getOverallAmountLimit());
+                existingBudget.setBudgetRemainingAmount(request.getBudgetRemainingAmount());
+
+                updatedBudget = existingBudget;
+            } else {
+                if (budgetRepository.existsByBudgetName(request.getBudgetName())
+                        && !existingBudget.getBudgetName().equals(request.getBudgetName())) {
+                    throw new IllegalArgumentException("Budget name already exists");
+                }
+
+                if (request.getStartDate() == null) {
+                    throw new IllegalArgumentException("Start date must not be null");
+                }
+                if (request.getEndDate() != null) {
+                    if (!request.getStartDate().isBefore(request.getEndDate())) {
+                        throw new IllegalArgumentException("Start date must be before end date");
+                    }
+                }
+
+                if (request.getEndDate() == null) {
+                    request.setEndDate(LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59));
+                }
+
+                budgetPeriodRepository.deleteAll(budgetPeriodRepository.findByBudget_BudgetId(existingBudget.getBudgetId()));
+
+                budgetMapper.updateBudgetFromDto(request, existingBudget);
+                existingBudget.setUser(user);
+                updatedBudget = budgetRepository.save(existingBudget);
+
+                List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(updatedBudget);
+                List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
+                        user.getUserId(), categoryIds, request.getStartDate(), request.getEndDate());
+
+                for (Transaction transaction : transactions) {
+                    for (BudgetPeriod period : periods) {
+                        if (!transaction.getTransactionDate().isBefore(period.getStartDate())
+                                && !transaction.getTransactionDate().isAfter(period.getEndDate())) {
+                            period.setRemainingAmount(period.getRemainingAmount().subtract(transaction.getAmount()));
+                        }
+                    }
+                }
+
+                budgetPeriodRepository.saveAll(periods);
             }
+
+            return budgetMapper.toResponse(updatedBudget);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
-
-        budgetPeriodRepository.saveAll(periods);
-
-        return budgetMapper.toResponse(updatedBudget);
 
     }
 

@@ -1,6 +1,8 @@
 package vn.fpt.seima.seimaserver.dto.request.budget;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -30,5 +32,6 @@ public class UpdateBudgetRequest {
     private BigDecimal budgetRemainingAmount;
     private List<Wallet> walletList;
     private List<Category> categoryList;
+    @JsonProperty("is_update_amount")
     private boolean isUpdateAmount;
 }
