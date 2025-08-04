@@ -1,6 +1,7 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.cglib.core.Local;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -90,8 +91,8 @@ public class BudgetPeriodServiceImpl implements BudgetPeriodService {
 
         Budget budget = budgetRepository.findById(budgetId)
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found with id: " + budgetId));
-
-        Page<BudgetPeriod> budgetPeriods = budgetPeriodRepository.getListBudgetPeriods(budget, BudgetPeriodStatus.ACTIVE,pageable);
+        LocalDateTime todayDate = LocalDateTime.now();
+        Page<BudgetPeriod> budgetPeriods = budgetPeriodRepository.getListBudgetPeriods(budget, BudgetPeriodStatus.ACTIVE,pageable, todayDate);
 
         return budgetPeriods.map(budgetPeriodMapper::toResponse);
     }

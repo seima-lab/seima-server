@@ -22,7 +22,7 @@ public class Transaction {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "wallet_id", nullable = false) // ERD là wallet_d, sửa thành wallet_id
+    @JoinColumn(name = "wallet_id") // ERD là wallet_d, sửa thành wallet_id
     private Wallet wallet;
 
     @ManyToOne(fetch = FetchType.LAZY)

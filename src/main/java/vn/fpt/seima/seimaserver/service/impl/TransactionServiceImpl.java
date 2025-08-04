@@ -76,60 +76,55 @@ public class TransactionServiceImpl implements TransactionService {
             if (user == null) {
                 throw new IllegalArgumentException("User must not be null");
             }
-
-            if (request.getWalletId() == null) {
-                throw new IllegalArgumentException("WalletId must not be null");
-            }
             if (request.getCategoryId() == null) {
                 throw new IllegalArgumentException("Category must not be null");
             }
-
-            Wallet wallet = walletRepository.findById(request.getWalletId())
-                    .orElseThrow(() -> new IllegalArgumentException("Wallet not found"));
-
             Category category = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new IllegalArgumentException("Category not found"));
 
-            if(request.getAmount() == null || request.getAmount().equals(BigDecimal.ZERO)){
+            if (request.getAmount() == null || request.getAmount().equals(BigDecimal.ZERO)) {
                 throw new IllegalArgumentException("Amount must not be zero");
             }
-
             Transaction transaction = transactionMapper.toEntity(request);
-            if(request.getGroupId()!= null) {
-                Group  group = groupRepository.findById(request.getGroupId())
+            transaction.setUser(user);
+            transaction.setCategory(category);
+            transaction.setTransactionType(type);
+            if (request.getGroupId() != null) {
+                Group group = groupRepository.findById(request.getGroupId())
                         .orElseThrow(() -> new IllegalArgumentException("Group not found with id: " + request.getGroupId()));
 
                 if (!groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), group.getGroupId())) {
                     throw new IllegalArgumentException("You are not authorized to create this group category.");
                 }
                 transaction.setGroup(group);
-            }
-            transaction.setUser(user);
-            transaction.setCategory(category);
-            transaction.setWallet(wallet);
-            transaction.setTransactionType(type);
+            } else {
+                if (request.getWalletId() == null) {
+                    throw new IllegalArgumentException("WalletId must not be null");
+                }
 
-            if (type == TransactionType.EXPENSE) {
-                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "EXPENSE", request.getCurrencyCode());
-                walletService.reduceAmount(request.getWalletId(),transaction.getAmount(), "EXPENSE", request.getCurrencyCode());
-            }
+                Wallet wallet = walletRepository.findById(request.getWalletId())
+                        .orElseThrow(() -> new IllegalArgumentException("Wallet not found"));
+                transaction.setWallet(wallet);
+                if (type == TransactionType.EXPENSE) {
+                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "EXPENSE", request.getCurrencyCode());
+                    walletService.reduceAmount(request.getWalletId(), transaction.getAmount(), "EXPENSE", request.getCurrencyCode());
+                }
 
-            if (type == TransactionType.INCOME) {
-                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "INCOME", request.getCurrencyCode());
-                walletService.reduceAmount(request.getWalletId(),transaction.getAmount(),"INCOME", request.getCurrencyCode());
+                if (type == TransactionType.INCOME) {
+                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "INCOME", request.getCurrencyCode());
+                    walletService.reduceAmount(request.getWalletId(), transaction.getAmount(), "INCOME", request.getCurrencyCode());
+                }
+                YearMonth month = YearMonth.from(transaction.getTransactionDate());
+                String cacheKey = transaction.getUser().getUserId() + "-" + month;
+                Cache cache = cacheManager.getCache("transactionOverview");
+                if (cache != null) {
+                    cache.evict(cacheKey);
+                }
             }
-
             Transaction savedTransaction = transactionRepository.save(transaction);
 
-            YearMonth month = YearMonth.from(transaction.getTransactionDate());
-            String cacheKey = transaction.getUser().getUserId() + "-" + month;
-            Cache cache = cacheManager.getCache("transactionOverview");
-            if (cache != null) {
-                cache.evict(cacheKey);
-            }
             return transactionMapper.toResponse(savedTransaction);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException("Failed to create transaction: " + e.getMessage(), e);
         }
 
@@ -150,15 +145,10 @@ public class TransactionServiceImpl implements TransactionService {
             if (user == null) {
                 throw new IllegalArgumentException("User must not be null");
             }
-            if (request.getWalletId() == null) {
-                throw new IllegalArgumentException("WalletId must not be null");
-            }
+
             if (request.getCategoryId() == null) {
                 throw new IllegalArgumentException("CategoryId must not be null");
             }
-            Wallet wallet = walletRepository.findById(request.getWalletId())
-                    .orElseThrow(() -> new IllegalArgumentException("Wallet not found"));
-            transaction.setWallet(wallet);
 
             Category category = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new IllegalArgumentException("Category not found"));
@@ -176,40 +166,45 @@ public class TransactionServiceImpl implements TransactionService {
                 }
                 transaction.setGroup(group);
             }
-            BigDecimal newAmount = BigDecimal.ZERO;
-            String type = null;
-
-            //so sua lon hon cu
-            if (transaction.getAmount().compareTo(request.getAmount()) < 0) {
-                type = "update-subtract";
-                newAmount = request.getAmount().subtract(transaction.getAmount());
-                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type , request.getCurrencyCode());
-                walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
-
-            } else if (transaction.getAmount().compareTo(request.getAmount()) > 0) {
-                type = "update-add";
-                newAmount = transaction.getAmount().subtract(request.getAmount());
-                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode() );
-                walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
-            }
             else{
-                type = "no-update";
-                budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode() );
-                walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+                if (request.getWalletId() == null) {
+                    throw new IllegalArgumentException("WalletId must not be null");
+                }
+                Wallet wallet = walletRepository.findById(request.getWalletId())
+                        .orElseThrow(() -> new IllegalArgumentException("Wallet not found"));
+                transaction.setWallet(wallet);
+                BigDecimal newAmount = BigDecimal.ZERO;
+                String type = null;
+
+                //so sua lon hon cu
+                if (transaction.getAmount().compareTo(request.getAmount()) < 0) {
+                    type = "update-subtract";
+                    newAmount = request.getAmount().subtract(transaction.getAmount());
+                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type , request.getCurrencyCode());
+                    walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+
+                } else if (transaction.getAmount().compareTo(request.getAmount()) > 0) {
+                    type = "update-add";
+                    newAmount = transaction.getAmount().subtract(request.getAmount());
+                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode() );
+                    walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+                }
+                else{
+                    type = "no-update";
+                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode() );
+                    walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+                }
+                YearMonth month = YearMonth.from(transaction.getTransactionDate());
+                String cacheKey = transaction.getUser().getUserId() + "-" + month;
+                Cache cache = cacheManager.getCache("transactionOverview");
+                if (cache != null) {
+                    cache.evict(cacheKey);
+                }
             }
             transactionMapper.updateTransactionFromDto(request, transaction);
-
             Transaction updatedTransaction = transactionRepository.save(transaction);
 
-            YearMonth month = YearMonth.from(transaction.getTransactionDate());
-            String cacheKey = transaction.getUser().getUserId() + "-" + month;
-            Cache cache = cacheManager.getCache("transactionOverview");
-            if (cache != null) {
-                cache.evict(cacheKey);
-            }
-
             return transactionMapper.toResponse(updatedTransaction);
-
         } catch (Exception e) {
             throw new RuntimeException("Failed to update transaction: " + e.getMessage(), e);
         }
@@ -222,44 +217,53 @@ public class TransactionServiceImpl implements TransactionService {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found with ID: " + id));
 
+        if(transaction.getGroup()!= null) {
+            Group  group = groupRepository.findById(transaction.getGroup().getGroupId())
+                    .orElseThrow(() -> new IllegalArgumentException("Group not found with id: " + transaction.getGroup().getGroupId()));
 
-        YearMonth month = YearMonth.from(transaction.getTransactionDate());
-        String cacheKey = transaction.getUser().getUserId() + "-" + month;
-        Cache cache = cacheManager.getCache("transactionOverview");
-        if (cache != null) {
-            cache.evict(cacheKey);
+            if (!groupMemberRepository.existsByUserUserIdAndGroupGroupId(transaction.getUser().getUserId(), group.getGroupId())) {
+                throw new IllegalArgumentException("You are not authorized to create this group category.");
+            }
+            transaction.setGroup(group);
         }
-        Wallet wallet = transaction.getWallet();
-        if (transaction.getTransactionType() == TransactionType.EXPENSE) {
-
-            wallet.setCurrentBalance(wallet.getCurrentBalance().add(transaction.getAmount()));
-
-            List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository.findByTransaction(transaction.getCategory().getCategoryId());
-
-            if (budgetCategoryLimits.isEmpty()) {
-                return;
+        else{
+            YearMonth month = YearMonth.from(transaction.getTransactionDate());
+            String cacheKey = transaction.getUser().getUserId() + "-" + month;
+            Cache cache = cacheManager.getCache("transactionOverview");
+            if (cache != null) {
+                cache.evict(cacheKey);
             }
-            for (BudgetCategoryLimit budgetCategoryLimit : budgetCategoryLimits) {
-                Budget budget = budgetRepository.findById(budgetCategoryLimit.getBudget().getBudgetId())
-                        .orElse(null);
-                if (budget == null) {
-                    continue;
-                }
-                List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetIdAndTime(budget.getBudgetId(), transaction.getTransactionDate());
+            Wallet wallet = transaction.getWallet();
+            if (transaction.getTransactionType() == TransactionType.EXPENSE) {
 
-                for (BudgetPeriod budgetPeriod : budgetPeriods) {
-                    if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate()))
-                        budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount().add(transaction.getAmount()));
-                    budgetPeriodRepository.save(budgetPeriod);
+                wallet.setCurrentBalance(wallet.getCurrentBalance().add(transaction.getAmount()));
+
+                List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository.findByTransaction(transaction.getCategory().getCategoryId());
+
+                if (budgetCategoryLimits.isEmpty()) {
+                    return;
                 }
+                for (BudgetCategoryLimit budgetCategoryLimit : budgetCategoryLimits) {
+                    Budget budget = budgetRepository.findById(budgetCategoryLimit.getBudget().getBudgetId())
+                            .orElse(null);
+                    if (budget == null) {
+                        continue;
+                    }
+                    List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetIdAndTime(budget.getBudgetId(), transaction.getTransactionDate());
+
+                    for (BudgetPeriod budgetPeriod : budgetPeriods) {
+                        if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate()))
+                            budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount().add(transaction.getAmount()));
+                        budgetPeriodRepository.save(budgetPeriod);
+                    }
+                }
+
+            } else {
+                wallet.setCurrentBalance(wallet.getCurrentBalance().subtract(transaction.getAmount()));
             }
-
-        } else {
-            wallet.setCurrentBalance(wallet.getCurrentBalance().subtract(transaction.getAmount()));
+            walletRepository.save(wallet);
         }
         transaction.setTransactionType(TransactionType.INACTIVE);
-
-        walletRepository.save(wallet);
         transactionRepository.save(transaction);
     }
 
@@ -431,15 +435,20 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     /**
-     * @param categoryId
-     * @param dateFrom
-     * @param dateTo
+     *
+     * @param type period
+     * @param categoryId cate of transaction
+     * @param dateFrom date from of report
+     * @param dateTo date to of report
+     * @param groupId if have
      * @return TransactionCategoryReportResponse
      */
 
 
+
+
     @Override
-    public TransactionCategoryReportResponse getCategoryReport(PeriodType type, Integer categoryId, LocalDate dateFrom, LocalDate dateTo) {
+    public TransactionCategoryReportResponse getCategoryReport(PeriodType type, Integer categoryId, LocalDate dateFrom, LocalDate dateTo, Integer groupId) {
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
@@ -484,7 +493,7 @@ public class TransactionServiceImpl implements TransactionService {
                 throw new IllegalArgumentException("Invalid type: " + type);
         }
         List<Transaction> transactions = transactionRepository.findExpensesByUserAndDateRange(
-                categoryId, currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.plusDays(1).atStartOfDay());
+                categoryId, currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.plusDays(1).atStartOfDay(), groupId);
 
         Map<String, TransactionCategoryReportResponse.GroupAmount> result = new LinkedHashMap<>();
         Map<String, LocalDate> keyDateMap = new HashMap<>();
@@ -578,7 +587,7 @@ public class TransactionServiceImpl implements TransactionService {
      * @return
      */
     @Override
-    public TransactionDetailReportResponse getCategoryReportDetail(Integer categoryId, LocalDate dateFrom, LocalDate dateTo) {
+    public TransactionDetailReportResponse getCategoryReportDetail(Integer categoryId, LocalDate dateFrom, LocalDate dateTo, Integer groupId) {
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
@@ -593,7 +602,7 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         List<Transaction> transactions = transactionRepository.findExpensesByUserAndDateRange(
-                categoryId, currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.atTime(23, 59, 59));
+                categoryId, currentUser.getUserId(), dateFrom.atStartOfDay(), dateTo.atTime(23, 59, 59), groupId);
 
         Map<String, TransactionDetailReportResponse.GroupDetail> result = new LinkedHashMap<>();
         BigDecimal totalExpense = BigDecimal.ZERO;
