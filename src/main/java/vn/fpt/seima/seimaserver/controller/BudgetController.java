@@ -116,4 +116,21 @@ public class BudgetController {
             return new ApiResponse<>(500, ex.getMessage(), null);
         }
     }
+
+    @GetMapping("/search")
+    public ApiResponse<Page<BudgetResponse>> getBudgetByName(
+            @RequestParam String budgetName,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            Pageable pageable = PageRequest.of(page, size);
+            Page<BudgetResponse> budgets = budgetService.getBudgetByName(budgetName, pageable);
+
+            return new ApiResponse<>(HttpStatus.OK.value(), "Budget search results retrieved successfully", budgets);
+        } catch (IllegalArgumentException ex) {
+            return new ApiResponse<>(400, ex.getMessage(), null);
+        } catch (Exception ex) {
+            return new ApiResponse<>(500, "An unexpected error occurred", null);
+        }
+    }
 } 
