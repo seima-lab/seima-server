@@ -3,6 +3,7 @@ package vn.fpt.seima.seimaserver.service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
+import vn.fpt.seima.seimaserver.dto.request.budget.UpdateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetLastResponse;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 
@@ -17,7 +18,7 @@ public interface BudgetService {
 
     BudgetResponse saveBudget(CreateBudgetRequest request);
 
-    BudgetResponse updateBudget(Integer id,CreateBudgetRequest budget);
+    BudgetResponse updateBudget(Integer id, UpdateBudgetRequest budget);
 
     void deleteBudget(int id);
 

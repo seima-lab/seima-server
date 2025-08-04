@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
+import vn.fpt.seima.seimaserver.dto.request.budget.UpdateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetLastResponse;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.dto.response.category.CategoryResponse;
@@ -24,6 +25,7 @@ import vn.fpt.seima.seimaserver.service.FcmService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -91,6 +93,18 @@ public class BudgetServiceImpl implements BudgetService {
         if (!budgetRepository.countBudgetByUserId(user.getUserId())) {
             throw new IllegalArgumentException("The user cannot have more than 5 budgets.");
         }
+        if (request.getStartDate() == null) {
+            throw new IllegalArgumentException("Start date must not be null");
+        }
+        if (request.getEndDate() != null) {
+            if (request.getStartDate().isBefore(request.getEndDate())) {
+                throw new IllegalArgumentException("Start date must be before end date");
+            }
+        }
+
+        if (request.getEndDate() == null) {
+            request.setEndDate(LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59));
+        }
         List<Integer> categoryIds = new ArrayList<>();
         for (Category category : request.getCategoryList()){
             categoryIds.add(category.getCategoryId());
@@ -129,18 +143,26 @@ public class BudgetServiceImpl implements BudgetService {
 
     @Override
     @Transactional
-    public BudgetResponse updateBudget(Integer id,CreateBudgetRequest request) {
+    public BudgetResponse updateBudget(Integer id, UpdateBudgetRequest request) {
         Budget existingBudget = budgetRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found for this id: " + id));
 
+        if (request.getOverallAmountLimit().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Overall amount limit must be greater than zero");
+        }
+        if (request.isUpdateAmount()) {
+            LocalDateTime dateTime = LocalDateTime.now();
+            List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.getListBudgetPeriodsFuture(existingBudget, BudgetPeriodStatus.ACTIVE, dateTime);
+            for (BudgetPeriod budgetPeriod : budgetPeriods) {
+                budgetPeriod.setAmountLimit(request.getOverallAmountLimit());
+            }
+        }
         if (budgetRepository.existsByBudgetName(request.getBudgetName()) &&
                 !existingBudget.getBudgetName().equals(request.getBudgetName())) {
             throw new IllegalArgumentException("Budget name already exists");
         }
 
-        if (request.getOverallAmountLimit().compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("Overall amount limit must be greater than zero");
-        }
+
 
         User user = UserUtils.getCurrentUser();
         if (user == null) {
@@ -148,6 +170,9 @@ public class BudgetServiceImpl implements BudgetService {
         }
         if (request.getCategoryList().isEmpty()) {
             throw new IllegalArgumentException("Category list must not be empty");
+        }
+        if (request.getEndDate() == null) {
+            request.setEndDate(LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59));
         }
         budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(existingBudget.getBudgetId());
         budgetPeriodRepository.deleteAll(budgetPeriodRepository.findByBudget_BudgetId(existingBudget.getBudgetId()));
