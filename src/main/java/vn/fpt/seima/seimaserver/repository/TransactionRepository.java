@@ -54,14 +54,14 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
 
 
     @Query("SELECT t FROM Transaction t " +
-            "WHERE t.user = :user " +
+            "WHERE t.user IN :users " +
             "AND (:categoryId IS NULL OR t.category.categoryId = :categoryId) " +
             "AND t.transactionDate BETWEEN :startDate AND :endDate " +
             "AND t.transactionType != 'INACTIVE' " +
             "AND ((:groupId IS NULL AND t.group.groupId IS NULL) " +
             "OR (:groupId IS NOT NULL AND t.group.groupId = :groupId))")
     List<Transaction> listReportByUserAndCategoryAndTransactionDateBetween(
-            @Param("user") User user,
+            @Param("users") List<User> users,
             @Param("categoryId") Integer categoryId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
@@ -72,14 +72,14 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
     List<Transaction> findAllByCategory_CategoryId(Integer categoryId);
 
     @Query("SELECT t FROM Transaction t " +
-            "WHERE t.user.userId = :userId AND t.category.categoryId = :categoryId " +
+            "WHERE t.user IN :users AND t.category.categoryId = :categoryId " +
             "AND t.transactionDate BETWEEN :start AND :end " +
             "AND t.transactionType IN ('EXPENSE', 'INCOME')" +
             "AND ((:groupId IS NULL AND t.group.groupId IS NULL) " +
             "OR (:groupId IS NOT NULL AND t.group.groupId = :groupId))")
     List<Transaction> findExpensesByUserAndDateRange(
             @Param("categoryId") Integer categoryId,
-            @Param("userId") Integer userId,
+            @Param("users") List<User> users,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
             @Param("groupId") Integer groupId
