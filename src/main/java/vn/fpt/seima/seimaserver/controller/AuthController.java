@@ -87,6 +87,11 @@ public class AuthController {
                     .statusCode(HttpStatus.BAD_REQUEST.value())
                     .message(e.getMessage())
                     .build();
+        } catch (GoogleAccountConflictException e) {
+            return ApiResponse.builder()
+                    .statusCode(HttpStatus.CONFLICT.value())
+                    .message(e.getMessage())
+                    .build();
         }
     }
 

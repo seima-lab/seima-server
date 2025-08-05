@@ -10,6 +10,7 @@ import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.GoogleIdTokenVerifierService;
 import vn.fpt.seima.seimaserver.service.GoogleService;
 import vn.fpt.seima.seimaserver.service.JwtService;
+import vn.fpt.seima.seimaserver.exception.GoogleAccountConflictException;
 
 import java.util.Optional;
 
@@ -57,6 +58,11 @@ public class GoogleServiceImpl implements GoogleService {
             userEntity = userRepository.save(userEntity);
         } else {
             userEntity = existingUserOpt.get();
+            
+            // Check if user registered normally (not with Google) - prevent Google login
+            if (!userEntity.getIsLogByGoogle()) {
+                throw new GoogleAccountConflictException("An account with this email already exists. Please use your password to login instead of Google login.");
+            }
             
             // Kiểm tra trạng thái user để xác định logic xử lý
             if (userEntity.getUserIsActive()) {
