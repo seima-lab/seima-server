@@ -15,6 +15,7 @@ import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.mapper.TransactionMapper;
 import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.BudgetService;
+import vn.fpt.seima.seimaserver.service.RedisService;
 import vn.fpt.seima.seimaserver.service.TransactionService;
 import vn.fpt.seima.seimaserver.service.WalletService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
@@ -46,6 +47,7 @@ public class TransactionServiceImpl implements TransactionService {
     private final BudgetCategoryLimitRepository budgetCategoryLimitRepository;
     private final BudgetRepository budgetRepository;
     private final BudgetPeriodRepository budgetPeriodRepository;
+    private final RedisService redisService;
 
     @Override
     public Page<TransactionResponse> getAllTransaction( Pageable pageable) {
@@ -82,8 +84,8 @@ public class TransactionServiceImpl implements TransactionService {
             Category category = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new IllegalArgumentException("Category not found"));
 
-            if (request.getAmount() == null || request.getAmount().equals(BigDecimal.ZERO)) {
-                throw new IllegalArgumentException("Amount must not be zero");
+            if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Amount must greater than zero");
             }
             Transaction transaction = transactionMapper.toEntity(request);
             transaction.setUser(user);
@@ -115,11 +117,8 @@ public class TransactionServiceImpl implements TransactionService {
                     walletService.reduceAmount(request.getWalletId(), transaction.getAmount(), "INCOME", request.getCurrencyCode());
                 }
                 YearMonth month = YearMonth.from(transaction.getTransactionDate());
-                String cacheKey = transaction.getUser().getUserId() + "-" + month;
-                Cache cache = cacheManager.getCache("transactionOverview");
-                if (cache != null) {
-                    cache.evict(cacheKey);
-                }
+                String cacheKey = buildOverviewKey(transaction.getUser().getUserId(), month);
+                redisService.delete(cacheKey);
             }
             Transaction savedTransaction = transactionRepository.save(transaction);
 
@@ -154,8 +153,8 @@ public class TransactionServiceImpl implements TransactionService {
                     .orElseThrow(() -> new IllegalArgumentException("Category not found"));
             transaction.setCategory(category);
 
-            if(request.getAmount() == null || request.getAmount().equals(BigDecimal.ZERO)){
-                throw new IllegalArgumentException("Amount must not be zero");
+            if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Amount must greater than zero");
             }
             if(request.getGroupId()!= null) {
                 Group  group = groupRepository.findById(request.getGroupId())
@@ -195,11 +194,8 @@ public class TransactionServiceImpl implements TransactionService {
                     walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
                 }
                 YearMonth month = YearMonth.from(transaction.getTransactionDate());
-                String cacheKey = transaction.getUser().getUserId() + "-" + month;
-                Cache cache = cacheManager.getCache("transactionOverview");
-                if (cache != null) {
-                    cache.evict(cacheKey);
-                }
+                String cacheKey = buildOverviewKey(transaction.getUser().getUserId(), month);
+                redisService.delete(cacheKey);
             }
             transactionMapper.updateTransactionFromDto(request, transaction);
             Transaction updatedTransaction = transactionRepository.save(transaction);
@@ -228,11 +224,9 @@ public class TransactionServiceImpl implements TransactionService {
         }
         else{
             YearMonth month = YearMonth.from(transaction.getTransactionDate());
-            String cacheKey = transaction.getUser().getUserId() + "-" + month;
-            Cache cache = cacheManager.getCache("transactionOverview");
-            if (cache != null) {
-                cache.evict(cacheKey);
-            }
+            String cacheKey = buildOverviewKey(transaction.getUser().getUserId(), month);
+            redisService.delete(cacheKey);
+
             Wallet wallet = transaction.getWallet();
             if (transaction.getTransactionType() == TransactionType.EXPENSE) {
 
@@ -240,21 +234,20 @@ public class TransactionServiceImpl implements TransactionService {
 
                 List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository.findByTransaction(transaction.getCategory().getCategoryId());
 
-                if (budgetCategoryLimits.isEmpty()) {
-                    return;
-                }
-                for (BudgetCategoryLimit budgetCategoryLimit : budgetCategoryLimits) {
-                    Budget budget = budgetRepository.findById(budgetCategoryLimit.getBudget().getBudgetId())
-                            .orElse(null);
-                    if (budget == null) {
-                        continue;
-                    }
-                    List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetIdAndTime(budget.getBudgetId(), transaction.getTransactionDate());
+                if (!budgetCategoryLimits.isEmpty()) {
+                    for (BudgetCategoryLimit budgetCategoryLimit : budgetCategoryLimits) {
+                        Budget budget = budgetRepository.findById(budgetCategoryLimit.getBudget().getBudgetId())
+                                .orElse(null);
+                        if (budget == null) {
+                            continue;
+                        }
+                        List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetIdAndTime(budget.getBudgetId(), transaction.getTransactionDate());
 
-                    for (BudgetPeriod budgetPeriod : budgetPeriods) {
-                        if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate()))
-                            budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount().add(transaction.getAmount()));
-                        budgetPeriodRepository.save(budgetPeriod);
+                        for (BudgetPeriod budgetPeriod : budgetPeriods) {
+                            if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate()))
+                                budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount().add(transaction.getAmount()));
+                            budgetPeriodRepository.save(budgetPeriod);
+                        }
                     }
                 }
 
@@ -284,7 +277,6 @@ public class TransactionServiceImpl implements TransactionService {
         return saveTransaction(request, TransactionType.TRANSFER);
     }
 
-    @Cacheable(value = "transactionOverview", key = "#userId + '-' + #month.toString()")
     public TransactionOverviewResponse getTransactionOverview(Integer userId, YearMonth month) {
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
@@ -296,6 +288,13 @@ public class TransactionServiceImpl implements TransactionService {
         if ((month.getMonthValue() < 0 || month.getMonthValue() > 12)) {
             throw new IllegalArgumentException("Month is not in range [0, 12]");
         }
+        final String key = String.format("tx:overview:%d:%s", userId, month);
+
+        TransactionOverviewResponse cached = redisService.getObject(key, TransactionOverviewResponse.class);
+        if (cached != null) {
+            return cached;
+        }
+
         LocalDateTime start = month.atDay(1).atStartOfDay();
         LocalDateTime end = month.atEndOfMonth().atTime(23, 59, 59);
 
@@ -332,10 +331,15 @@ public class TransactionServiceImpl implements TransactionService {
                 .balance(totalIncome.subtract(totalExpense))
                 .build();
 
-       return TransactionOverviewResponse.builder()
+        TransactionOverviewResponse result = TransactionOverviewResponse.builder()
                 .summary(summary)
                 .byDate(byDate)
                 .build();
+
+        redisService.set(key, result);
+        redisService.setTimeToLiveInMinutes(key, 60*12);
+
+        return result;
     }
 
     @Override
@@ -692,6 +696,10 @@ public class TransactionServiceImpl implements TransactionService {
                 pageable
         );
         return transactions.map(transactionMapper::toResponse);
+    }
+
+    private String buildOverviewKey(Integer userId, YearMonth month) {
+        return String.format("tx:overview:%d:%s", userId, month);
     }
 
 }
