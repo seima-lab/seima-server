@@ -12,9 +12,12 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
 import vn.fpt.seima.seimaserver.dto.response.transaction.*;
 import vn.fpt.seima.seimaserver.entity.*;
+import vn.fpt.seima.seimaserver.entity.GroupMemberStatus;
+import vn.fpt.seima.seimaserver.entity.NotificationType;
 import vn.fpt.seima.seimaserver.mapper.TransactionMapper;
 import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.BudgetService;
+import vn.fpt.seima.seimaserver.service.NotificationService;
 import vn.fpt.seima.seimaserver.service.RedisService;
 import vn.fpt.seima.seimaserver.service.TransactionService;
 import vn.fpt.seima.seimaserver.service.WalletService;
@@ -48,6 +51,7 @@ public class TransactionServiceImpl implements TransactionService {
     private final BudgetRepository budgetRepository;
     private final BudgetPeriodRepository budgetPeriodRepository;
     private final RedisService redisService;
+    private final NotificationService notificationService;
 
     @Override
     public Page<TransactionResponse> getAllTransaction( Pageable pageable) {
@@ -121,6 +125,17 @@ public class TransactionServiceImpl implements TransactionService {
                 redisService.delete(cacheKey);
             }
             Transaction savedTransaction = transactionRepository.save(transaction);
+
+            // Send notification to all group members except current user if transaction is group-related
+            if (savedTransaction.getGroup() != null) {
+                try {
+                    sendTransactionCreateNotificationToGroup(savedTransaction, user);
+                } catch (Exception e) {
+                    log.error("Failed to send transaction create notification for transaction {}: {}", 
+                            savedTransaction.getTransactionId(), e.getMessage(), e);
+                    // Don't throw exception to avoid affecting the main transaction flow
+                }
+            }
 
             return transactionMapper.toResponse(savedTransaction);
         } catch (Exception e) {
@@ -200,6 +215,17 @@ public class TransactionServiceImpl implements TransactionService {
             transactionMapper.updateTransactionFromDto(request, transaction);
             Transaction updatedTransaction = transactionRepository.save(transaction);
 
+            // Send notification to all group members except current user if transaction is group-related
+            if (updatedTransaction.getGroup() != null) {
+                try {
+                    sendTransactionUpdateNotificationToGroup(updatedTransaction, user);
+                } catch (Exception e) {
+                    log.error("Failed to send transaction update notification for transaction {}: {}", 
+                            updatedTransaction.getTransactionId(), e.getMessage(), e);
+                    // Don't throw exception to avoid affecting the main transaction flow
+                }
+            }
+
             return transactionMapper.toResponse(updatedTransaction);
         } catch (Exception e) {
             throw new RuntimeException("Failed to update transaction: " + e.getMessage(), e);
@@ -256,6 +282,18 @@ public class TransactionServiceImpl implements TransactionService {
             }
             walletRepository.save(wallet);
         }
+        
+        // Send notification to all group members except current user if transaction is group-related
+        if (transaction.getGroup() != null) {
+            try {
+                sendTransactionDeleteNotificationToGroup(transaction, transaction.getUser());
+            } catch (Exception e) {
+                log.error("Failed to send transaction delete notification for transaction {}: {}", 
+                        transaction.getTransactionId(), e.getMessage(), e);
+                // Don't throw exception to avoid affecting the main transaction flow
+            }
+        }
+        
         transaction.setTransactionType(TransactionType.INACTIVE);
         transactionRepository.save(transaction);
     }
@@ -750,6 +788,113 @@ public class TransactionServiceImpl implements TransactionService {
                 .summary(summary)
                 .reportByWallet(reportByWallet)
                 .build();
+    }
+
+    /**
+     * Sends notification to all group members except the current user when a transaction is updated
+     */
+    private void sendTransactionUpdateNotificationToGroup(Transaction transaction, User currentUser) {
+        try {
+            Integer groupId = transaction.getGroup().getGroupId();
+            String currentUserName = currentUser.getUserFullName();
+            String transactionDescription = transaction.getDescription() != null ? transaction.getDescription() : "No description";
+            
+            // Create notification message
+            String title = "Transaction Updated";
+            String message = String.format("%s updated a transaction", currentUserName);
+            String linkToEntity = String.format("seimaapp://groups/%d/transactions/%d", groupId, transaction.getTransactionId());
+            
+            // Send notification to all group members except current user
+            notificationService.sendNotificationToGroupMembersExceptUser(
+                groupId, 
+                currentUser.getUserId(), 
+                currentUserName, 
+                NotificationType.TRANSACTION_UPDATED, 
+                title, 
+                message, 
+                linkToEntity
+            );
+            
+            log.info("Sent transaction update notification to group {} members for transaction {}", 
+                    groupId, transaction.getTransactionId());
+                    
+        } catch (Exception e) {
+            log.error("Failed to send transaction update notification for transaction {}: {}", 
+                    transaction.getTransactionId(), e.getMessage(), e);
+            // Don't throw exception to avoid affecting the main transaction flow
+        }
+    }
+
+    /**
+     * Sends notification to all group members except the current user when a transaction is created
+     */
+    private void sendTransactionCreateNotificationToGroup(Transaction transaction, User currentUser) {
+        try {
+            Integer groupId = transaction.getGroup().getGroupId();
+            String currentUserName = currentUser.getUserFullName();
+            String transactionDescription = transaction.getDescription() != null ? transaction.getDescription() : "No description";
+            
+            // Create notification message
+            String title = "New Transaction";
+            String transactionType = transaction.getTransactionType() == TransactionType.EXPENSE ? "expense" : "income";
+            String currencyCode = transaction.getCurrencyCode() != null ? transaction.getCurrencyCode() : "VND";
+            String message = String.format("%s added a new %s transaction: %s %s", currentUserName, transactionType, transaction.getAmount(), currencyCode);
+            String linkToEntity = String.format("seimaapp://groups/%d/transactions/%d", groupId, transaction.getTransactionId());
+            
+            // Send notification to all group members except current user
+            notificationService.sendNotificationToGroupMembersExceptUser(
+                groupId, 
+                currentUser.getUserId(), 
+                currentUserName, 
+                NotificationType.TRANSACTION_CREATED, 
+                title, 
+                message, 
+                linkToEntity
+            );
+            
+            log.info("Sent transaction create notification to group {} members for transaction {}", 
+                    groupId, transaction.getTransactionId());
+                    
+        } catch (Exception e) {
+            log.error("Failed to send transaction create notification for transaction {}: {}", 
+                    transaction.getTransactionId(), e.getMessage(), e);
+            // Don't throw exception to avoid affecting the main transaction flow
+        }
+    }
+
+    /**
+     * Sends notification to all group members except the current user when a transaction is deleted
+     */
+    private void sendTransactionDeleteNotificationToGroup(Transaction transaction, User currentUser) {
+        try {
+            Integer groupId = transaction.getGroup().getGroupId();
+            String currentUserName = currentUser.getUserFullName();
+            String transactionDescription = transaction.getDescription() != null ? transaction.getDescription() : "No description";
+            
+            // Create notification message
+            String title = "Transaction Removed";
+            String message = String.format("%s removed a transaction", currentUserName);
+            String linkToEntity = String.format("seimaapp://groups/%d/transactions", groupId);
+            
+            // Send notification to all group members except current user
+            notificationService.sendNotificationToGroupMembersExceptUser(
+                groupId, 
+                currentUser.getUserId(), 
+                currentUserName, 
+                NotificationType.TRANSACTION_DELETED, 
+                title, 
+                message, 
+                linkToEntity
+            );
+            
+            log.info("Sent transaction delete notification to group {} members for transaction {}", 
+                    groupId, transaction.getTransactionId());
+                    
+        } catch (Exception e) {
+            log.error("Failed to send transaction delete notification for transaction {}: {}", 
+                    transaction.getTransactionId(), e.getMessage(), e);
+            // Don't throw exception to avoid affecting the main transaction flow
+        }
     }
 
     private String buildOverviewKey(Integer userId, YearMonth month) {
