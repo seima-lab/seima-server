@@ -30,4 +30,8 @@ public interface BudgetPeriodRepository extends JpaRepository<BudgetPeriod, Inte
     List<BudgetPeriod> getListBudgetPeriodsFuture(@Param("budget") Budget budget,
                                                   @Param("status") BudgetPeriodStatus status,
                                                   @Param("date") LocalDateTime date);
+
+    @Query("SELECT bp FROM BudgetPeriod bp WHERE bp.budget = :budget and  bp.status = :status ORDER BY bp.periodIndex DESC limit 1")
+    List<BudgetPeriod> findLatestByStatus(@Param("status") BudgetPeriodStatus status,
+                                          @Param("budget") Budget budget);
 }
