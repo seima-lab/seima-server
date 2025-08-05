@@ -18,4 +18,5 @@ public class UserProfileResponseDto {
     private Boolean userGender;
     private String userPhoneNumber;
     private String userAvatarUrl;
+    private Boolean isLogByGoogle;
 }
