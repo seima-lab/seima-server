@@ -698,6 +698,60 @@ public class TransactionServiceImpl implements TransactionService {
         return transactions.map(transactionMapper::toResponse);
     }
 
+
+    @Override
+    public TransactionWalletResponse getTransactionWallet(Integer id, LocalDate dateFrom, LocalDate dateTo) {
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        if (id == null) {
+            throw new IllegalArgumentException("WalletId must not be null");
+        }
+
+        Wallet wallet = walletRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Wallet not found"));
+
+        LocalDateTime startDateTime = dateFrom.atStartOfDay();
+        LocalDateTime endDateTime = dateTo.atTime(23, 59, 59);
+        List<Transaction> transactions = transactionRepository.listTransactionByWallet(id, currentUser.getUserId(), startDateTime, endDateTime);
+
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        BigDecimal totalExpense = BigDecimal.ZERO;
+        Map<String, List<TransactionWalletResponse.ReportByWallet>> reportByWallet = new TreeMap<>(Comparator.reverseOrder());
+
+        for (Transaction transaction : transactions) {
+            if (transaction.getTransactionType() == TransactionType.INCOME) {
+                totalIncome = totalIncome.add(transaction.getAmount());
+            } else if (transaction.getTransactionType() == TransactionType.EXPENSE) {
+                totalExpense = totalExpense.add(transaction.getAmount());
+            }
+
+            String dateKey = transaction.getTransactionDate().toLocalDate().toString();
+            TransactionWalletResponse.ReportByWallet reportItem = TransactionWalletResponse.ReportByWallet.builder()
+                    .categoryId(transaction.getCategory().getCategoryId())
+                    .categoryName(transaction.getCategory().getCategoryName())
+                    .categoryIconUrl(transaction.getCategory().getCategoryIconUrl())
+                    .amount(transaction.getAmount())
+                    .balance(wallet.getCurrentBalance())
+                    .transactionDate(transaction.getTransactionDate())
+                    .build();
+
+            reportByWallet.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(reportItem);
+        }
+
+        TransactionWalletResponse.Summary summary = TransactionWalletResponse.Summary.builder()
+                .totalIncome(totalIncome)
+                .totalExpense(totalExpense)
+                .currentBalance(wallet.getCurrentBalance())
+                .build();
+
+        return TransactionWalletResponse.builder()
+                .summary(summary)
+                .reportByWallet(reportByWallet)
+                .build();
+    }
+
     private String buildOverviewKey(Integer userId, YearMonth month) {
         return String.format("tx:overview:%d:%s", userId, month);
     }

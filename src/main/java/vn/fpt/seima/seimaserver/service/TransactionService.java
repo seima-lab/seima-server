@@ -42,4 +42,6 @@ public interface TransactionService {
     TransactionDetailReportResponse getCategoryReportDetail( Integer id, LocalDate dateFrom, LocalDate dateTo, Integer groupId);
 
     Page<TransactionResponse> getTransactionByBudget(Integer budgetId, Pageable pageable);
+
+    TransactionWalletResponse getTransactionWallet(Integer id, LocalDate dateFrom, LocalDate dateTo);
 }

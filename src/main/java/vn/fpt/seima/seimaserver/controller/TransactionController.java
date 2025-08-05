@@ -228,4 +228,19 @@ public class TransactionController {
             return new ApiResponse<>(500, ex.getMessage(), null);
         }
     }
+
+    @GetMapping("/view-report-transactions-by-wallet/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<TransactionWalletResponse> viewReportTransactionsByWallet(
+            @PathVariable int id,
+            @RequestParam(value = "startDate" ) LocalDate startDate,
+            @RequestParam(value = "endDate") LocalDate endDate) {
+        try {
+            TransactionWalletResponse transactions = transactionService.getTransactionWallet(id, startDate, endDate);
+
+            return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
+        } catch (Exception ex) {
+            return new ApiResponse<>(500, ex.getMessage(), null);
+        }
+    }
 } 
