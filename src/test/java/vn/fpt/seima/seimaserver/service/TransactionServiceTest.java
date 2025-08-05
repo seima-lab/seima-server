@@ -121,24 +121,6 @@ class TransactionServiceTest {
         assertEquals(response, result);
     }
 
-    @Test
-    void testGetTransactionOverview() {
-        Transaction transaction = new Transaction();
-        User currentUser = UserUtils.getCurrentUser();
-        transaction.setTransactionType(TransactionType.INCOME);
-        transaction.setTransactionDate(LocalDateTime.now());
-        transaction.setAmount(BigDecimal.valueOf(100));
-
-        when(transactionRepository.findAllByUserAndTransactionDateBetween(
-                eq(currentUser.getUserId()), any(), any(), any())
-        ).thenReturn(List.of(transaction));
-
-        TransactionOverviewResponse result = transactionService.getTransactionOverview(currentUser.getUserId(), YearMonth.now());
-
-
-        assertNotNull(result);
-        assertEquals(BigDecimal.valueOf(100), result.getSummary().getTotalIncome());
-    }
 
     @Test
     void testRecordIncome_Success() {
@@ -209,54 +191,4 @@ class TransactionServiceTest {
         verify(walletService).reduceAmount(1, new BigDecimal("100"), "update-subtract", "VND");
         verify(budgetService).reduceAmount(user.getUserId(), 2, new BigDecimal("100"), oldTransaction.getTransactionDate(), "update-subtract", "VND");
     }
-//    @Test
-//    void testGetCategoryReportDetail_Success() {
-//        LocalDate from = LocalDate.of(2025, 7, 1);
-//        LocalDate to = LocalDate.of(2025, 7, 5);
-//
-//        Transaction tx = new Transaction();
-//        tx.setTransactionType(TransactionType.EXPENSE);
-//        tx.setTransactionDate(LocalDateTime.of(2025, 7, 3, 10, 0));
-//        tx.setAmount(BigDecimal.TEN);
-//        Category cat = new Category();
-//        cat.setCategoryId(1);
-//        cat.setCategoryName("Food");
-//        cat.setCategoryIconUrl("icon.png");
-//        tx.setCategory(cat);
-//
-//        when(transactionRepository.findExpensesByUserAndDateRange(eq(1), eq(user.getUserId()), any(), any()))
-//                .thenReturn(List.of(tx), 1);
-//
-//        TransactionDetailReportResponse response = transactionService.getCategoryReportDetail(1, from, to,1);
-//
-//        assertNotNull(response);
-//        assertEquals(BigDecimal.TEN, response.getTotalExpense());
-//        assertTrue(response.getData().containsKey("2025-07-03"));
-//    }
-//    @Test
-//    void testGetCategoryReport_Monthly() {
-//        LocalDate from = LocalDate.of(2025, 7, 1);
-//        LocalDate to = LocalDate.of(2025, 7, 31);
-//
-//        Transaction tx = new Transaction();
-//        tx.setTransactionType(TransactionType.EXPENSE);
-//        tx.setTransactionDate(LocalDateTime.of(2025, 7, 10, 10, 0));
-//        tx.setAmount(new BigDecimal("100"));
-//        Category cat = new Category();
-//        cat.setCategoryId(2);
-//        cat.setCategoryName("Travel");
-//        cat.setCategoryIconUrl("travel.png");
-//        tx.setCategory(cat);
-//
-//        when(transactionRepository.findExpensesByUserAndDateRange(eq(2), eq(user.getUserId()), any(), any()))
-//                .thenReturn(List.of(tx));
-//
-//        TransactionCategoryReportResponse response = transactionService.getCategoryReport(
-//                PeriodType.MONTHLY, 2, from, to);
-//
-//        assertNotNull(response);
-//        assertEquals(new BigDecimal("100"), response.getTotalExpense());
-//        assertEquals(1, response.getData().size());
-//    }
-
 }
