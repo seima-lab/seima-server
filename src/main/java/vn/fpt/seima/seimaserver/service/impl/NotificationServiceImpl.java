@@ -708,4 +708,47 @@ public class NotificationServiceImpl implements NotificationService {
             logger.error("Error sending member removed notification to group: {} for user: {}", groupId, removedUserId, e);
         }
     }
+
+    @Override
+    @Transactional
+    public void sendNotificationToGroupMembersExceptUser(Integer groupId, Integer senderUserId, String senderUserName, 
+                                                        NotificationType notificationType, String title, String message, 
+                                                        String linkToEntity) {
+        logger.info("Sending notification to group members except user for group: {}, user: {}, type: {}", 
+                   groupId, senderUserId, notificationType);
+        
+        try {
+            // Validate input
+            validateGenericNotificationInput(groupId, senderUserId, senderUserName, notificationType, title, message);
+            
+            // Get all active group members except the sender user
+            List<GroupMember> activeMembers = groupMemberRepository.findByGroupAndStatusAndUserIdNot(
+                groupId, GroupMemberStatus.ACTIVE, senderUserId);
+            
+            if (activeMembers.isEmpty()) {
+                logger.warn("No active members found for group: {} (excluding sender user: {})", groupId, senderUserId);
+                return;
+            }
+            
+            // Get sender user
+            Optional<User> senderUserOpt = userRepository.findById(senderUserId);
+            if (senderUserOpt.isEmpty()) {
+                logger.warn("Sender user not found: {}", senderUserId);
+                return;
+            }
+            User senderUser = senderUserOpt.get();
+            
+            // Process notifications asynchronously for better performance
+            processNotificationsAsync(activeMembers, senderUser, groupId, notificationType, 
+                                    title, message, linkToEntity, senderUserName);
+            
+            logger.info("Successfully initiated notification to {} group members (excluding sender user)", 
+                activeMembers.size());
+            
+        } catch (Exception e) {
+            logger.error("Error sending notification for group: {}, user: {}, type: {}", 
+                groupId, senderUserId, notificationType, e);
+            throw e;
+        }
+    }
 } 
