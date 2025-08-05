@@ -26,6 +26,9 @@ public class Wallet {
     @Column(name = "current_balance", precision = 18, scale = 2)
     private BigDecimal currentBalance;
 
+    @Column(name = "initial_balance", precision = 18, scale = 2)
+    private BigDecimal initialBalance;
+
     @Size(max = 512)
     @Column(name = "icon_url", length = 512)
     private String iconUrl;
@@ -69,5 +72,7 @@ public class Wallet {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "wallet_type_id", nullable = false)
     private WalletType walletType;
+
+
 
 }

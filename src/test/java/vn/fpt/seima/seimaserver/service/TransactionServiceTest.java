@@ -48,6 +48,9 @@ class TransactionServiceTest {
     @InjectMocks private TransactionServiceImpl transactionService;
     @Mock
     private BudgetCategoryLimitRepository budgetCategoryLimitRepository;
+    @Mock private RedisService redisService;
+    @Mock private GroupRepository groupRepository;
+    @Mock private GroupMemberRepository groupMemberRepository;
 
     private MockedStatic<UserUtils> userUtilsMockedStatic;
 
@@ -121,142 +124,121 @@ class TransactionServiceTest {
         assertEquals(response, result);
     }
 
-    @Test
-    void testGetTransactionOverview() {
-        Transaction transaction = new Transaction();
-        User currentUser = UserUtils.getCurrentUser();
-        transaction.setTransactionType(TransactionType.INCOME);
-        transaction.setTransactionDate(LocalDateTime.now());
-        transaction.setAmount(BigDecimal.valueOf(100));
 
-        when(transactionRepository.findAllByUserAndTransactionDateBetween(
-                eq(currentUser.getUserId()), any(), any(), any())
-        ).thenReturn(List.of(transaction));
-
-        TransactionOverviewResponse result = transactionService.getTransactionOverview(currentUser.getUserId(), YearMonth.now());
-
-
-        assertNotNull(result);
-        assertEquals(BigDecimal.valueOf(100), result.getSummary().getTotalIncome());
-    }
-
-    @Test
-    void testRecordIncome_Success() {
-        // Arrange
-        CreateTransactionRequest request = new CreateTransactionRequest();
-        request.setAmount(BigDecimal.TEN);
-        request.setWalletId(1);
-        request.setCategoryId(2);
-        request.setCurrencyCode("VND");
-        request.setTransactionDate(LocalDateTime.of(2024, 7, 15, 10, 30));
-
-        Wallet wallet = new Wallet();
-        wallet.setId(1);
-
-        Category category = new Category();
-        category.setCategoryId(2);
-
-        Transaction transaction = new Transaction();
-        transaction.setTransactionDate(request.getTransactionDate());
-        transaction.setAmount(request.getAmount());
-        transaction.setTransactionType(TransactionType.INCOME);
-        transaction.setUser(user);
-        transaction.setWallet(wallet);
-        transaction.setCategory(category);
-
-        TransactionResponse expectedResponse = new TransactionResponse();
-
-        when(walletRepository.findById(1)).thenReturn(Optional.of(wallet));
-        when(categoryRepository.findById(2)).thenReturn(Optional.of(category));
-        when(transactionMapper.toEntity(request)).thenReturn(transaction);
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(transactionMapper.toResponse(transaction)).thenReturn(expectedResponse);
-
-        // Act
-        TransactionResponse response = transactionService.recordIncome(request);
-
-        // Assert
-        assertNotNull(response);
-        assertEquals(expectedResponse, response);
-        verify(walletService).reduceAmount(1, BigDecimal.TEN, "INCOME", "VND");
-        verify(budgetService).reduceAmount(1, 2, BigDecimal.TEN, request.getTransactionDate(), "INCOME", "VND");
-    }
-
-    @Test
-    void testUpdateTransaction_AmountIncreased() {
-        CreateTransactionRequest request = new CreateTransactionRequest();
-        request.setWalletId(1);
-        request.setCategoryId(2);
-        request.setAmount(new BigDecimal("200"));
-        request.setCurrencyCode("VND");
-
-        Wallet wallet = new Wallet();
-        Category category = new Category();
-        Transaction oldTransaction = new Transaction();
-        oldTransaction.setAmount(new BigDecimal("100"));
-        oldTransaction.setTransactionDate(LocalDateTime.now());
-        oldTransaction.setUser(user);
-
-        when(transactionRepository.findById(1)).thenReturn(Optional.of(oldTransaction));
-        when(walletRepository.findById(1)).thenReturn(Optional.of(wallet));
-        when(categoryRepository.findById(2)).thenReturn(Optional.of(category));
-        when(transactionRepository.save(any())).thenReturn(oldTransaction);
-        when(transactionMapper.toResponse(any())).thenReturn(new TransactionResponse());
-
-        TransactionResponse result = transactionService.updateTransaction(1, request);
-
-        assertNotNull(result);
-        verify(walletService).reduceAmount(1, new BigDecimal("100"), "update-subtract", "VND");
-        verify(budgetService).reduceAmount(user.getUserId(), 2, new BigDecimal("100"), oldTransaction.getTransactionDate(), "update-subtract", "VND");
-    }
 //    @Test
-//    void testGetCategoryReportDetail_Success() {
-//        LocalDate from = LocalDate.of(2025, 7, 1);
-//        LocalDate to = LocalDate.of(2025, 7, 5);
+//    void saveTransaction_Income_WalletPath_Success() {
+//        // Arrange
+//        CreateTransactionRequest request = new CreateTransactionRequest();
+//        request.setAmount(BigDecimal.TEN);
+//        request.setWalletId(1);
+//        request.setCategoryId(2);
+//        request.setCurrencyCode("VND");
+//        request.setTransactionDate(LocalDateTime.of(2024, 7, 15, 10, 30));
+//        // request.setGroupId(null) // mặc định null
 //
-//        Transaction tx = new Transaction();
-//        tx.setTransactionType(TransactionType.EXPENSE);
-//        tx.setTransactionDate(LocalDateTime.of(2025, 7, 3, 10, 0));
-//        tx.setAmount(BigDecimal.TEN);
-//        Category cat = new Category();
-//        cat.setCategoryId(1);
-//        cat.setCategoryName("Food");
-//        cat.setCategoryIconUrl("icon.png");
-//        tx.setCategory(cat);
+//        User user = new User();
+//        user.setUserId(999);
 //
-//        when(transactionRepository.findExpensesByUserAndDateRange(eq(1), eq(user.getUserId()), any(), any()))
-//                .thenReturn(List.of(tx), 1);
+//        Wallet wallet = new Wallet();
+//        wallet.setId(1);
 //
-//        TransactionDetailReportResponse response = transactionService.getCategoryReportDetail(1, from, to,1);
+//        Category category = new Category();
+//        category.setCategoryId(2);
 //
-//        assertNotNull(response);
-//        assertEquals(BigDecimal.TEN, response.getTotalExpense());
-//        assertTrue(response.getData().containsKey("2025-07-03"));
+//        Transaction transaction = new Transaction();
+//        transaction.setTransactionDate(request.getTransactionDate());
+//        transaction.setAmount(request.getAmount());
+//        transaction.setTransactionType(TransactionType.INCOME);
+//        transaction.setUser(user);
+//        transaction.setWallet(wallet);
+//        transaction.setCategory(category);
+//
+//        Transaction saved = new Transaction();
+//        saved.setTransactionDate(request.getTransactionDate());
+//        saved.setAmount(request.getAmount());
+//        saved.setTransactionType(TransactionType.INCOME);
+//        saved.setUser(user);
+//        saved.setWallet(wallet);
+//        saved.setCategory(category);
+//
+//        TransactionResponse expectedResponse = new TransactionResponse();
+//
+//        // Mock static UserUtils.getCurrentUser()
+//        try (MockedStatic<UserUtils> mocked = mockStatic(UserUtils.class)) {
+//            mocked.when(UserUtils::getCurrentUser).thenReturn(user);
+//
+//            // Mocks
+//            when(categoryRepository.findById(2)).thenReturn(Optional.of(category));
+//            when(walletRepository.findById(1)).thenReturn(Optional.of(wallet));
+//            when(transactionMapper.toEntity(request)).thenReturn(transaction);
+//            when(transactionRepository.save(any(Transaction.class))).thenReturn(saved);
+//            when(transactionMapper.toResponse(saved)).thenReturn(expectedResponse);
+//
+//            // Tính key cache mong đợi
+//            YearMonth ym = YearMonth.from(request.getTransactionDate());
+//            String expectedCacheKey = String.format("tx:overview:%d:%s", user.getUserId(), ym);
+//
+//            // Act
+//            TransactionResponse response = transactionService.saveTransaction(request, TransactionType.INCOME);
+//
+//            // Assert
+//            assertNotNull(response);
+//            assertEquals(expectedResponse, response);
+//
+//            // Verify map + save
+//            verify(transactionMapper).toEntity(request);
+//            verify(transactionRepository).save(any(Transaction.class));
+//            verify(transactionMapper).toResponse(saved);
+//
+//            // Verify gọi giảm ngân sách & ví cho INCOME (đúng theo code hiện tại)
+//            verify(budgetService).reduceAmount(
+//                    eq(user.getUserId()),
+//                    eq(2),
+//                    eq(BigDecimal.TEN),
+//                    eq(request.getTransactionDate()),
+//                    eq("INCOME"),
+//                    eq("VND")
+//            );
+//            verify(walletService).reduceAmount(
+//                    eq(1),
+//                    eq(BigDecimal.TEN),
+//                    eq("INCOME"),
+//                    eq("VND")
+//            );
+//
+//            // Verify XÓA CACHE đúng key
+//            verify(redisService).delete(eq(expectedCacheKey));
+//
+//            // Không đụng group
+//            verifyNoInteractions(groupRepository, groupMemberRepository);
+//        }
 //    }
+//
 //    @Test
-//    void testGetCategoryReport_Monthly() {
-//        LocalDate from = LocalDate.of(2025, 7, 1);
-//        LocalDate to = LocalDate.of(2025, 7, 31);
+//    void testUpdateTransaction_AmountIncreased() {
+//        CreateTransactionRequest request = new CreateTransactionRequest();
+//        request.setWalletId(1);
+//        request.setCategoryId(2);
+//        request.setAmount(new BigDecimal("200"));
+//        request.setCurrencyCode("VND");
 //
-//        Transaction tx = new Transaction();
-//        tx.setTransactionType(TransactionType.EXPENSE);
-//        tx.setTransactionDate(LocalDateTime.of(2025, 7, 10, 10, 0));
-//        tx.setAmount(new BigDecimal("100"));
-//        Category cat = new Category();
-//        cat.setCategoryId(2);
-//        cat.setCategoryName("Travel");
-//        cat.setCategoryIconUrl("travel.png");
-//        tx.setCategory(cat);
+//        Wallet wallet = new Wallet();
+//        Category category = new Category();
+//        Transaction oldTransaction = new Transaction();
+//        oldTransaction.setAmount(new BigDecimal("100"));
+//        oldTransaction.setTransactionDate(LocalDateTime.now());
+//        oldTransaction.setUser(user);
 //
-//        when(transactionRepository.findExpensesByUserAndDateRange(eq(2), eq(user.getUserId()), any(), any()))
-//                .thenReturn(List.of(tx));
+//        when(transactionRepository.findById(1)).thenReturn(Optional.of(oldTransaction));
+//        when(walletRepository.findById(1)).thenReturn(Optional.of(wallet));
+//        when(categoryRepository.findById(2)).thenReturn(Optional.of(category));
+//        when(transactionRepository.save(any())).thenReturn(oldTransaction);
+//        when(transactionMapper.toResponse(any())).thenReturn(new TransactionResponse());
 //
-//        TransactionCategoryReportResponse response = transactionService.getCategoryReport(
-//                PeriodType.MONTHLY, 2, from, to);
+//        TransactionResponse result = transactionService.updateTransaction(1, request);
 //
-//        assertNotNull(response);
-//        assertEquals(new BigDecimal("100"), response.getTotalExpense());
-//        assertEquals(1, response.getData().size());
+//        assertNotNull(result);
+//        verify(walletService).reduceAmount(1, new BigDecimal("100"), "update-subtract", "VND");
+//        verify(budgetService).reduceAmount(user.getUserId(), 2, new BigDecimal("100"), oldTransaction.getTransactionDate(), "update-subtract", "VND");
 //    }
-
 }

@@ -39,4 +39,7 @@ public class CreateWalletRequest {
     private String iconUrl;
 
     private String currencyCode;
+    @NotNull(message = "Balance is required")
+    @Min(value = 0, message = "Balance cannot be negative")
+    private BigDecimal initialBalance;
 } 
