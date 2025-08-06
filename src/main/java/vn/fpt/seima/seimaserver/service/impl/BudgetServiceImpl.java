@@ -259,64 +259,79 @@ public class BudgetServiceImpl implements BudgetService {
 
     @Override
     @Transactional
-    public void reduceAmount(Integer userId, Integer categoryId, BigDecimal amount, LocalDateTime transactionDate, String type, String code) {
+    public void reduceAmount(Integer userId, Integer categoryId, BigDecimal amount,
+                             LocalDateTime transactionDate, String type, String code) {
+
         List<Budget> existingBudget = budgetRepository.findByUserId(userId);
         User user = UserUtils.getCurrentUser();
-        if (user == null) {
-            return;
-        }
-        List<Integer> userIds = Collections.singletonList(user.getUserId());
-        List<String> fcmTokens = userDeviceRepository.findFcmTokensByUserIds(userIds);
-        if (existingBudget.isEmpty()) {
-            return;
-        }
+        if (user == null || existingBudget.isEmpty()) return;
+
+        List<String> fcmTokens = userDeviceRepository.findFcmTokensByUserIds(
+                Collections.singletonList(user.getUserId())
+        );
+
+        boolean exceededAny = false;
+
         for (Budget budget : existingBudget) {
-            List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository
-                    .findByTransaction(categoryId);
-            if (budgetCategoryLimits.isEmpty()) {
-                return;
-            }
-            List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetId(budget.getBudgetId());
+            List<BudgetCategoryLimit> budgetCategoryLimits =
+                    budgetCategoryLimitRepository.findByTransaction(categoryId);
+            if (budgetCategoryLimits.isEmpty()) continue;
+
+            List<BudgetPeriod> budgetPeriods =
+                    budgetPeriodRepository.findByBudget_BudgetId(budget.getBudgetId());
+
             for (BudgetPeriod budgetPeriod : budgetPeriods) {
-                if (transactionDate.isBefore(budgetPeriod.getEndDate()) && transactionDate.isAfter(budgetPeriod.getStartDate())) {
-                    if (type.equals("EXPENSE")) {
+                boolean inRange = !transactionDate.isBefore(budgetPeriod.getStartDate())
+                        && !transactionDate.isAfter(budgetPeriod.getEndDate());
+                if (!inRange) continue;
+
+                switch (type) {
+                    case "EXPENSE": {
                         BigDecimal newAmount = budgetPeriod.getRemainingAmount().subtract(amount);
                         budgetPeriod.setRemainingAmount(newAmount);
                         if (newAmount.compareTo(BigDecimal.ZERO) < 0) {
-                            Map<String, String> data = Map.of(
-                                    "type", "budget_notification",
-                                    "senderUserId", userId.toString(),
-                                    "senderName", user.getUserFullName()
-                            );
-
-                            fcmService.sendMulticastNotification(fcmTokens, TITLE, MESSAGE, data);
-
-                            Notification notification = new Notification();
-                            notification.setMessage(MESSAGE);
-                            notification.setReceiver(user);
-                            notification.setNotificationType(NotificationType.BUDGET_LIMIT_EXCEEDED);
-                            notification.setTitle(TITLE);
-                            notification.setSender(user);
-                            notificationRepository.save(notification);
+                            exceededAny = true;
                         }
-                    } else if (type.equals("INCOME")) {
-                        budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount());
-                    } else if (type.equals("update-subtract")) {
+                        break;
+                    }
+                    case "INCOME": {
+                        break;
+                    }
+                    case "update-subtract": {
                         BigDecimal newAmount = budgetPeriod.getRemainingAmount().subtract(amount);
                         budgetPeriod.setRemainingAmount(newAmount);
-                    } else if (type.equals("update-add")) {
+                        break;
+                    }
+                    case "update-add": {
                         BigDecimal newAmount = budgetPeriod.getRemainingAmount().add(amount);
                         budgetPeriod.setRemainingAmount(newAmount);
-                    } else {
-                        budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount());
+                        break;
                     }
+                    default:
+                        break;
                 }
-
             }
-            budgetPeriodRepository.saveAll(budgetPeriods);
 
+            budgetPeriodRepository.saveAll(budgetPeriods);
         }
 
+        if (exceededAny) {
+            Map<String, String> data = Map.of(
+                    "type", "budget_notification",
+                    "senderUserId", userId.toString(),
+                    "senderName", user.getUserFullName()
+            );
+
+            fcmService.sendMulticastNotification(fcmTokens, TITLE, MESSAGE, data);
+
+            Notification notification = new Notification();
+            notification.setMessage(MESSAGE);
+            notification.setReceiver(user);
+            notification.setNotificationType(NotificationType.BUDGET_LIMIT_EXCEEDED);
+            notification.setTitle(TITLE);
+            notification.setSender(user);
+            notificationRepository.save(notification);
+        }
     }
 
     /**
