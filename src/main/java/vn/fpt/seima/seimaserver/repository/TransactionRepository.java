@@ -122,11 +122,17 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
                                              @Param("from") LocalDateTime from,
                                              @Param("to") LocalDateTime to);
 
+        @Query("select t from Transaction t where t.user.userId = :userId " +
+                "AND t.transactionDate BETWEEN :dateFrom AND :dateTo and t.group is null and t.wallet.id = :walletId")
+        List<Transaction> listTransactionByWallet(@Param("walletId")Integer walletId,
+                                                  @Param("userId") Integer userId ,
+                                                  @Param("dateFrom") LocalDateTime dateFrom,
+                                                  @Param("dateTo") LocalDateTime dateTo);
+
     @Query("select t from Transaction t where t.user.userId = :userId " +
-            "AND t.transactionDate BETWEEN :dateFrom AND :dateTo and t.group is null and t.wallet.id = :walletId")
-    List<Transaction> listTransactionByWallet(@Param("walletId")Integer walletId,
-                                              @Param("userId") Integer userId ,
-                                              @Param("dateFrom") LocalDateTime dateFrom,
-                                              @Param("dateTo") LocalDateTime dateTo);
+            "and t.group is null and t.wallet.id = :walletId")
+    List<Transaction> listTransactionByAllWallet(@Param("walletId")Integer walletId,
+                                              @Param("userId") Integer userId
+                                             );
 }
 

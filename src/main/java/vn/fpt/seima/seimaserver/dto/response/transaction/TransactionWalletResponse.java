@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import vn.fpt.seima.seimaserver.entity.TransactionType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -41,5 +42,7 @@ public class TransactionWalletResponse {
         private BigDecimal balance;
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
         private LocalDateTime transactionDate;
+        private Integer transactionId;
+        private TransactionType transactionType;
     }
 }

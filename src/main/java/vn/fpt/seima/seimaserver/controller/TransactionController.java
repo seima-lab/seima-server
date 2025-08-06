@@ -234,9 +234,10 @@ public class TransactionController {
     public ApiResponse<TransactionWalletResponse> viewReportTransactionsByWallet(
             @PathVariable int id,
             @RequestParam(value = "startDate" ) LocalDate startDate,
-            @RequestParam(value = "endDate") LocalDate endDate) {
+            @RequestParam(value = "endDate") LocalDate endDate,
+            @RequestParam(required = false) String type) {
         try {
-            TransactionWalletResponse transactions = transactionService.getTransactionWallet(id, startDate, endDate);
+            TransactionWalletResponse transactions = transactionService.getTransactionWallet(id, startDate, endDate, type);
 
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
         } catch (Exception ex) {
