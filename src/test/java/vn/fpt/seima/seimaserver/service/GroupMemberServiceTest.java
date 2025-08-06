@@ -57,6 +57,9 @@ class GroupMemberServiceTest {
     @Mock
     private AppProperties appProperties;
 
+    @Mock
+    private GroupValidationService groupValidationService;
+
     @InjectMocks
     private GroupMemberServiceImpl groupMemberService;
 
@@ -297,6 +300,8 @@ class GroupMemberServiceTest {
             when(invitationTokenService.removeInvitationTokenByUserAndGroup(
                     targetUser.getUserId(), groupId))
                     .thenReturn(true);
+            // Mock validation service to not throw exception
+            doNothing().when(groupValidationService).validateUserCanJoinGroup(targetUser.getUserId(), groupId);
 
             // When
             groupMemberService.acceptGroupMemberRequest(groupId, request);
@@ -306,6 +311,7 @@ class GroupMemberServiceTest {
             assertEquals(GroupMemberRole.MEMBER, pendingGroupMember.getRole());
             verify(groupMemberRepository).save(pendingGroupMember);
             verify(invitationTokenService).removeInvitationTokenByUserAndGroup(targetUser.getUserId(), groupId);
+            verify(groupValidationService).validateUserCanJoinGroup(targetUser.getUserId(), groupId);
         }
     }
 
@@ -339,6 +345,39 @@ class GroupMemberServiceTest {
             GroupException exception = assertThrows(GroupException.class, 
                     () -> groupMemberService.acceptGroupMemberRequest(groupId, request));
             assertEquals("No pending request found for this user", exception.getMessage());
+        }
+    }
+
+    @Test
+    void acceptGroupMemberRequest_WhenValidationFails_ShouldThrowException() {
+        try (MockedStatic<UserUtils> mockedUserUtils = mockStatic(UserUtils.class)) {
+            // Given
+            Integer groupId = 1;
+            AcceptGroupMemberRequest request = new AcceptGroupMemberRequest(targetUser.getUserId());
+            mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(currentUser);
+            
+            when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    currentUser.getUserId(), groupId, GroupMemberStatus.ACTIVE))
+                    .thenReturn(Optional.of(ownerGroupMember));
+            when(groupPermissionService.canAcceptGroupMemberRequests(GroupMemberRole.OWNER))
+                    .thenReturn(true);
+            when(groupMemberRepository.findByUserAndGroupAndStatus(
+                    targetUser.getUserId(), groupId, GroupMemberStatus.PENDING_APPROVAL))
+                    .thenReturn(Optional.of(pendingGroupMember));
+            
+            // Mock validation service to throw exception
+            doThrow(new GroupException("User has reached the maximum number of groups (10). Cannot join more groups."))
+                    .when(groupValidationService).validateUserCanJoinGroup(targetUser.getUserId(), groupId);
+
+            // When & Then
+            GroupException exception = assertThrows(GroupException.class, 
+                    () -> groupMemberService.acceptGroupMemberRequest(groupId, request));
+            assertEquals("User has reached the maximum number of groups (10). Cannot join more groups.", 
+                    exception.getMessage());
+            
+            verify(groupValidationService).validateUserCanJoinGroup(targetUser.getUserId(), groupId);
+            verify(groupMemberRepository, never()).save(any());
         }
     }
 
