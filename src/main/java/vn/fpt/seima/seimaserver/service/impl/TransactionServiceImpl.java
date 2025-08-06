@@ -738,7 +738,7 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
-    public TransactionWalletResponse getTransactionWallet(Integer id, LocalDate dateFrom, LocalDate dateTo) {
+    public TransactionWalletResponse getTransactionWallet(Integer id, LocalDate dateFrom, LocalDate dateTo, String type) {
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
@@ -752,7 +752,15 @@ public class TransactionServiceImpl implements TransactionService {
 
         LocalDateTime startDateTime = dateFrom.atStartOfDay();
         LocalDateTime endDateTime = dateTo.atTime(23, 59, 59);
-        List<Transaction> transactions = transactionRepository.listTransactionByWallet(id, currentUser.getUserId(), startDateTime, endDateTime);
+        List<Transaction> transactions = new ArrayList<>();
+
+        if (type == null) {
+             transactions = transactionRepository.listTransactionByWallet(id, currentUser.getUserId(), startDateTime, endDateTime);
+
+        }
+        else {
+            transactions = transactionRepository.listTransactionByAllWallet(id, currentUser.getUserId());
+        }
 
         BigDecimal totalIncome = BigDecimal.ZERO;
         BigDecimal totalExpense = BigDecimal.ZERO;
@@ -773,6 +781,8 @@ public class TransactionServiceImpl implements TransactionService {
                     .amount(transaction.getAmount())
                     .balance(wallet.getCurrentBalance())
                     .transactionDate(transaction.getTransactionDate())
+                    .transactionId(transaction.getTransactionId())
+                    .transactionType(transaction.getTransactionType())
                     .build();
 
             reportByWallet.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(reportItem);
