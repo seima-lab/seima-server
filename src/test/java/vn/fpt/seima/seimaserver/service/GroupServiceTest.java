@@ -50,6 +50,9 @@ class GroupServiceTest {
     @Mock
     private GroupMapper groupMapper;
 
+    @Mock
+    private GroupValidationService groupValidationService;
+
     @InjectMocks
     private GroupServiceImpl groupService;
 
@@ -127,6 +130,9 @@ class GroupServiceTest {
             when(groupMapper.toEntity(createGroupRequest)).thenReturn(mappedGroup);
             when(groupRepository.save(any(Group.class))).thenReturn(savedGroup);
             when(groupMapper.toResponse(any(Group.class))).thenReturn(new GroupResponse());
+            
+            // Mock validation service to not throw exception
+            doNothing().when(groupValidationService).validateUserCanJoinMoreGroups(testUser.getUserId());
 
             // When
             GroupResponse result = groupService.createGroupWithImage(createGroupRequest);
@@ -135,6 +141,7 @@ class GroupServiceTest {
             assertNotNull(result);
             verify(groupRepository).save(any(Group.class));
             verify(groupMapper).toResponse(any(Group.class));
+            verify(groupValidationService).validateUserCanJoinMoreGroups(testUser.getUserId());
         }
     }
 
@@ -148,6 +155,29 @@ class GroupServiceTest {
 
         assertEquals("Group request cannot be null", exception.getMessage());
         verify(groupRepository, never()).save(any());
+    }
+
+    @Test
+    void createGroupWithImage_WhenUserHasMaxGroups_ShouldThrowGroupException() {
+        // Given
+        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+            
+            // Mock validation service to throw exception
+            doThrow(new GroupException("User has reached the maximum number of groups (10). Cannot join more groups."))
+                    .when(groupValidationService).validateUserCanJoinMoreGroups(testUser.getUserId());
+
+            // When & Then
+            GroupException exception = assertThrows(
+                    GroupException.class,
+                    () -> groupService.createGroupWithImage(createGroupRequest)
+            );
+
+            assertEquals("User has reached the maximum number of groups (10). Cannot join more groups.", 
+                    exception.getMessage());
+            verify(groupValidationService).validateUserCanJoinMoreGroups(testUser.getUserId());
+            verify(groupRepository, never()).save(any());
+        }
     }
 
     @Test
