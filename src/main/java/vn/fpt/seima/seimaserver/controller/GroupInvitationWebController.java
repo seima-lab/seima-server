@@ -45,6 +45,9 @@ public class GroupInvitationWebController {
                 case GROUP_INACTIVE_OR_DELETED:
                     return "error_group_inactive";
 
+                case GROUP_FULL:
+                    return "error_group_full";
+
                 default:
                     // Xử lý các trường hợp không mong muốn
                     logger.error("Unhandled ResultType: {}", response.getResultType());

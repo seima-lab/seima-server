@@ -41,6 +41,7 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final GroupPermissionService groupPermissionService;
+    private final GroupValidationService groupValidationService;
     private final BranchLinkService branchLinkService;
     private final AppProperties appProperties;
     private final InvitationTokenService invitationTokenService;
@@ -142,6 +143,9 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
         
         // Check if user is already a member
         validateTargetUserMembership(targetUser.getUserId(), group.getGroupId());
+
+        // Validate business rules before creating invitation
+        groupValidationService.validateUserCanJoinGroup(targetUser.getUserId(), group.getGroupId());
 
         // Create GroupMember record with INVITED status
         // This represents that the user has been invited but hasn't joined the group yet
@@ -403,6 +407,14 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
                 return buildInvalidTokenResponse(invitationToken, "Invitation status is invalid");
             }
 
+            // Validate business rules before updating status
+            try {
+                groupValidationService.validateGroupCanAcceptMoreMembers(tokenData.getGroupId());
+            } catch (GroupException e) {
+                logger.warn("Group member limit validation failed for token: {} - error: {}", invitationToken, e.getMessage());
+                return buildGroupFullResponse(invitationToken, e.getMessage());
+            }
+
             // Update status from INVITED to PENDING_APPROVAL
             invitation.setStatus(GroupMemberStatus.PENDING_APPROVAL);
             groupMemberRepository.save(invitation);
@@ -574,6 +586,20 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
                 .pageTitle("Group No Longer Active")
                 .pageDescription("Sorry, this group is no longer active")
                 .resultType(ResultType.GROUP_INACTIVE_OR_DELETED)
+                .build();
+    }
+
+    /**
+     * Build group full response when group has reached maximum members
+     */
+    private GroupInvitationLandingResponse buildGroupFullResponse(String token, String message) {
+        return GroupInvitationLandingResponse.builder()
+                .inviteCode(token)
+                .isValidInvitation(false)
+                .message(message)
+                .pageTitle("Group is Full")
+                .pageDescription("Sorry, this group has reached the maximum number of members")
+                .resultType(ResultType.GROUP_FULL)
                 .build();
     }
 }

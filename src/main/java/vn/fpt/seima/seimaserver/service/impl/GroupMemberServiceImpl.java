@@ -35,6 +35,8 @@ public class GroupMemberServiceImpl implements GroupMemberService {
     @Autowired
     private  GroupPermissionService groupPermissionService;
     @Autowired
+    private  GroupValidationService groupValidationService;
+    @Autowired
     private  InvitationTokenService invitationTokenService;
     @Autowired
     private  NotificationService notificationService;
@@ -233,6 +235,9 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         if (!Boolean.TRUE.equals(pendingMember.getUser().getUserIsActive())) {
             throw new GroupException("User account is no longer active");
         }
+
+        // Validate business rules before accepting
+        groupValidationService.validateUserCanJoinGroup(request.getUserId(), groupId);
 
         // Accept the request: change status to ACTIVE
         pendingMember.setStatus(GroupMemberStatus.ACTIVE);
