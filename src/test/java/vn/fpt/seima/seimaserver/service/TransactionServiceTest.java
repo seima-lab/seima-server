@@ -152,6 +152,7 @@ class TransactionServiceTest {
 
         Group group = new Group();
         group.setGroupId(groupId);
+        group.setGroupName("Test Group");
 
         Transaction updatedTransaction = new Transaction();
         updatedTransaction.setTransactionId(transactionId);
@@ -179,7 +180,7 @@ class TransactionServiceTest {
             eq(user.getUserFullName()),
             eq(NotificationType.TRANSACTION_UPDATED),
             eq("Transaction Updated"),
-            contains("updated a transaction"),
+            contains("updated a transaction in Test Group"),
             contains("seimaapp://groups/" + groupId + "/transactions/" + transactionId)
         );
     }
@@ -307,6 +308,7 @@ class TransactionServiceTest {
 
         Group group = new Group();
         group.setGroupId(groupId);
+        group.setGroupName("Test Group");
 
         Transaction updatedTransaction = new Transaction();
         updatedTransaction.setTransactionId(transactionId);
@@ -333,7 +335,7 @@ class TransactionServiceTest {
             eq(user.getUserFullName()),
             eq(NotificationType.TRANSACTION_UPDATED),
             eq("Transaction Updated"),
-            contains("updated a transaction"),
+            contains("updated a transaction in Test Group"),
             any()
         );
     }
@@ -355,6 +357,7 @@ class TransactionServiceTest {
 
         Group group = new Group();
         group.setGroupId(groupId);
+        group.setGroupName("Test Group");
 
         // Mock repository calls
         when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(transaction));
@@ -372,7 +375,7 @@ class TransactionServiceTest {
             eq(user.getUserFullName()),
             eq(NotificationType.TRANSACTION_DELETED),
             eq("Transaction Removed"),
-            contains("removed a transaction"),
+            contains("removed a transaction in Test Group"),
             contains("seimaapp://groups/" + groupId + "/transactions")
         );
         verify(transactionRepository, times(1)).save(any(Transaction.class));
@@ -423,6 +426,7 @@ class TransactionServiceTest {
 
         Group group = new Group();
         group.setGroupId(groupId);
+        group.setGroupName("Test Group");
 
         // Mock repository calls
         when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(transaction));
@@ -460,6 +464,7 @@ class TransactionServiceTest {
 
         Group group = new Group();
         group.setGroupId(groupId);
+        group.setGroupName("Test Group");
 
         // Mock repository calls
         when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(transaction));
@@ -477,7 +482,7 @@ class TransactionServiceTest {
             eq(user.getUserFullName()),
             eq(NotificationType.TRANSACTION_DELETED),
             eq("Transaction Removed"),
-            contains("removed a transaction"),
+            contains("removed a transaction in Test Group"),
             any()
         );
     }
@@ -511,6 +516,7 @@ class TransactionServiceTest {
 
         Group group = new Group();
         group.setGroupId(100);
+        group.setGroupName("Test Group");
 
         Transaction transaction = new Transaction();
         transaction.setTransactionId(1);
@@ -549,7 +555,7 @@ class TransactionServiceTest {
             eq(user.getUserFullName()),
             eq(NotificationType.TRANSACTION_CREATED),
             eq("New Transaction"),
-            contains("added a new expense transaction: 100 USD"),
+            contains("added a new expense transaction: 100 USD in Test Group"),
             contains("seimaapp://groups/100/transactions/1")
         );
     }
@@ -612,6 +618,7 @@ class TransactionServiceTest {
 
         Group group = new Group();
         group.setGroupId(100);
+        group.setGroupName("Test Group");
 
         Transaction transaction = new Transaction();
         transaction.setTransactionId(1);
@@ -663,6 +670,7 @@ class TransactionServiceTest {
 
         Group group = new Group();
         group.setGroupId(100);
+        group.setGroupName("Test Group");
 
         Transaction transaction = new Transaction();
         transaction.setTransactionId(1);
@@ -700,7 +708,7 @@ class TransactionServiceTest {
             eq(user.getUserFullName()),
             eq(NotificationType.TRANSACTION_CREATED),
             eq("New Transaction"),
-            contains("added a new expense transaction: 100 USD"),
+            contains("added a new expense transaction: 100 USD in Test Group"),
             any()
         );
     }
@@ -720,6 +728,7 @@ class TransactionServiceTest {
 
         Group group = new Group();
         group.setGroupId(100);
+        group.setGroupName("Test Group");
 
         Transaction transaction = new Transaction();
         transaction.setTransactionId(1);
@@ -758,7 +767,7 @@ class TransactionServiceTest {
             eq(user.getUserFullName()),
             eq(NotificationType.TRANSACTION_CREATED),
             eq("New Transaction"),
-            contains("added a new expense transaction: 100 USD"),
+            contains("added a new expense transaction: 100 USD in Test Group"),
             any()
         );
     }
@@ -778,6 +787,7 @@ class TransactionServiceTest {
 
         Group group = new Group();
         group.setGroupId(100);
+        group.setGroupName("Test Group");
 
         Transaction transaction = new Transaction();
         transaction.setTransactionId(1);
@@ -816,7 +826,7 @@ class TransactionServiceTest {
             eq(user.getUserFullName()),
             eq(NotificationType.TRANSACTION_CREATED),
             eq("New Transaction"),
-            contains("added a new income transaction: 100 USD"),
+            contains("added a new income transaction: 100 USD in Test Group"),
             any()
         );
     }
