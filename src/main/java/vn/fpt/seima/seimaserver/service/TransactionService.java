@@ -43,5 +43,5 @@ public interface TransactionService {
 
     Page<TransactionResponse> getTransactionByBudget(Integer budgetId, Pageable pageable);
 
-    TransactionWalletResponse getTransactionWallet(Integer id, LocalDate dateFrom, LocalDate dateTo);
+    TransactionWalletResponse getTransactionWallet(Integer id, LocalDate dateFrom, LocalDate dateTo, String type);
 }
