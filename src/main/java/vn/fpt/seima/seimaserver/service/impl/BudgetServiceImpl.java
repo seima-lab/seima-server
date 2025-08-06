@@ -336,7 +336,7 @@ public class BudgetServiceImpl implements BudgetService {
 
         List<BudgetLastResponse> responses = new ArrayList<>();
         for (Budget budget : budgets) {
-            List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findLatestByStatus(BudgetPeriodStatus.ACTIVE, budget);
+            List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findLatestByStatus(BudgetPeriodStatus.ACTIVE, budget, LocalDateTime.now());
             if (budgetPeriods.isEmpty()) {
                 continue;
             }

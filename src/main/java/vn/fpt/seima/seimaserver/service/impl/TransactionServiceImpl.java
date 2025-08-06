@@ -773,6 +773,8 @@ public class TransactionServiceImpl implements TransactionService {
                     .amount(transaction.getAmount())
                     .balance(wallet.getCurrentBalance())
                     .transactionDate(transaction.getTransactionDate())
+                    .transactionId(transaction.getTransactionId())
+                    .transactionType(transaction.getTransactionType())
                     .build();
 
             reportByWallet.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(reportItem);
