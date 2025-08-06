@@ -20,6 +20,7 @@ import vn.fpt.seima.seimaserver.repository.GroupRepository;
 import vn.fpt.seima.seimaserver.service.CloudinaryService;
 import vn.fpt.seima.seimaserver.service.GroupService;
 import vn.fpt.seima.seimaserver.service.GroupPermissionService;
+import vn.fpt.seima.seimaserver.service.GroupValidationService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.util.*;
@@ -36,6 +37,7 @@ public class GroupServiceImpl implements GroupService {
     private final CloudinaryService cloudinaryService;
     private final AppProperties appProperties;
     private final GroupPermissionService groupPermissionService;
+    private final GroupValidationService groupValidationService;
     
     // Constants for image validation
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -51,6 +53,9 @@ public class GroupServiceImpl implements GroupService {
         
         // Get current user
         User currentUser = getCurrentUser();
+        
+        // Validate user can create more groups (business rule: max 10 groups per user)
+        groupValidationService.validateUserCanJoinMoreGroups(currentUser.getUserId());
         
         // Handle avatar upload (optional)
         String avatarUrl;

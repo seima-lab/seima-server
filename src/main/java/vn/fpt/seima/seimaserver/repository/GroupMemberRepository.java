@@ -55,6 +55,19 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Intege
                                 @Param("status") GroupMemberStatus status);
     
     /**
+     * Count active groups for a user
+     * @param userId the user ID
+     * @param status the membership status (should be ACTIVE)
+     * @return count of active groups for the user
+     */
+    @Query("SELECT COUNT(gm) FROM GroupMember gm " +
+            "JOIN gm.group g " +
+            "WHERE gm.user.userId = :userId AND gm.status = :status " +
+            "AND g.groupIsActive = true")
+    Long countUserActiveGroups(@Param("userId") Integer userId,
+                              @Param("status") GroupMemberStatus status);
+    
+    /**
      * Check if user is already a member of the group with active status
      * @param userId the user ID
      * @param groupId the group ID
