@@ -796,12 +796,13 @@ public class TransactionServiceImpl implements TransactionService {
     private void sendTransactionUpdateNotificationToGroup(Transaction transaction, User currentUser) {
         try {
             Integer groupId = transaction.getGroup().getGroupId();
+            String groupName = transaction.getGroup().getGroupName();
             String currentUserName = currentUser.getUserFullName();
             String transactionDescription = transaction.getDescription() != null ? transaction.getDescription() : "No description";
             
             // Create notification message
             String title = "Transaction Updated";
-            String message = String.format("%s updated a transaction", currentUserName);
+            String message = String.format("%s updated a transaction in %s", currentUserName, groupName);
             String linkToEntity = String.format("seimaapp://groups/%d/transactions/%d", groupId, transaction.getTransactionId());
             
             // Send notification to all group members except current user
@@ -831,6 +832,7 @@ public class TransactionServiceImpl implements TransactionService {
     private void sendTransactionCreateNotificationToGroup(Transaction transaction, User currentUser) {
         try {
             Integer groupId = transaction.getGroup().getGroupId();
+            String groupName = transaction.getGroup().getGroupName();
             String currentUserName = currentUser.getUserFullName();
             String transactionDescription = transaction.getDescription() != null ? transaction.getDescription() : "No description";
             
@@ -838,7 +840,7 @@ public class TransactionServiceImpl implements TransactionService {
             String title = "New Transaction";
             String transactionType = transaction.getTransactionType() == TransactionType.EXPENSE ? "expense" : "income";
             String currencyCode = transaction.getCurrencyCode() != null ? transaction.getCurrencyCode() : "VND";
-            String message = String.format("%s added a new %s transaction: %s %s", currentUserName, transactionType, transaction.getAmount(), currencyCode);
+            String message = String.format("%s added a new %s transaction: %s %s in %s", currentUserName, transactionType, transaction.getAmount(), currencyCode, groupName);
             String linkToEntity = String.format("seimaapp://groups/%d/transactions/%d", groupId, transaction.getTransactionId());
             
             // Send notification to all group members except current user
@@ -868,12 +870,13 @@ public class TransactionServiceImpl implements TransactionService {
     private void sendTransactionDeleteNotificationToGroup(Transaction transaction, User currentUser) {
         try {
             Integer groupId = transaction.getGroup().getGroupId();
+            String groupName = transaction.getGroup().getGroupName();
             String currentUserName = currentUser.getUserFullName();
             String transactionDescription = transaction.getDescription() != null ? transaction.getDescription() : "No description";
             
             // Create notification message
             String title = "Transaction Removed";
-            String message = String.format("%s removed a transaction", currentUserName);
+            String message = String.format("%s removed a transaction in %s", currentUserName, groupName);
             String linkToEntity = String.format("seimaapp://groups/%d/transactions", groupId);
             
             // Send notification to all group members except current user
