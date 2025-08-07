@@ -35,4 +35,11 @@ public interface BudgetPeriodRepository extends JpaRepository<BudgetPeriod, Inte
     List<BudgetPeriod> findLatestByStatus(@Param("status") BudgetPeriodStatus status,
                                           @Param("budget") Budget budget,
                                           @Param("date") LocalDateTime date);
+
+    @Query("SELECT COUNT(bp) FROM BudgetPeriod bp " +
+            "WHERE bp.budget = :budget " +
+            "AND bp.status = :status " +
+            "AND bp.remainingAmount < 0")
+    Integer countNegativeRemaining(@Param("budget") Budget budget,
+                                   @Param("status") BudgetPeriodStatus status);
 }
