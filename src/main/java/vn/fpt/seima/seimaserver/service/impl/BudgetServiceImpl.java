@@ -261,7 +261,9 @@ public class BudgetServiceImpl implements BudgetService {
     @Transactional
     public void reduceAmount(Integer userId, Integer categoryId, BigDecimal amount,
                              LocalDateTime transactionDate, String type, String code) {
-
+        String title = null;
+        String message = null;
+        NotificationType notificationType = null;
         List<Budget> existingBudget = budgetRepository.findByUserId(userId);
         User user = UserUtils.getCurrentUser();
         if (user == null || existingBudget.isEmpty()) return;
@@ -269,8 +271,6 @@ public class BudgetServiceImpl implements BudgetService {
         List<String> fcmTokens = userDeviceRepository.findFcmTokensByUserIds(
                 Collections.singletonList(user.getUserId())
         );
-
-        boolean exceededAny = false;
 
         for (Budget budget : existingBudget) {
             List<BudgetCategoryLimit> budgetCategoryLimits =
@@ -289,9 +289,6 @@ public class BudgetServiceImpl implements BudgetService {
                     case "EXPENSE": {
                         BigDecimal newAmount = budgetPeriod.getRemainingAmount().subtract(amount);
                         budgetPeriod.setRemainingAmount(newAmount);
-                        if (newAmount.compareTo(BigDecimal.ZERO) < 0) {
-                            exceededAny = true;
-                        }
                         break;
                     }
                     case "INCOME": {
@@ -310,29 +307,51 @@ public class BudgetServiceImpl implements BudgetService {
                     default:
                         break;
                 }
+
+                BigDecimal remaining = budgetPeriod.getRemainingAmount();
+                BigDecimal limit = budgetPeriod.getAmountLimit();
+                if(type.equals("EXPENSE")) {
+                    if (remaining.compareTo(BigDecimal.ZERO) < 0) {
+                        title = "Budget Exceeded!";
+                        message = "You have exceeded your budget limit.";
+                        notificationType = NotificationType.BUDGET_LIMIT_EXCEEDED;
+                    } else if (remaining.compareTo(BigDecimal.ZERO) == 0) {
+                        title = "Budget Depleted!";
+                        message = "You have fully used your budget for this period.";
+                        notificationType = NotificationType.BUDGET_LIMIT_REACHED;
+                    } else {
+                        BigDecimal warningThreshold = limit.multiply(BigDecimal.valueOf(0.1));
+                        if (remaining.compareTo(warningThreshold) < 0) {
+                            title = "Budget Running Low!";
+                            message = "Only 10% of your budget remains. Spend wisely.";
+                            notificationType = NotificationType.BUDGET_LIMIT_WARNING;
+                        }
+                    }
+                }
+
             }
 
             budgetPeriodRepository.saveAll(budgetPeriods);
         }
-
-        if (exceededAny) {
+        if (title != null) {
             Map<String, String> data = Map.of(
                     "type", "budget_notification",
                     "senderUserId", userId.toString(),
                     "senderName", user.getUserFullName()
             );
 
-            fcmService.sendMulticastNotification(fcmTokens, TITLE, MESSAGE, data);
+            fcmService.sendMulticastNotification(fcmTokens, title, message, data);
 
             Notification notification = new Notification();
-            notification.setMessage(MESSAGE);
+            notification.setMessage(message);
             notification.setReceiver(user);
-            notification.setNotificationType(NotificationType.BUDGET_LIMIT_EXCEEDED);
-            notification.setTitle(TITLE);
+            notification.setNotificationType(notificationType);
+            notification.setTitle(title);
             notification.setSender(user);
             notificationRepository.save(notification);
         }
     }
+
 
     /**
      * @return
@@ -340,16 +359,17 @@ public class BudgetServiceImpl implements BudgetService {
     @Override
     public List<BudgetLastResponse> getLastBudget() {
         User user = UserUtils.getCurrentUser();
+        List<BudgetLastResponse> responses = new ArrayList<>();
+
         if (user == null) {
             throw new IllegalArgumentException("User must not be null");
         }
 
         List<Budget> budgets = budgetRepository.findByUserId(user.getUserId());
         if (budgets.isEmpty()) {
-            throw new IllegalArgumentException("Budget not found");
+           return responses;
         }
 
-        List<BudgetLastResponse> responses = new ArrayList<>();
         for (Budget budget : budgets) {
             List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findLatestByStatus(BudgetPeriodStatus.ACTIVE, budget, LocalDateTime.now());
             if (budgetPeriods.isEmpty()) {
