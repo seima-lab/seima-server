@@ -108,15 +108,24 @@ public class NotificationServiceImpl implements NotificationService {
         }
         
         // Try cache first, fallback to database
-        Long cachedCount = notificationCacheService.getUnreadCountFromCache(userId);
-        if (cachedCount != null) {
-            logger.info("Cache hit for user {}: {}", userId, cachedCount);
-            return cachedCount;
+        Long cachedCount = null;
+        try {
+            cachedCount = notificationCacheService.getUnreadCountFromCache(userId);
+            if (cachedCount != null) {
+                logger.info("Cache hit for user {}: {}", userId, cachedCount);
+                return cachedCount;
+            }
+        } catch (Exception e) {
+            logger.warn("Cache error for user {}: {}", userId, e.getMessage());
         }
         
-        // Cache miss - get from database and cache
+        // Cache miss or error - get from database and cache
         long count = notificationRepository.countUnreadByReceiverId(userId);
-        notificationCacheService.setUnreadCountInCache(userId, count);
+        try {
+            notificationCacheService.setUnreadCountInCache(userId, count);
+        } catch (Exception e) {
+            logger.warn("Failed to set cache for user {}: {}", userId, e.getMessage());
+        }
         logger.info("Cache miss for user {}: {}", userId, count);
         return count;
     }
@@ -147,7 +156,11 @@ public class NotificationServiceImpl implements NotificationService {
         
         if (deletedCount > 0) {
             // Decrement cache count
-            notificationCacheService.decrementUnreadCount(userId);
+            try {
+                notificationCacheService.decrementUnreadCount(userId);
+            } catch (Exception e) {
+                logger.warn("Failed to decrement cache for user {}: {}", userId, e.getMessage());
+            }
             logger.info("Successfully deleted notification {} for user: {}", notificationId, userId);
             return true;
         } else {
@@ -177,7 +190,11 @@ public class NotificationServiceImpl implements NotificationService {
         int deletedCount = notificationRepository.deleteAllByReceiverId(userId);
         
         // Reset cache count
-        notificationCacheService.resetUnreadCount(userId);
+        try {
+            notificationCacheService.resetUnreadCount(userId);
+        } catch (Exception e) {
+            logger.warn("Failed to reset cache for user {}: {}", userId, e.getMessage());
+        }
         logger.info("Successfully deleted {} notifications for user: {}", deletedCount, userId);
         return deletedCount;
     }
@@ -205,7 +222,11 @@ public class NotificationServiceImpl implements NotificationService {
         
         if (updatedCount > 0) {
             // Decrement cache count
-            notificationCacheService.decrementUnreadCount(userId);
+            try {
+                notificationCacheService.decrementUnreadCount(userId);
+            } catch (Exception e) {
+                logger.warn("Failed to decrement cache for user {}: {}", userId, e.getMessage());
+            }
             logger.info("Successfully marked notification {} as read for user: {}", notificationId, userId);
             return true;
         } else {
@@ -235,7 +256,11 @@ public class NotificationServiceImpl implements NotificationService {
         int updatedCount = notificationRepository.markAllAsReadByReceiverId(userId);
         
         // Reset cache count
-        notificationCacheService.resetUnreadCount(userId);
+        try {
+            notificationCacheService.resetUnreadCount(userId);
+        } catch (Exception e) {
+            logger.warn("Failed to reset cache for user {}: {}", userId, e.getMessage());
+        }
         logger.info("Successfully marked {} notifications as read for user: {}", updatedCount, userId);
         return updatedCount;
     }
@@ -532,7 +557,11 @@ public class NotificationServiceImpl implements NotificationService {
                 // Update cache for each receiver
                 for (Notification notification : savedNotifications) {
                     Integer receiverId = notification.getReceiver().getUserId();
-                    notificationCacheService.incrementUnreadCount(receiverId);
+                    try {
+                        notificationCacheService.incrementUnreadCount(receiverId);
+                    } catch (Exception e) {
+                        logger.warn("Failed to increment cache for user {}: {}", receiverId, e.getMessage());
+                    }
                 }
                 
                 logger.debug("Saved batch of {} notifications", savedNotifications.size());
