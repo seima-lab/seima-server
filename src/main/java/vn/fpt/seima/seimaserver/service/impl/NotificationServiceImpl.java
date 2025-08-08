@@ -21,6 +21,7 @@ import vn.fpt.seima.seimaserver.repository.NotificationRepository;
 import vn.fpt.seima.seimaserver.repository.UserDeviceRepository;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.FcmService;
+import vn.fpt.seima.seimaserver.service.NotificationCacheService;
 import vn.fpt.seima.seimaserver.service.NotificationService;
 
 import java.time.LocalDateTime;
@@ -50,6 +51,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final UserRepository userRepository;
     private final UserDeviceRepository userDeviceRepository;
     private final FcmService fcmService;
+    private final NotificationCacheService notificationCacheService;
     
 
     
@@ -105,10 +107,21 @@ public class NotificationServiceImpl implements NotificationService {
             throw new IllegalArgumentException("User not found with id: " + userId);
         }
         
+        // Try cache first, fallback to database
+        Long cachedCount = notificationCacheService.getUnreadCountFromCache(userId);
+        if (cachedCount != null) {
+            logger.info("Cache hit for user {}: {}", userId, cachedCount);
+            return cachedCount;
+        }
+        
+        // Cache miss - get from database and cache
         long count = notificationRepository.countUnreadByReceiverId(userId);
-        logger.info("Unread notifications count for user {}: {}", userId, count);
+        notificationCacheService.setUnreadCountInCache(userId, count);
+        logger.info("Cache miss for user {}: {}", userId, count);
         return count;
     }
+    
+
     
 
     
@@ -133,6 +146,8 @@ public class NotificationServiceImpl implements NotificationService {
         int deletedCount = notificationRepository.deleteByIdAndReceiverId(notificationId, userId);
         
         if (deletedCount > 0) {
+            // Decrement cache count
+            notificationCacheService.decrementUnreadCount(userId);
             logger.info("Successfully deleted notification {} for user: {}", notificationId, userId);
             return true;
         } else {
@@ -161,6 +176,8 @@ public class NotificationServiceImpl implements NotificationService {
         // Delete all notifications
         int deletedCount = notificationRepository.deleteAllByReceiverId(userId);
         
+        // Reset cache count
+        notificationCacheService.resetUnreadCount(userId);
         logger.info("Successfully deleted {} notifications for user: {}", deletedCount, userId);
         return deletedCount;
     }
@@ -187,6 +204,8 @@ public class NotificationServiceImpl implements NotificationService {
         int updatedCount = notificationRepository.markAsReadById(notificationId, userId);
         
         if (updatedCount > 0) {
+            // Decrement cache count
+            notificationCacheService.decrementUnreadCount(userId);
             logger.info("Successfully marked notification {} as read for user: {}", notificationId, userId);
             return true;
         } else {
@@ -215,6 +234,8 @@ public class NotificationServiceImpl implements NotificationService {
         // Update all unread notifications as read
         int updatedCount = notificationRepository.markAllAsReadByReceiverId(userId);
         
+        // Reset cache count
+        notificationCacheService.resetUnreadCount(userId);
         logger.info("Successfully marked {} notifications as read for user: {}", updatedCount, userId);
         return updatedCount;
     }
@@ -507,6 +528,12 @@ public class NotificationServiceImpl implements NotificationService {
                 // Save batch
                 List<Notification> savedNotifications = notificationRepository.saveAll(batchNotifications);
                 notifications.addAll(savedNotifications);
+                
+                // Update cache for each receiver
+                for (Notification notification : savedNotifications) {
+                    Integer receiverId = notification.getReceiver().getUserId();
+                    notificationCacheService.incrementUnreadCount(receiverId);
+                }
                 
                 logger.debug("Saved batch of {} notifications", savedNotifications.size());
             }
