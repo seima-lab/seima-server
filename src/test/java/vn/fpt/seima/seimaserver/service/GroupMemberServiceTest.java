@@ -424,7 +424,7 @@ class GroupMemberServiceTest {
             mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(currentUser);
             
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.findByUserIdAndGroupId(currentUser.getUserId(), groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(currentUser.getUserId(), groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
             when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(memberUserId, groupId))
                     .thenReturn(Optional.of(memberGroupMember));
@@ -449,7 +449,7 @@ class GroupMemberServiceTest {
             mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(adminUser);
             
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.findByUserIdAndGroupId(adminUser.getUserId(), groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(adminUser.getUserId(), groupId))
                     .thenReturn(Optional.of(adminGroupMember));
             when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(ownerUserId, groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
@@ -473,7 +473,7 @@ class GroupMemberServiceTest {
             mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(currentUser);
             
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.findByUserIdAndGroupId(currentUser.getUserId(), groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(currentUser.getUserId(), groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
             when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(memberUserId, groupId))
                     .thenReturn(Optional.of(memberGroupMember));
@@ -515,7 +515,7 @@ class GroupMemberServiceTest {
             mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(currentUser);
             
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.findByUserIdAndGroupId(currentUser.getUserId(), groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(currentUser.getUserId(), groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
             when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(ownUserId, groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
@@ -538,7 +538,7 @@ class GroupMemberServiceTest {
             mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(currentUser);
             
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.findByUserIdAndGroupId(currentUser.getUserId(), groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(currentUser.getUserId(), groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
             when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(memberUserId, groupId))
                     .thenReturn(Optional.of(memberGroupMember));
@@ -586,7 +586,7 @@ class GroupMemberServiceTest {
             mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(memberUser);
             
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.findByUserIdAndGroupId(memberUser.getUserId(), groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(memberUser.getUserId(), groupId))
                     .thenReturn(Optional.of(memberGroupMember));
 
             // When
@@ -606,7 +606,7 @@ class GroupMemberServiceTest {
             mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(currentUser);
             
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.findByUserIdAndGroupId(currentUser.getUserId(), groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(currentUser.getUserId(), groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
 
             // When & Then
@@ -628,9 +628,9 @@ class GroupMemberServiceTest {
             mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(currentUser);
             
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.findByUserIdAndGroupId(currentUser.getUserId(), groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(currentUser.getUserId(), groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
-            when(groupMemberRepository.findByUserIdAndGroupId(memberUser.getUserId(), groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(memberUser.getUserId(), groupId))
                     .thenReturn(Optional.of(memberGroupMember));
 
             // When
@@ -676,7 +676,7 @@ class GroupMemberServiceTest {
             mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(currentUser);
             
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.findByUserIdAndGroupId(currentUser.getUserId(), groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(currentUser.getUserId(), groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
             when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(Arrays.asList(ownerGroupMember, adminGroupMember, memberGroupMember));
@@ -701,7 +701,7 @@ class GroupMemberServiceTest {
             mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(currentUser);
             
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.findByUserIdAndGroupId(currentUser.getUserId(), groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(currentUser.getUserId(), groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
             when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(Arrays.asList(ownerGroupMember)); // Only owner
@@ -723,7 +723,7 @@ class GroupMemberServiceTest {
             mockedUserUtils.when(UserUtils::getCurrentUser).thenReturn(currentUser);
             
             when(groupRepository.findById(groupId)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.findByUserIdAndGroupId(currentUser.getUserId(), groupId))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(currentUser.getUserId(), groupId))
                     .thenReturn(Optional.of(ownerGroupMember));
             when(groupMemberRepository.findActiveGroupMembers(groupId, GroupMemberStatus.ACTIVE))
                     .thenReturn(Arrays.asList(ownerGroupMember, adminGroupMember, memberGroupMember));

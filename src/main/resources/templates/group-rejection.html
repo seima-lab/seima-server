@@ -4,122 +4,155 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:remove="all">Group Request Update - Seima</title>
+    <style>
+        /* CSS Reset & Base Styles */
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+        table { border-collapse: collapse !important; }
+        body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+
+        /* Mobile Responsive Styles */
+        @media screen and (max-width: 600px) {
+            .container {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            .content-padding {
+                padding-left: 15px !important;
+                padding-right: 15px !important;
+            }
+            .header-padding {
+                padding: 30px 15px 20px 15px !important;
+            }
+            .main-header {
+                font-size: 22px !important;
+            }
+            .body-text {
+                font-size: 15px !important;
+                line-height: 1.6 !important;
+            }
+            .group-avatar {
+                width: 60px !important;
+                height: 60px !important;
+            }
+            .status-box-padding {
+                padding: 15px !important;
+            }
+        }
+    </style>
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f5f5f5;">
-    
-    <!-- Main Container Table -->
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5; padding: 20px 0;">
-        <tr>
-            <td align="center">
-                
-                <!-- Email Content Table -->
-                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 600px;">
-                    
-                    <!-- Header Section -->
-                    <tr>
-                        <td style="padding: 40px 30px 30px 30px; text-align: center; border-bottom: 1px solid #e5e7eb;">
-                            <h1 style="margin: 0; color: #1f2937; font-size: 24px; font-weight: bold;">📋 Group Request Update</h1>
-                            <p style="margin: 15px 0 0 0; color: #6b7280; font-size: 16px;">Your group membership request has been reviewed</p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Greeting Section -->
-                    <tr>
-                        <td style="padding: 30px 30px 20px 30px;">
-                            <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
-                                Hi <strong th:text="${rejectedUserName}">User</strong>!
-                            </p>
-                            <p style="margin: 15px 0 0 0; color: #374151; font-size: 16px; line-height: 1.5;">
-                                We wanted to let you know that your request to join a group has been reviewed by the group administrators.
-                            </p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Group Info Section -->
-                    <tr>
-                        <td style="padding: 0 30px;">
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border: 2px solid #e2e8f0; border-radius: 8px;">
-                                <tr>
-                                    <td style="padding: 25px; text-align: center;">
-                                        <!-- Group Avatar -->
-                                        <img th:if="${groupAvatarUrl != null and !#strings.isEmpty(groupAvatarUrl)}" 
-                                             th:src="${groupAvatarUrl}" 
-                                             alt="Group Avatar" 
-                                             style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid #e2e8f0; display: block; margin: 0 auto 15px;" />
-                                        
-                                        <!-- Group Name -->
-                                        <h2 style="margin: 0 0 10px 0; color: #2563eb; font-size: 20px; font-weight: bold;" th:text="${groupName}">Group Name</h2>
-                                        
-                                        <!-- Member Count -->
-                                        <p style="margin: 0; color: #6b7280; font-size: 14px;" th:text="'Members: ' + ${memberCount}">Members: 5</p>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    
-                    <!-- Rejection Status Section -->
-                    <tr>
-                        <td style="padding: 20px 30px;">
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;">
-                                <tr>
-                                    <td style="padding: 20px;">
-                                        <p style="margin: 0 0 10px 0; color: #991b1b; font-weight: bold; font-size: 14px;">❌ Request Status: Not Approved</p>
-                                        <p style="margin: 0; color: #991b1b; font-size: 16px; font-weight: 600;" th:text="'Reviewed by: ' + ${reviewedByUserName}">Reviewed by: Admin Name</p>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    
-                    <!-- Message Section -->
-                    <tr>
-                        <td style="padding: 0 30px 20px 30px;">
-                            <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
-                                Unfortunately, your request to join this group was not approved at this time. This could be due to various reasons such as group capacity, current membership policies, or other administrative decisions.
-                            </p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Next Steps Section -->
-                    <tr>
-                        <td style="padding: 20px 30px;">
-                            <p style="margin: 0 0 15px 0; color: #374151; font-size: 16px; font-weight: bold;">What you can do:</p>
-                            <ul style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.6;">
-                                <li style="margin-bottom: 8px;">🔄 Try joining other groups that might be a better fit</li>
-                                <li style="margin-bottom: 8px;">📧 Contact the group administrator if you have questions</li>
-                                <li style="margin-bottom: 8px;">👥 Create your own group and invite others</li>
-                                <li style="margin-bottom: 0;">💡 Explore other financial management features in the app</li>
-                            </ul>
-                        </td>
-                    </tr>
-                    
-                    <!-- Support Section -->
-                    <tr>
-                        <td style="padding: 0 30px 20px 30px;">
-                            <p style="margin: 0; color: #6b7280; font-size: 14px; text-align: center;">
-                                If you have any questions about this decision, you can contact the group administrators directly.
-                            </p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Footer Section -->
-                    <tr>
-                        <td style="padding: 30px; border-top: 1px solid #e5e7eb; text-align: center; background-color: #f9fafb;">
-                            <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
-                                This email was sent from <strong th:text="${appName}">Seima</strong>
-                            </p>
-                            <p style="margin: 0; color: #6b7280; font-size: 14px;">
-                                Thank you for your interest in our platform!
-                            </p>
-                        </td>
-                    </tr>
-                    
-                </table>
-                
+
+<!-- Main Container Table -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5;">
+    <tr>
+        <td align="center" style="padding: 20px 0;">
+
+            <!--[if (gte mso 9)|(IE)]>
+            <table align="center" border="0" cellspacing="0" cellpadding="0" width="600">
+                <tr>
+                    <td align="center" valign="top" width="600">
+            <![endif]-->
+            <table class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 600px;">
+
+                <!-- Header Section -->
+                <tr>
+                    <td class="header-padding" style="padding: 40px 30px 30px 30px; text-align: center; border-bottom: 1px solid #e5e7eb;">
+                        <h1 class="main-header" style="margin: 0; color: #1f2937; font-size: 24px; font-weight: bold;">📋 Group Request Update</h1>
+                        <p class="body-text" style="margin: 15px 0 0 0; color: #6b7280; font-size: 16px;">Your group membership request has been reviewed.</p>
+                    </td>
+                </tr>
+
+                <!-- Greeting Section -->
+                <tr>
+                    <td class="content-padding" style="padding: 30px 30px 20px 30px;">
+                        <p class="body-text" style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
+                            Hi <strong th:text="${rejectedUserName}">User</strong>,
+                        </p>
+                        <p class="body-text" style="margin: 15px 0 0 0; color: #374151; font-size: 16px; line-height: 1.5;">
+                            We wanted to let you know that your request to join a group has been reviewed by the group administrators.
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- Group Info Section -->
+                <tr>
+                    <td class="content-padding" style="padding: 0 30px;">
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            <tr>
+                                <td style="padding: 25px; text-align: center;">
+                                    <img class="group-avatar" th:if="${groupAvatarUrl != null and !#strings.isEmpty(groupAvatarUrl)}"
+                                         th:src="${groupAvatarUrl}"
+                                         alt="Group Avatar"
+                                         style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid #e2e8f0; display: block; margin: 0 auto 15px;" />
+
+                                    <h2 style="margin: 0 0 10px 0; color: #1f2937; font-size: 20px; font-weight: bold;" th:text="${groupName}">Group Name</h2>
+
+                                    <p style="margin: 0; color: #6b7280; font-size: 14px;" th:text="'Members: ' + ${memberCount}">Members: 5</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- Rejection Status Section -->
+                <tr>
+                    <td class="content-padding" style="padding: 20px 30px;">
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;">
+                            <tr>
+                                <td class="status-box-padding" style="padding: 20px;">
+                                    <p class="body-text" style="margin: 0 0 10px 0; color: #991b1b; font-weight: bold; font-size: 14px;">❌ Request Status: Not Approved</p>
+                                    <p class="body-text" style="margin: 0; color: #991b1b; font-size: 14px; font-weight: 600;" th:text="'Reviewed by: ' + ${reviewedByUserName}">Reviewed by: Admin Name</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- Message Section -->
+                <tr>
+                    <td class="content-padding" style="padding: 0 30px 20px 30px;">
+                        <p class="body-text" style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
+                            Unfortunately, your request to join this group was not approved at this time. This could be due to various reasons such as group capacity, current membership policies, or other administrative decisions.
+                        </p>
+                    </td>
+                </tr>
+
+                <!-- Next Steps Section -->
+                <tr>
+                    <td class="content-padding" style="padding: 20px 30px; border-top: 1px solid #e5e7eb;">
+                        <p class="body-text" style="margin: 0 0 15px 0; color: #374151; font-size: 16px; font-weight: bold;">What you can do:</p>
+                        <ul class="body-text" style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                            <li style="margin-bottom: 8px;">🔄 Try joining other groups that might be a better fit.</li>
+                            <li style="margin-bottom: 8px;">📧 Contact the group administrator if you have questions.</li>
+                            <li style="margin-bottom: 8px;">👥 Create your own group and invite others.</li>
+                            <li>💡 Explore other features in the app.</li>
+                        </ul>
+                    </td>
+                </tr>
+
+                <!-- Footer Section -->
+                <tr>
+                    <td style="padding: 30px; border-top: 1px solid #e5e7eb; text-align: center; background-color: #f9fafb;">
+                        <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
+                            This email was sent from <strong th:text="${appName}">Seima</strong>.
+                        </p>
+                        <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                            Thank you for your interest in our platform!
+                        </p>
+                    </td>
+                </tr>
+
+            </table>
+            <!--[if (gte mso 9)|(IE)]>
             </td>
-        </tr>
-    </table>
-    
+            </tr>
+            </table>
+            <![endif]-->
+        </td>
+    </tr>
+</table>
+
 </body>
-</html> 
+</html>

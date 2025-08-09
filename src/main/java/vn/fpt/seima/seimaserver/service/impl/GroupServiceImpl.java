@@ -639,7 +639,7 @@ public class GroupServiceImpl implements GroupService {
         }
         
         // Find user's membership in this group
-        Optional<GroupMember> membershipOpt = groupMemberRepository.findByUserIdAndGroupId(
+        Optional<GroupMember> membershipOpt = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(
                 currentUser.getUserId(), groupId);
         
         if (membershipOpt.isEmpty()) {

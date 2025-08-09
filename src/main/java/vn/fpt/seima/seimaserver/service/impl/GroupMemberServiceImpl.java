@@ -760,7 +760,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
      * Validate current user is owner of the group
      */
     private GroupMember validateOwnerPermission(Integer currentUserId, Group group) {
-        Optional<GroupMember> currentUserMembership = groupMemberRepository.findByUserIdAndGroupId(
+        Optional<GroupMember> currentUserMembership = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(
                 currentUserId, group.getGroupId());
 
         if (currentUserMembership.isEmpty() || 
@@ -854,7 +854,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         }
 
         // Check if current user is admin or owner of the group
-        Optional<GroupMember> currentUserMembership = groupMemberRepository.findByUserIdAndGroupId(
+        Optional<GroupMember> currentUserMembership = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(
                 currentUser.getUserId(), groupId);
         
         if (currentUserMembership.isEmpty() || 
@@ -908,7 +908,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         GroupMemberRole memberRole = memberToRemove.getRole();
         
         // Get current user's role
-        GroupMemberRole currentUserRole = groupMemberRepository.findByUserIdAndGroupId(
+        GroupMemberRole currentUserRole = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(
                 currentUser.getUserId(), groupId)
                 .map(GroupMember::getRole)
                 .orElseThrow(() -> new GroupException("Current user membership not found"));
@@ -1127,7 +1127,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
     }
 
     private GroupMember validateCurrentUserIsOwner(Integer userId, Integer groupId) {
-        Optional<GroupMember> memberOptional = groupMemberRepository.findByUserIdAndGroupId(userId, groupId);
+        Optional<GroupMember> memberOptional = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(userId, groupId);
 
         if (memberOptional.isEmpty()) {
             throw new GroupException("You are not a member of this group");
@@ -1147,7 +1147,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
     }
 
     private GroupMember validateNewOwnerEligibility(Integer newOwnerUserId, Integer groupId) {
-        Optional<GroupMember> memberOptional = groupMemberRepository.findByUserIdAndGroupId(newOwnerUserId, groupId);
+        Optional<GroupMember> memberOptional = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(newOwnerUserId, groupId);
 
         if (memberOptional.isEmpty()) {
             throw new GroupException("Selected user is not a member of this group");
@@ -1193,7 +1193,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
      * Find active member for exit operation
      */
     private GroupMember findActiveMemberForExit(Integer userId, Integer groupId) {
-        Optional<GroupMember> memberOptional = groupMemberRepository.findByUserIdAndGroupId(userId, groupId);
+        Optional<GroupMember> memberOptional = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(userId, groupId);
 
         if (memberOptional.isEmpty()) {
             throw new GroupException("You are not a member of this group");
