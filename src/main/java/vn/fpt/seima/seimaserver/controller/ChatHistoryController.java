@@ -19,7 +19,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/chat-history")
-@Tag(name = "Chat History", description = "Chat history management APIs for continuous conversation")
+@Tag(name = "chat-history-controller", description = "Chat history management APIs for continuous conversation")
 public class ChatHistoryController {
     
     private final ChatHistoryService chatHistoryService;

@@ -133,4 +133,21 @@ public class BudgetController {
             return new ApiResponse<>(500, "An unexpected error occurred", null);
         }
     }
+
+    @PostMapping("/by-categories")
+    public ApiResponse<Page<BudgetResponse>> getBudgetsByCategories(
+            @RequestBody vn.fpt.seima.seimaserver.dto.request.budget.BudgetSearchByCategoriesRequest request,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            Pageable pageable = PageRequest.of(page, size);
+            Page<BudgetResponse> budgets = budgetService.getBudgetsByCategories(request.getCategoryIds(), pageable);
+
+            return new ApiResponse<>(HttpStatus.OK.value(), "Budgets by categories retrieved successfully", budgets);
+        } catch (IllegalArgumentException ex) {
+            return new ApiResponse<>(400, ex.getMessage(), null);
+        } catch (Exception ex) {
+            return new ApiResponse<>(500, "An unexpected error occurred", null);
+        }
+    }
 } 
