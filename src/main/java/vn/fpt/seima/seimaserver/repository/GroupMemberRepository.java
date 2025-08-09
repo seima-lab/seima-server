@@ -4,6 +4,7 @@ import io.lettuce.core.dynamic.annotation.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import vn.fpt.seima.seimaserver.entity.Group;
 import vn.fpt.seima.seimaserver.entity.GroupMember;
 import vn.fpt.seima.seimaserver.entity.GroupMemberRole;
 import vn.fpt.seima.seimaserver.entity.GroupMemberStatus;
@@ -52,6 +53,19 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Intege
             "WHERE gm.group.groupId = :groupId AND gm.status = :status")
     Long countActiveGroupMembers(@Param("groupId") Integer groupId,
                                 @Param("status") GroupMemberStatus status);
+    
+    /**
+     * Count active groups for a user
+     * @param userId the user ID
+     * @param status the membership status (should be ACTIVE)
+     * @return count of active groups for the user
+     */
+    @Query("SELECT COUNT(gm) FROM GroupMember gm " +
+            "JOIN gm.group g " +
+            "WHERE gm.user.userId = :userId AND gm.status = :status " +
+            "AND g.groupIsActive = true")
+    Long countUserActiveGroups(@Param("userId") Integer userId,
+                              @Param("status") GroupMemberStatus status);
     
     /**
      * Check if user is already a member of the group with active status
@@ -188,4 +202,8 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Intege
                                                        @Param("status") GroupMemberStatus status,
                                                        @Param("userId") Integer userId);
 
+    @Query("SELECT gm FROM GroupMember gm " +
+            "JOIN gm.group g " +
+            "WHERE g.groupIsActive = true and g.groupId = :groupId")
+    List<GroupMember> findActiveGroupMembers(@Param("groupId") Integer groupId);
 }

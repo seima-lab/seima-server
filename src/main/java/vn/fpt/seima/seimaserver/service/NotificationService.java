@@ -31,6 +31,8 @@ public interface NotificationService {
 
 
     long getUnreadNotificationCount(Integer userId);
+    
+
 
 
     boolean deleteNotification(Integer notificationId, Integer userId);
@@ -59,4 +61,9 @@ public interface NotificationService {
 
     void sendMemberRemovedNotificationToGroup(Integer groupId, Integer removedUserId, String removedUserName, String removedByUserName);
 
-} 
+    //Sends notification to all group members except the specified user
+    void sendNotificationToGroupMembersExceptUser(Integer groupId, Integer senderUserId, String senderUserName, 
+                                                 NotificationType notificationType, String title, String message, 
+                                                 String linkToEntity);
+
+}

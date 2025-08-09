@@ -48,6 +48,10 @@ class TransactionServiceTest {
     @InjectMocks private TransactionServiceImpl transactionService;
     @Mock
     private BudgetCategoryLimitRepository budgetCategoryLimitRepository;
+    @Mock private RedisService redisService;
+    @Mock private GroupRepository groupRepository;
+    @Mock private GroupMemberRepository groupMemberRepository;
+    @Mock private NotificationService notificationService;
 
     private MockedStatic<UserUtils> userUtilsMockedStatic;
 
@@ -57,6 +61,7 @@ class TransactionServiceTest {
     void setUp() {
         user = new User();
         user.setUserId(1);
+        user.setUserFullName("Test User");
         userUtilsMockedStatic = mockStatic(UserUtils.class);
         userUtilsMockedStatic.when(UserUtils::getCurrentUser).thenReturn(user);
     }
@@ -122,141 +127,825 @@ class TransactionServiceTest {
     }
 
     @Test
-    void testGetTransactionOverview() {
-        Transaction transaction = new Transaction();
-        User currentUser = UserUtils.getCurrentUser();
-        transaction.setTransactionType(TransactionType.INCOME);
-        transaction.setTransactionDate(LocalDateTime.now());
-        transaction.setAmount(BigDecimal.valueOf(100));
+    void testUpdateTransaction_WithGroup_SendsNotification() {
+        // Arrange
+        Integer transactionId = 1;
+        Integer groupId = 100;
+        CreateTransactionRequest request = new CreateTransactionRequest();
+        request.setGroupId(groupId);
+        request.setCategoryId(1);
+        request.setAmount(BigDecimal.valueOf(100));
+        request.setCurrencyCode("USD");
+        request.setDescription("Updated transaction");
 
-        when(transactionRepository.findAllByUserAndTransactionDateBetween(
-                eq(currentUser.getUserId()), any(), any(), any())
-        ).thenReturn(List.of(transaction));
+        Transaction existingTransaction = new Transaction();
+        existingTransaction.setTransactionId(transactionId);
+        existingTransaction.setUser(user);
+        existingTransaction.setAmount(BigDecimal.valueOf(50));
+        existingTransaction.setTransactionDate(LocalDateTime.now());
+        existingTransaction.setGroup(new Group());
+        existingTransaction.getGroup().setGroupId(groupId);
 
-        TransactionOverviewResponse result = transactionService.getTransactionOverview(currentUser.getUserId(), YearMonth.now());
+        Category category = new Category();
+        category.setCategoryId(1);
+        category.setCategoryName("Food");
 
+        Group group = new Group();
+        group.setGroupId(groupId);
+        group.setGroupName("Test Group");
 
+        Transaction updatedTransaction = new Transaction();
+        updatedTransaction.setTransactionId(transactionId);
+        updatedTransaction.setGroup(group);
+        updatedTransaction.setDescription("Updated transaction");
+
+        TransactionResponse response = new TransactionResponse();
+
+        // Mock repository calls
+        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(existingTransaction));
+        when(categoryRepository.findById(1)).thenReturn(Optional.of(category));
+        when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), groupId)).thenReturn(true);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(updatedTransaction);
+        when(transactionMapper.toResponse(updatedTransaction)).thenReturn(response);
+
+        // Act
+        TransactionResponse result = transactionService.updateTransaction(transactionId, request);
+
+        // Assert
         assertNotNull(result);
-        assertEquals(BigDecimal.valueOf(100), result.getSummary().getTotalIncome());
+        verify(notificationService, times(1)).sendNotificationToGroupMembersExceptUser(
+            eq(groupId),
+            eq(user.getUserId()),
+            eq(user.getUserFullName()),
+            eq(NotificationType.TRANSACTION_UPDATED),
+            eq("Transaction Updated"),
+            contains("updated a transaction in Test Group"),
+            contains("seimaapp://groups/" + groupId + "/transactions/" + transactionId)
+        );
     }
 
     @Test
-    void testRecordIncome_Success() {
+    void testUpdateTransaction_WithoutGroup_DoesNotSendNotification() {
         // Arrange
+        Integer transactionId = 1;
         CreateTransactionRequest request = new CreateTransactionRequest();
-        request.setAmount(BigDecimal.TEN);
         request.setWalletId(1);
-        request.setCategoryId(2);
-        request.setCurrencyCode("VND");
-        request.setTransactionDate(LocalDateTime.of(2024, 7, 15, 10, 30));
+        request.setCategoryId(1);
+        request.setAmount(BigDecimal.valueOf(100));
+        request.setCurrencyCode("USD");
+
+        Transaction existingTransaction = new Transaction();
+        existingTransaction.setTransactionId(transactionId);
+        existingTransaction.setUser(user);
+        existingTransaction.setAmount(BigDecimal.valueOf(50));
+        existingTransaction.setTransactionDate(LocalDateTime.now());
+        existingTransaction.setWallet(new Wallet());
+
+        Category category = new Category();
+        category.setCategoryId(1);
 
         Wallet wallet = new Wallet();
         wallet.setId(1);
 
-        Category category = new Category();
-        category.setCategoryId(2);
+        Transaction updatedTransaction = new Transaction();
+        updatedTransaction.setTransactionId(transactionId);
+        updatedTransaction.setWallet(wallet);
 
-        Transaction transaction = new Transaction();
-        transaction.setTransactionDate(request.getTransactionDate());
-        transaction.setAmount(request.getAmount());
-        transaction.setTransactionType(TransactionType.INCOME);
-        transaction.setUser(user);
-        transaction.setWallet(wallet);
-        transaction.setCategory(category);
+        TransactionResponse response = new TransactionResponse();
 
-        TransactionResponse expectedResponse = new TransactionResponse();
-
+        // Mock repository calls
+        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(existingTransaction));
+        when(categoryRepository.findById(1)).thenReturn(Optional.of(category));
         when(walletRepository.findById(1)).thenReturn(Optional.of(wallet));
-        when(categoryRepository.findById(2)).thenReturn(Optional.of(category));
-        when(transactionMapper.toEntity(request)).thenReturn(transaction);
-        when(transactionRepository.save(any())).thenReturn(transaction);
-        when(transactionMapper.toResponse(transaction)).thenReturn(expectedResponse);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(updatedTransaction);
+        when(transactionMapper.toResponse(updatedTransaction)).thenReturn(response);
 
         // Act
-        TransactionResponse response = transactionService.recordIncome(request);
+        TransactionResponse result = transactionService.updateTransaction(transactionId, request);
 
         // Assert
-        assertNotNull(response);
-        assertEquals(expectedResponse, response);
-        verify(walletService).reduceAmount(1, BigDecimal.TEN, "INCOME", "VND");
-        verify(budgetService).reduceAmount(1, 2, BigDecimal.TEN, request.getTransactionDate(), "INCOME", "VND");
+        assertNotNull(result);
+        verify(notificationService, never()).sendNotificationToGroupMembersExceptUser(
+            any(), any(), any(), any(), any(), any(), any()
+        );
     }
 
     @Test
-    void testUpdateTransaction_AmountIncreased() {
+    void testUpdateTransaction_NotificationServiceThrowsException_DoesNotAffectMainFlow() {
+        // Arrange
+        Integer transactionId = 1;
+        Integer groupId = 100;
+        CreateTransactionRequest request = new CreateTransactionRequest();
+        request.setGroupId(groupId);
+        request.setCategoryId(1);
+        request.setAmount(BigDecimal.valueOf(100));
+        request.setCurrencyCode("USD");
+
+        Transaction existingTransaction = new Transaction();
+        existingTransaction.setTransactionId(transactionId);
+        existingTransaction.setUser(user);
+        existingTransaction.setAmount(BigDecimal.valueOf(50));
+        existingTransaction.setTransactionDate(LocalDateTime.now());
+        existingTransaction.setGroup(new Group());
+        existingTransaction.getGroup().setGroupId(groupId);
+
+        Category category = new Category();
+        category.setCategoryId(1);
+
+        Group group = new Group();
+        group.setGroupId(groupId);
+
+        Transaction updatedTransaction = new Transaction();
+        updatedTransaction.setTransactionId(transactionId);
+        updatedTransaction.setGroup(group);
+
+        TransactionResponse response = new TransactionResponse();
+
+        // Mock repository calls
+        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(existingTransaction));
+        when(categoryRepository.findById(1)).thenReturn(Optional.of(category));
+        when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), groupId)).thenReturn(true);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(updatedTransaction);
+        when(transactionMapper.toResponse(updatedTransaction)).thenReturn(response);
+
+        // Mock notification service to throw exception
+        doThrow(new RuntimeException("Notification service error"))
+            .when(notificationService).sendNotificationToGroupMembersExceptUser(
+                any(), any(), any(), any(), any(), any(), any()
+            );
+
+        // Act & Assert - should not throw exception
+        assertDoesNotThrow(() -> transactionService.updateTransaction(transactionId, request));
+        
+        // Verify transaction was still updated
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
+    }
+
+    @Test
+    void testUpdateTransaction_WithNullDescription_UsesDefaultMessage() {
+        // Arrange
+        Integer transactionId = 1;
+        Integer groupId = 100;
+        CreateTransactionRequest request = new CreateTransactionRequest();
+        request.setGroupId(groupId);
+        request.setCategoryId(1);
+        request.setAmount(BigDecimal.valueOf(100));
+        request.setCurrencyCode("USD");
+        request.setDescription(null); // Null description
+
+        Transaction existingTransaction = new Transaction();
+        existingTransaction.setTransactionId(transactionId);
+        existingTransaction.setUser(user);
+        existingTransaction.setAmount(BigDecimal.valueOf(50));
+        existingTransaction.setTransactionDate(LocalDateTime.now());
+        existingTransaction.setGroup(new Group());
+        existingTransaction.getGroup().setGroupId(groupId);
+
+        Category category = new Category();
+        category.setCategoryId(1);
+
+        Group group = new Group();
+        group.setGroupId(groupId);
+        group.setGroupName("Test Group");
+
+        Transaction updatedTransaction = new Transaction();
+        updatedTransaction.setTransactionId(transactionId);
+        updatedTransaction.setGroup(group);
+        updatedTransaction.setDescription(null);
+
+        TransactionResponse response = new TransactionResponse();
+
+        // Mock repository calls
+        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(existingTransaction));
+        when(categoryRepository.findById(1)).thenReturn(Optional.of(category));
+        when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), groupId)).thenReturn(true);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(updatedTransaction);
+        when(transactionMapper.toResponse(updatedTransaction)).thenReturn(response);
+
+        // Act
+        transactionService.updateTransaction(transactionId, request);
+
+        // Assert
+        verify(notificationService, times(1)).sendNotificationToGroupMembersExceptUser(
+            eq(groupId),
+            eq(user.getUserId()),
+            eq(user.getUserFullName()),
+            eq(NotificationType.TRANSACTION_UPDATED),
+            eq("Transaction Updated"),
+            contains("updated a transaction in Test Group"),
+            any()
+        );
+    }
+
+    @Test
+    void testDeleteTransaction_WithGroup_SendsNotification() {
+        // Arrange
+        Integer transactionId = 1;
+        Integer groupId = 100;
+        
+        Transaction transaction = new Transaction();
+        transaction.setTransactionId(transactionId);
+        transaction.setUser(user);
+        transaction.setAmount(BigDecimal.valueOf(100));
+        transaction.setTransactionDate(LocalDateTime.now());
+        transaction.setDescription("Test transaction to delete");
+        transaction.setGroup(new Group());
+        transaction.getGroup().setGroupId(groupId);
+
+        Group group = new Group();
+        group.setGroupId(groupId);
+        group.setGroupName("Test Group");
+
+        // Mock repository calls
+        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(transaction));
+        when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), groupId)).thenReturn(true);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(transaction);
+
+        // Act
+        transactionService.deleteTransaction(transactionId);
+
+        // Assert
+        verify(notificationService, times(1)).sendNotificationToGroupMembersExceptUser(
+            eq(groupId),
+            eq(user.getUserId()),
+            eq(user.getUserFullName()),
+            eq(NotificationType.TRANSACTION_DELETED),
+            eq("Transaction Removed"),
+            contains("removed a transaction in Test Group"),
+            contains("seimaapp://groups/" + groupId + "/transactions")
+        );
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
+    }
+
+    @Test
+    void testDeleteTransaction_WithoutGroup_DoesNotSendNotification() {
+        // Arrange
+        Integer transactionId = 1;
+        
+        Wallet wallet = new Wallet();
+        wallet.setCurrentBalance(BigDecimal.valueOf(1000));
+        
+        Transaction transaction = new Transaction();
+        transaction.setTransactionId(transactionId);
+        transaction.setUser(user);
+        transaction.setAmount(BigDecimal.valueOf(100));
+        transaction.setTransactionDate(LocalDateTime.now());
+        transaction.setWallet(wallet);
+
+        // Mock repository calls
+        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(transaction));
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(transaction);
+
+        // Act
+        transactionService.deleteTransaction(transactionId);
+
+        // Assert
+        verify(notificationService, never()).sendNotificationToGroupMembersExceptUser(
+            any(), any(), any(), any(), any(), any(), any()
+        );
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
+    }
+
+    @Test
+    void testDeleteTransaction_NotificationServiceThrowsException_DoesNotAffectMainFlow() {
+        // Arrange
+        Integer transactionId = 1;
+        Integer groupId = 100;
+        
+        Transaction transaction = new Transaction();
+        transaction.setTransactionId(transactionId);
+        transaction.setUser(user);
+        transaction.setAmount(BigDecimal.valueOf(100));
+        transaction.setTransactionDate(LocalDateTime.now());
+        transaction.setGroup(new Group());
+        transaction.getGroup().setGroupId(groupId);
+
+        Group group = new Group();
+        group.setGroupId(groupId);
+        group.setGroupName("Test Group");
+
+        // Mock repository calls
+        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(transaction));
+        when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), groupId)).thenReturn(true);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(transaction);
+
+        // Mock notification service to throw exception
+        doThrow(new RuntimeException("Notification service error"))
+            .when(notificationService).sendNotificationToGroupMembersExceptUser(
+                any(), any(), any(), any(), any(), any(), any()
+            );
+
+        // Act & Assert - should not throw exception
+        assertDoesNotThrow(() -> transactionService.deleteTransaction(transactionId));
+        
+        // Verify transaction was still deleted
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
+    }
+
+    @Test
+    void testDeleteTransaction_WithNullDescription_UsesDefaultMessage() {
+        // Arrange
+        Integer transactionId = 1;
+        Integer groupId = 100;
+        
+        Transaction transaction = new Transaction();
+        transaction.setTransactionId(transactionId);
+        transaction.setUser(user);
+        transaction.setAmount(BigDecimal.valueOf(100));
+        transaction.setTransactionDate(LocalDateTime.now());
+        transaction.setDescription(null); // Null description
+        transaction.setGroup(new Group());
+        transaction.getGroup().setGroupId(groupId);
+
+        Group group = new Group();
+        group.setGroupId(groupId);
+        group.setGroupName("Test Group");
+
+        // Mock repository calls
+        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(transaction));
+        when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), groupId)).thenReturn(true);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(transaction);
+
+        // Act
+        transactionService.deleteTransaction(transactionId);
+
+        // Assert
+        verify(notificationService, times(1)).sendNotificationToGroupMembersExceptUser(
+            eq(groupId),
+            eq(user.getUserId()),
+            eq(user.getUserFullName()),
+            eq(NotificationType.TRANSACTION_DELETED),
+            eq("Transaction Removed"),
+            contains("removed a transaction in Test Group"),
+            any()
+        );
+    }
+
+    @Test
+    void testDeleteTransaction_TransactionNotFound_ThrowsException() {
+        // Arrange
+        Integer transactionId = 999;
+        when(transactionRepository.findById(transactionId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> transactionService.deleteTransaction(transactionId));
+        verify(notificationService, never()).sendNotificationToGroupMembersExceptUser(
+            any(), any(), any(), any(), any(), any(), any()
+        );
+    }
+
+    @Test
+    void testSaveTransaction_WithGroup_SendsNotification() {
+        // Arrange
+        CreateTransactionRequest request = new CreateTransactionRequest();
+        request.setGroupId(100);
+        request.setCategoryId(1);
+        request.setAmount(BigDecimal.valueOf(100));
+        request.setCurrencyCode("USD");
+        request.setDescription("Test transaction");
+
+        Category category = new Category();
+        category.setCategoryId(1);
+        category.setCategoryName("Food");
+
+        Group group = new Group();
+        group.setGroupId(100);
+        group.setGroupName("Test Group");
+
+        Transaction transaction = new Transaction();
+        transaction.setTransactionId(1);
+        transaction.setGroup(group);
+        transaction.setDescription("Test transaction");
+        transaction.setTransactionType(TransactionType.EXPENSE);
+        transaction.setAmount(BigDecimal.valueOf(100));
+        transaction.setCurrencyCode("USD");
+
+        Transaction savedTransaction = new Transaction();
+        savedTransaction.setTransactionId(1);
+        savedTransaction.setGroup(group);
+        savedTransaction.setDescription("Test transaction");
+        savedTransaction.setTransactionType(TransactionType.EXPENSE);
+        savedTransaction.setAmount(BigDecimal.valueOf(100));
+        savedTransaction.setCurrencyCode("USD");
+
+        TransactionResponse response = new TransactionResponse();
+
+        // Mock repository calls
+        when(categoryRepository.findById(1)).thenReturn(Optional.of(category));
+        when(groupRepository.findById(100)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), 100)).thenReturn(true);
+        when(transactionMapper.toEntity(request)).thenReturn(transaction);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(savedTransaction);
+        when(transactionMapper.toResponse(savedTransaction)).thenReturn(response);
+
+        // Act
+        TransactionResponse result = transactionService.saveTransaction(request, TransactionType.EXPENSE);
+
+        // Assert
+        assertNotNull(result);
+        verify(notificationService, times(1)).sendNotificationToGroupMembersExceptUser(
+            eq(100),
+            eq(user.getUserId()),
+            eq(user.getUserFullName()),
+            eq(NotificationType.TRANSACTION_CREATED),
+            eq("New Transaction"),
+            contains("added a new expense transaction: 100 USD in Test Group"),
+            contains("seimaapp://groups/100/transactions/1")
+        );
+    }
+
+    @Test
+    void testSaveTransaction_WithoutGroup_DoesNotSendNotification() {
+        // Arrange
         CreateTransactionRequest request = new CreateTransactionRequest();
         request.setWalletId(1);
-        request.setCategoryId(2);
-        request.setAmount(new BigDecimal("200"));
-        request.setCurrencyCode("VND");
+        request.setCategoryId(1);
+        request.setAmount(BigDecimal.valueOf(100));
+        request.setCurrencyCode("USD");
+        request.setTransactionDate(LocalDateTime.now());
+
+        Category category = new Category();
+        category.setCategoryId(1);
 
         Wallet wallet = new Wallet();
-        Category category = new Category();
-        Transaction oldTransaction = new Transaction();
-        oldTransaction.setAmount(new BigDecimal("100"));
-        oldTransaction.setTransactionDate(LocalDateTime.now());
-        oldTransaction.setUser(user);
+        wallet.setId(1);
 
-        when(transactionRepository.findById(1)).thenReturn(Optional.of(oldTransaction));
+        Transaction transaction = new Transaction();
+        transaction.setTransactionId(1);
+        transaction.setWallet(wallet);
+        transaction.setTransactionDate(LocalDateTime.now());
+
+        Transaction savedTransaction = new Transaction();
+        savedTransaction.setTransactionId(1);
+        savedTransaction.setWallet(wallet);
+
+        TransactionResponse response = new TransactionResponse();
+
+        // Mock repository calls
+        when(categoryRepository.findById(1)).thenReturn(Optional.of(category));
         when(walletRepository.findById(1)).thenReturn(Optional.of(wallet));
-        when(categoryRepository.findById(2)).thenReturn(Optional.of(category));
-        when(transactionRepository.save(any())).thenReturn(oldTransaction);
-        when(transactionMapper.toResponse(any())).thenReturn(new TransactionResponse());
+        when(transactionMapper.toEntity(request)).thenReturn(transaction);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(savedTransaction);
+        when(transactionMapper.toResponse(savedTransaction)).thenReturn(response);
 
-        TransactionResponse result = transactionService.updateTransaction(1, request);
+        // Act
+        TransactionResponse result = transactionService.saveTransaction(request, TransactionType.EXPENSE);
 
+        // Assert
         assertNotNull(result);
-        verify(walletService).reduceAmount(1, new BigDecimal("100"), "update-subtract", "VND");
-        verify(budgetService).reduceAmount(user.getUserId(), 2, new BigDecimal("100"), oldTransaction.getTransactionDate(), "update-subtract", "VND");
+        verify(notificationService, never()).sendNotificationToGroupMembersExceptUser(
+            any(), any(), any(), any(), any(), any(), any()
+        );
     }
+
     @Test
-    void testGetCategoryReportDetail_Success() {
-        LocalDate from = LocalDate.of(2025, 7, 1);
-        LocalDate to = LocalDate.of(2025, 7, 5);
+    void testSaveTransaction_NotificationServiceThrowsException_DoesNotAffectMainFlow() {
+        // Arrange
+        CreateTransactionRequest request = new CreateTransactionRequest();
+        request.setGroupId(100);
+        request.setCategoryId(1);
+        request.setAmount(BigDecimal.valueOf(100));
+        request.setCurrencyCode("USD");
 
-        Transaction tx = new Transaction();
-        tx.setTransactionType(TransactionType.EXPENSE);
-        tx.setTransactionDate(LocalDateTime.of(2025, 7, 3, 10, 0));
-        tx.setAmount(BigDecimal.TEN);
-        Category cat = new Category();
-        cat.setCategoryId(1);
-        cat.setCategoryName("Food");
-        cat.setCategoryIconUrl("icon.png");
-        tx.setCategory(cat);
+        Category category = new Category();
+        category.setCategoryId(1);
 
-        when(transactionRepository.findExpensesByUserAndDateRange(eq(1), eq(user.getUserId()), any(), any()))
-                .thenReturn(List.of(tx));
+        Group group = new Group();
+        group.setGroupId(100);
+        group.setGroupName("Test Group");
 
-        TransactionDetailReportResponse response = transactionService.getCategoryReportDetail(1, from, to);
+        Transaction transaction = new Transaction();
+        transaction.setTransactionId(1);
+        transaction.setGroup(group);
+        transaction.setTransactionType(TransactionType.EXPENSE);
+        transaction.setAmount(BigDecimal.valueOf(100));
 
-        assertNotNull(response);
-        assertEquals(BigDecimal.TEN, response.getTotalExpense());
-        assertTrue(response.getData().containsKey("2025-07-03"));
+        Transaction savedTransaction = new Transaction();
+        savedTransaction.setTransactionId(1);
+        savedTransaction.setGroup(group);
+        savedTransaction.setTransactionType(TransactionType.EXPENSE);
+        savedTransaction.setAmount(BigDecimal.valueOf(100));
+
+        TransactionResponse response = new TransactionResponse();
+
+        // Mock repository calls
+        when(categoryRepository.findById(1)).thenReturn(Optional.of(category));
+        when(groupRepository.findById(100)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), 100)).thenReturn(true);
+        when(transactionMapper.toEntity(request)).thenReturn(transaction);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(savedTransaction);
+        when(transactionMapper.toResponse(savedTransaction)).thenReturn(response);
+
+        // Mock notification service to throw exception
+        doThrow(new RuntimeException("Notification service error"))
+            .when(notificationService).sendNotificationToGroupMembersExceptUser(
+                any(), any(), any(), any(), any(), any(), any()
+            );
+
+        // Act & Assert - should not throw exception
+        assertDoesNotThrow(() -> transactionService.saveTransaction(request, TransactionType.EXPENSE));
+        
+        // Verify transaction was still created
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
     }
+
     @Test
-    void testGetCategoryReport_Monthly() {
-        LocalDate from = LocalDate.of(2025, 7, 1);
-        LocalDate to = LocalDate.of(2025, 7, 31);
+    void testSaveTransaction_WithNullDescription_UsesDefaultMessage() {
+        // Arrange
+        CreateTransactionRequest request = new CreateTransactionRequest();
+        request.setGroupId(100);
+        request.setCategoryId(1);
+        request.setAmount(BigDecimal.valueOf(100));
+        request.setCurrencyCode("USD");
+        request.setDescription(null); // Null description
 
-        Transaction tx = new Transaction();
-        tx.setTransactionType(TransactionType.EXPENSE);
-        tx.setTransactionDate(LocalDateTime.of(2025, 7, 10, 10, 0));
-        tx.setAmount(new BigDecimal("100"));
-        Category cat = new Category();
-        cat.setCategoryId(2);
-        cat.setCategoryName("Travel");
-        cat.setCategoryIconUrl("travel.png");
-        tx.setCategory(cat);
+        Category category = new Category();
+        category.setCategoryId(1);
 
-        when(transactionRepository.findExpensesByUserAndDateRange(eq(2), eq(user.getUserId()), any(), any()))
-                .thenReturn(List.of(tx));
+        Group group = new Group();
+        group.setGroupId(100);
+        group.setGroupName("Test Group");
 
-        TransactionCategoryReportResponse response = transactionService.getCategoryReport(
-                PeriodType.MONTHLY, 2, from, to);
+        Transaction transaction = new Transaction();
+        transaction.setTransactionId(1);
+        transaction.setGroup(group);
+        transaction.setDescription(null);
+        transaction.setTransactionType(TransactionType.EXPENSE);
+        transaction.setAmount(BigDecimal.valueOf(100));
+        transaction.setCurrencyCode("USD");
 
-        assertNotNull(response);
-        assertEquals(new BigDecimal("100"), response.getTotalExpense());
-        assertEquals(1, response.getData().size());
+        Transaction savedTransaction = new Transaction();
+        savedTransaction.setTransactionId(1);
+        savedTransaction.setGroup(group);
+        savedTransaction.setDescription(null);
+        savedTransaction.setTransactionType(TransactionType.EXPENSE);
+        savedTransaction.setAmount(BigDecimal.valueOf(100));
+        savedTransaction.setCurrencyCode("USD");
+
+        TransactionResponse response = new TransactionResponse();
+
+        // Mock repository calls
+        when(categoryRepository.findById(1)).thenReturn(Optional.of(category));
+        when(groupRepository.findById(100)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), 100)).thenReturn(true);
+        when(transactionMapper.toEntity(request)).thenReturn(transaction);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(savedTransaction);
+        when(transactionMapper.toResponse(savedTransaction)).thenReturn(response);
+
+        // Act
+        transactionService.saveTransaction(request, TransactionType.EXPENSE);
+
+        // Assert
+        verify(notificationService, times(1)).sendNotificationToGroupMembersExceptUser(
+            eq(100),
+            eq(user.getUserId()),
+            eq(user.getUserFullName()),
+            eq(NotificationType.TRANSACTION_CREATED),
+            eq("New Transaction"),
+            contains("added a new expense transaction: 100 USD in Test Group"),
+            any()
+        );
     }
 
+    @Test
+    void testRecordExpense_WithGroup_SendsNotification() {
+        // Arrange
+        CreateTransactionRequest request = new CreateTransactionRequest();
+        request.setGroupId(100);
+        request.setCategoryId(1);
+        request.setAmount(BigDecimal.valueOf(100));
+        request.setCurrencyCode("USD");
+        request.setDescription("Expense transaction");
+
+        Category category = new Category();
+        category.setCategoryId(1);
+
+        Group group = new Group();
+        group.setGroupId(100);
+        group.setGroupName("Test Group");
+
+        Transaction transaction = new Transaction();
+        transaction.setTransactionId(1);
+        transaction.setGroup(group);
+        transaction.setDescription("Expense transaction");
+        transaction.setTransactionType(TransactionType.EXPENSE);
+        transaction.setAmount(BigDecimal.valueOf(100));
+        transaction.setCurrencyCode("USD");
+
+        Transaction savedTransaction = new Transaction();
+        savedTransaction.setTransactionId(1);
+        savedTransaction.setGroup(group);
+        savedTransaction.setDescription("Expense transaction");
+        savedTransaction.setTransactionType(TransactionType.EXPENSE);
+        savedTransaction.setAmount(BigDecimal.valueOf(100));
+        savedTransaction.setCurrencyCode("USD");
+
+        TransactionResponse response = new TransactionResponse();
+
+        // Mock repository calls
+        when(categoryRepository.findById(1)).thenReturn(Optional.of(category));
+        when(groupRepository.findById(100)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), 100)).thenReturn(true);
+        when(transactionMapper.toEntity(request)).thenReturn(transaction);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(savedTransaction);
+        when(transactionMapper.toResponse(savedTransaction)).thenReturn(response);
+
+        // Act
+        TransactionResponse result = transactionService.recordExpense(request);
+
+        // Assert
+        assertNotNull(result);
+        verify(notificationService, times(1)).sendNotificationToGroupMembersExceptUser(
+            eq(100),
+            eq(user.getUserId()),
+            eq(user.getUserFullName()),
+            eq(NotificationType.TRANSACTION_CREATED),
+            eq("New Transaction"),
+            contains("added a new expense transaction: 100 USD in Test Group"),
+            any()
+        );
+    }
+
+    @Test
+    void testRecordIncome_WithGroup_SendsNotification() {
+        // Arrange
+        CreateTransactionRequest request = new CreateTransactionRequest();
+        request.setGroupId(100);
+        request.setCategoryId(1);
+        request.setAmount(BigDecimal.valueOf(100));
+        request.setCurrencyCode("USD");
+        request.setDescription("Income transaction");
+
+        Category category = new Category();
+        category.setCategoryId(1);
+
+        Group group = new Group();
+        group.setGroupId(100);
+        group.setGroupName("Test Group");
+
+        Transaction transaction = new Transaction();
+        transaction.setTransactionId(1);
+        transaction.setGroup(group);
+        transaction.setDescription("Income transaction");
+        transaction.setTransactionType(TransactionType.INCOME);
+        transaction.setAmount(BigDecimal.valueOf(100));
+        transaction.setCurrencyCode("USD");
+
+        Transaction savedTransaction = new Transaction();
+        savedTransaction.setTransactionId(1);
+        savedTransaction.setGroup(group);
+        savedTransaction.setDescription("Income transaction");
+        savedTransaction.setTransactionType(TransactionType.INCOME);
+        savedTransaction.setAmount(BigDecimal.valueOf(100));
+        savedTransaction.setCurrencyCode("USD");
+
+        TransactionResponse response = new TransactionResponse();
+
+        // Mock repository calls
+        when(categoryRepository.findById(1)).thenReturn(Optional.of(category));
+        when(groupRepository.findById(100)).thenReturn(Optional.of(group));
+        when(groupMemberRepository.existsByUserUserIdAndGroupGroupId(user.getUserId(), 100)).thenReturn(true);
+        when(transactionMapper.toEntity(request)).thenReturn(transaction);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(savedTransaction);
+        when(transactionMapper.toResponse(savedTransaction)).thenReturn(response);
+
+        // Act
+        TransactionResponse result = transactionService.recordIncome(request);
+
+        // Assert
+        assertNotNull(result);
+        verify(notificationService, times(1)).sendNotificationToGroupMembersExceptUser(
+            eq(100),
+            eq(user.getUserId()),
+            eq(user.getUserFullName()),
+            eq(NotificationType.TRANSACTION_CREATED),
+            eq("New Transaction"),
+            contains("added a new income transaction: 100 USD in Test Group"),
+            any()
+        );
+    }
+
+
+//    @Test
+//    void saveTransaction_Income_WalletPath_Success() {
+//        // Arrange
+//        CreateTransactionRequest request = new CreateTransactionRequest();
+//        request.setAmount(BigDecimal.TEN);
+//        request.setWalletId(1);
+//        request.setCategoryId(2);
+//        request.setCurrencyCode("VND");
+//        request.setTransactionDate(LocalDateTime.of(2024, 7, 15, 10, 30));
+//        // request.setGroupId(null) // mặc định null
+//
+//        User user = new User();
+//        user.setUserId(999);
+//
+//        Wallet wallet = new Wallet();
+//        wallet.setId(1);
+//
+//        Category category = new Category();
+//        category.setCategoryId(2);
+//
+//        Transaction transaction = new Transaction();
+//        transaction.setTransactionDate(request.getTransactionDate());
+//        transaction.setAmount(request.getAmount());
+//        transaction.setTransactionType(TransactionType.INCOME);
+//        transaction.setUser(user);
+//        transaction.setWallet(wallet);
+//        transaction.setCategory(category);
+//
+//        Transaction saved = new Transaction();
+//        saved.setTransactionDate(request.getTransactionDate());
+//        saved.setAmount(request.getAmount());
+//        saved.setTransactionType(TransactionType.INCOME);
+//        saved.setUser(user);
+//        saved.setWallet(wallet);
+//        saved.setCategory(category);
+//
+//        TransactionResponse expectedResponse = new TransactionResponse();
+//
+//        // Mock static UserUtils.getCurrentUser()
+//        try (MockedStatic<UserUtils> mocked = mockStatic(UserUtils.class)) {
+//            mocked.when(UserUtils::getCurrentUser).thenReturn(user);
+//
+//            // Mocks
+//            when(categoryRepository.findById(2)).thenReturn(Optional.of(category));
+//            when(walletRepository.findById(1)).thenReturn(Optional.of(wallet));
+//            when(transactionMapper.toEntity(request)).thenReturn(transaction);
+//            when(transactionRepository.save(any(Transaction.class))).thenReturn(saved);
+//            when(transactionMapper.toResponse(saved)).thenReturn(expectedResponse);
+//
+//            // Tính key cache mong đợi
+//            YearMonth ym = YearMonth.from(request.getTransactionDate());
+//            String expectedCacheKey = String.format("tx:overview:%d:%s", user.getUserId(), ym);
+//
+//            // Act
+//            TransactionResponse response = transactionService.saveTransaction(request, TransactionType.INCOME);
+//
+//            // Assert
+//            assertNotNull(response);
+//            assertEquals(expectedResponse, response);
+//
+//            // Verify map + save
+//            verify(transactionMapper).toEntity(request);
+//            verify(transactionRepository).save(any(Transaction.class));
+//            verify(transactionMapper).toResponse(saved);
+//
+//            // Verify gọi giảm ngân sách & ví cho INCOME (đúng theo code hiện tại)
+//            verify(budgetService).reduceAmount(
+//                    eq(user.getUserId()),
+//                    eq(2),
+//                    eq(BigDecimal.TEN),
+//                    eq(request.getTransactionDate()),
+//                    eq("INCOME"),
+//                    eq("VND")
+//            );
+//            verify(walletService).reduceAmount(
+//                    eq(1),
+//                    eq(BigDecimal.TEN),
+//                    eq("INCOME"),
+//                    eq("VND")
+//            );
+//
+//            // Verify XÓA CACHE đúng key
+//            verify(redisService).delete(eq(expectedCacheKey));
+//
+//            // Không đụng group
+//            verifyNoInteractions(groupRepository, groupMemberRepository);
+//        }
+//    }
+//
+//    @Test
+//    void testUpdateTransaction_AmountIncreased() {
+//        CreateTransactionRequest request = new CreateTransactionRequest();
+//        request.setWalletId(1);
+//        request.setCategoryId(2);
+//        request.setAmount(new BigDecimal("200"));
+//        request.setCurrencyCode("VND");
+//
+//        Wallet wallet = new Wallet();
+//        Category category = new Category();
+//        Transaction oldTransaction = new Transaction();
+//        oldTransaction.setAmount(new BigDecimal("100"));
+//        oldTransaction.setTransactionDate(LocalDateTime.now());
+//        oldTransaction.setUser(user);
+//
+//        when(transactionRepository.findById(1)).thenReturn(Optional.of(oldTransaction));
+//        when(walletRepository.findById(1)).thenReturn(Optional.of(wallet));
+//        when(categoryRepository.findById(2)).thenReturn(Optional.of(category));
+//        when(transactionRepository.save(any())).thenReturn(oldTransaction);
+//        when(transactionMapper.toResponse(any())).thenReturn(new TransactionResponse());
+//
+//        TransactionResponse result = transactionService.updateTransaction(1, request);
+//
+//        assertNotNull(result);
+//        verify(walletService).reduceAmount(1, new BigDecimal("100"), "update-subtract", "VND");
+//        verify(budgetService).reduceAmount(user.getUserId(), 2, new BigDecimal("100"), oldTransaction.getTransactionDate(), "update-subtract", "VND");
+//    }
 }

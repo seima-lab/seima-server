@@ -3,6 +3,7 @@ package vn.fpt.seima.seimaserver.mapper;
 import org.mapstruct.*;
 import org.mapstruct.factory.Mappers;
 import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
+import vn.fpt.seima.seimaserver.dto.request.budget.UpdateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.dto.response.category.CategoryResponse;
 import vn.fpt.seima.seimaserver.entity.Budget;
@@ -27,7 +28,7 @@ public interface BudgetMapper {
 
     @Mapping(target = "budgetId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
-    void updateBudgetFromDto(CreateBudgetRequest dto, @MappingTarget Budget budget);
+    void updateBudgetFromDto(UpdateBudgetRequest dto, @MappingTarget Budget budget);
 
     default List<CategoryResponse> mapCategories(Set<BudgetCategoryLimit> limits) {
         if (limits == null) return new ArrayList<>();

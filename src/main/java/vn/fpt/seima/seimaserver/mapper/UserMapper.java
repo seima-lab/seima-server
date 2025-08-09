@@ -13,6 +13,7 @@ public class UserMapper {
                 .userGender(user.getUserGender())
                 .userPhoneNumber(user.getUserPhoneNumber())
                 .userAvatarUrl(user.getUserAvatarUrl())
+                .isLogByGoogle(user.getIsLogByGoogle())
                 .build();
     }
 }

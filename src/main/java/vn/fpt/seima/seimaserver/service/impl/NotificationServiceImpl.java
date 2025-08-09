@@ -21,6 +21,7 @@ import vn.fpt.seima.seimaserver.repository.NotificationRepository;
 import vn.fpt.seima.seimaserver.repository.UserDeviceRepository;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.service.FcmService;
+import vn.fpt.seima.seimaserver.service.NotificationCacheService;
 import vn.fpt.seima.seimaserver.service.NotificationService;
 
 import java.time.LocalDateTime;
@@ -50,6 +51,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final UserRepository userRepository;
     private final UserDeviceRepository userDeviceRepository;
     private final FcmService fcmService;
+    private final NotificationCacheService notificationCacheService;
     
 
     
@@ -105,10 +107,30 @@ public class NotificationServiceImpl implements NotificationService {
             throw new IllegalArgumentException("User not found with id: " + userId);
         }
         
+        // Try cache first, fallback to database
+        Long cachedCount = null;
+        try {
+            cachedCount = notificationCacheService.getUnreadCountFromCache(userId);
+            if (cachedCount != null) {
+                logger.info("Cache hit for user {}: {}", userId, cachedCount);
+                return cachedCount;
+            }
+        } catch (Exception e) {
+            logger.warn("Cache error for user {}: {}", userId, e.getMessage());
+        }
+        
+        // Cache miss or error - get from database and cache
         long count = notificationRepository.countUnreadByReceiverId(userId);
-        logger.info("Unread notifications count for user {}: {}", userId, count);
+        try {
+            notificationCacheService.setUnreadCountInCache(userId, count);
+        } catch (Exception e) {
+            logger.warn("Failed to set cache for user {}: {}", userId, e.getMessage());
+        }
+        logger.info("Cache miss for user {}: {}", userId, count);
         return count;
     }
+    
+
     
 
     
@@ -133,6 +155,12 @@ public class NotificationServiceImpl implements NotificationService {
         int deletedCount = notificationRepository.deleteByIdAndReceiverId(notificationId, userId);
         
         if (deletedCount > 0) {
+            // Decrement cache count
+            try {
+                notificationCacheService.decrementUnreadCount(userId);
+            } catch (Exception e) {
+                logger.warn("Failed to decrement cache for user {}: {}", userId, e.getMessage());
+            }
             logger.info("Successfully deleted notification {} for user: {}", notificationId, userId);
             return true;
         } else {
@@ -161,6 +189,12 @@ public class NotificationServiceImpl implements NotificationService {
         // Delete all notifications
         int deletedCount = notificationRepository.deleteAllByReceiverId(userId);
         
+        // Reset cache count
+        try {
+            notificationCacheService.resetUnreadCount(userId);
+        } catch (Exception e) {
+            logger.warn("Failed to reset cache for user {}: {}", userId, e.getMessage());
+        }
         logger.info("Successfully deleted {} notifications for user: {}", deletedCount, userId);
         return deletedCount;
     }
@@ -187,6 +221,12 @@ public class NotificationServiceImpl implements NotificationService {
         int updatedCount = notificationRepository.markAsReadById(notificationId, userId);
         
         if (updatedCount > 0) {
+            // Decrement cache count
+            try {
+                notificationCacheService.decrementUnreadCount(userId);
+            } catch (Exception e) {
+                logger.warn("Failed to decrement cache for user {}: {}", userId, e.getMessage());
+            }
             logger.info("Successfully marked notification {} as read for user: {}", notificationId, userId);
             return true;
         } else {
@@ -215,6 +255,12 @@ public class NotificationServiceImpl implements NotificationService {
         // Update all unread notifications as read
         int updatedCount = notificationRepository.markAllAsReadByReceiverId(userId);
         
+        // Reset cache count
+        try {
+            notificationCacheService.resetUnreadCount(userId);
+        } catch (Exception e) {
+            logger.warn("Failed to reset cache for user {}: {}", userId, e.getMessage());
+        }
         logger.info("Successfully marked {} notifications as read for user: {}", updatedCount, userId);
         return updatedCount;
     }
@@ -508,6 +554,16 @@ public class NotificationServiceImpl implements NotificationService {
                 List<Notification> savedNotifications = notificationRepository.saveAll(batchNotifications);
                 notifications.addAll(savedNotifications);
                 
+                // Update cache for each receiver
+                for (Notification notification : savedNotifications) {
+                    Integer receiverId = notification.getReceiver().getUserId();
+                    try {
+                        notificationCacheService.incrementUnreadCount(receiverId);
+                    } catch (Exception e) {
+                        logger.warn("Failed to increment cache for user {}: {}", receiverId, e.getMessage());
+                    }
+                }
+                
                 logger.debug("Saved batch of {} notifications", savedNotifications.size());
             }
             
@@ -706,6 +762,49 @@ public class NotificationServiceImpl implements NotificationService {
             logger.info("Successfully sent member removed notification to {} members in group: {}", groupMembers.size(), groupId);
         } catch (Exception e) {
             logger.error("Error sending member removed notification to group: {} for user: {}", groupId, removedUserId, e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void sendNotificationToGroupMembersExceptUser(Integer groupId, Integer senderUserId, String senderUserName, 
+                                                        NotificationType notificationType, String title, String message, 
+                                                        String linkToEntity) {
+        logger.info("Sending notification to group members except user for group: {}, user: {}, type: {}", 
+                   groupId, senderUserId, notificationType);
+        
+        try {
+            // Validate input
+            validateGenericNotificationInput(groupId, senderUserId, senderUserName, notificationType, title, message);
+            
+            // Get all active group members except the sender user
+            List<GroupMember> activeMembers = groupMemberRepository.findByGroupAndStatusAndUserIdNot(
+                groupId, GroupMemberStatus.ACTIVE, senderUserId);
+            
+            if (activeMembers.isEmpty()) {
+                logger.warn("No active members found for group: {} (excluding sender user: {})", groupId, senderUserId);
+                return;
+            }
+            
+            // Get sender user
+            Optional<User> senderUserOpt = userRepository.findById(senderUserId);
+            if (senderUserOpt.isEmpty()) {
+                logger.warn("Sender user not found: {}", senderUserId);
+                return;
+            }
+            User senderUser = senderUserOpt.get();
+            
+            // Process notifications asynchronously for better performance
+            processNotificationsAsync(activeMembers, senderUser, groupId, notificationType, 
+                                    title, message, linkToEntity, senderUserName);
+            
+            logger.info("Successfully initiated notification to {} group members (excluding sender user)", 
+                activeMembers.size());
+            
+        } catch (Exception e) {
+            logger.error("Error sending notification for group: {}, user: {}, type: {}", 
+                groupId, senderUserId, notificationType, e);
+            throw e;
         }
     }
 } 

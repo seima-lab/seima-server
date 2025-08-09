@@ -25,6 +25,7 @@ public enum NotificationType {
     BUDGET_LIMIT_WARNING("BUDGET_LIMIT_WARNING", "Budget limit warning"),
     BUDGET_CREATED("BUDGET_CREATED", "Budget created"),
     BUDGET_UPDATED("BUDGET_UPDATED", "Budget updated"),
+    BUDGET_LIMIT_REACHED("BUDGET_LIMIT_REACHED", "Budget limit reached"),
     
     // System notifications
     SYSTEM_MAINTENANCE("SYSTEM_MAINTENANCE", "System maintenance"),

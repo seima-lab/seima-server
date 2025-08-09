@@ -6,10 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import vn.fpt.seima.seimaserver.dto.response.budget.FinancialHealthResponse;
 import vn.fpt.seima.seimaserver.entity.*;
-import vn.fpt.seima.seimaserver.repository.BudgetRepository;
-import vn.fpt.seima.seimaserver.repository.NotificationRepository;
-import vn.fpt.seima.seimaserver.repository.TransactionRepository;
-import vn.fpt.seima.seimaserver.repository.UserDeviceRepository;
+import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.*;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
@@ -33,6 +30,7 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
     private static final String TITLE = "Financial Health Notification";
     private static final String MESSAGE = "Your financial health is currently low. Consider reviewing your expenses.";
     private final ObjectMapper objectMapper;
+    private final BudgetPeriodRepository budgetPeriodRepository;
 
     /**
      * @return FinancialHealthResponse
@@ -72,38 +70,24 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
                 savingScore = 0;
             }
         }
+        log.info("savingScore : {}", savingScore);
         List<Budget> budgets = budgetRepository.findByUserId(currentUser.getUserId());
-        int compliantBudgets = 0;
+        int budgetScore = 0;
 
         for (Budget budget : budgets) {
-            for (BudgetCategoryLimit categoryLimit : budget.getBudgetCategoryLimits()) {
-                List<Integer> categoriesId = List.of(categoryLimit.getCategory().getCategoryId());
-                BigDecimal actualSpent = transactionRepository.sumExpensesByCategoryAndMonth(
-                        currentUser.getUserId(),
-                        categoriesId,
-                        dateFrom.atStartOfDay(),
-                        dateTo.atTime(23, 59, 59)
-                );
-
-                BigDecimal limitAmount = budget.getOverallAmountLimit();
-
-                if (actualSpent == null || actualSpent.compareTo(limitAmount) <= 0) {
-                    compliantBudgets++;
-                }
+            int count = budgetPeriodRepository.countNegativeRemaining(budget, BudgetPeriodStatus.ACTIVE);
+            if (count > 0) {
+                budgetScore++;
             }
         }
-        int budgetScore = 0;
-        if (!budgets.isEmpty()) {
-            BigDecimal rate = BigDecimal.valueOf(compliantBudgets)
-                    .divide(BigDecimal.valueOf(budgets.size()), 2, RoundingMode.HALF_UP);
-            budgetScore = rate.multiply(BigDecimal.valueOf(30)).intValue();
 
-            if (budgetScore > 30) {
-                budgetScore = 30;
-            } else if (budgetScore < 0) {
-                budgetScore = 0;
-            }
+        budgetScore = 30 - (int) (((double) budgetScore / budgets.size()) * 30);
+        if (budgetScore > 30) {
+            budgetScore = 30;
+        } else if (budgetScore < 0) {
+            budgetScore = 0;
         }
+        log.info("budgetScore : {}", budgetScore);
 
         // 3. So sánh với tháng trước
         LocalDate prevMonthStart = dateFrom.minusMonths(1);
@@ -156,6 +140,7 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
         } else if (diffPercent.compareTo(BigDecimal.ZERO) > 0) {
             assetScore = 10; // tăng < 50%
         }
+        log.info("assetScore : {}", assetScore);
 
         int finalScore = savingScore + budgetScore + assetScore;
         List<Integer> userIds = Collections.singletonList(currentUser.getUserId());
