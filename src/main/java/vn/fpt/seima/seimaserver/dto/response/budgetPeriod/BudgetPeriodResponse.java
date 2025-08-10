@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 
 @Data
 public class BudgetPeriodResponse {
+    private String budgetName;
     private Integer periodIndex;
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
 

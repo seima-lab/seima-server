@@ -142,7 +142,7 @@ public class BudgetController {
             @RequestParam(defaultValue = "10") int size) {
         try {
             Pageable pageable = PageRequest.of(page, size);
-            Page<BudgetResponse> budgets = budgetService.getBudgetsByCategories(request.getCategoryIds(), pageable);
+            Page<BudgetResponse> budgets = budgetService.getBudgetsByContainsCategories(request.getCategoryIds(), pageable);
 
             return new ApiResponse<>(HttpStatus.OK.value(), "Budgets by categories retrieved successfully", budgets);
         } catch (IllegalArgumentException ex) {
