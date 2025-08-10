@@ -8,6 +8,7 @@ import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.WalletException;
 import vn.fpt.seima.seimaserver.mapper.WalletMapper;
+import vn.fpt.seima.seimaserver.repository.TransactionRepository;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.repository.WalletRepository;
 import vn.fpt.seima.seimaserver.repository.WalletTypeRepository;
@@ -27,6 +28,7 @@ public class WalletServiceImpl implements WalletService {
     private final UserRepository userRepository;
     private final WalletTypeRepository walletTypeRepository;
     private final WalletMapper walletMapper;
+    private final TransactionRepository transactionRepository;
 
     @Override
     public WalletResponse createWallet(CreateWalletRequest request) {
@@ -89,7 +91,6 @@ public class WalletServiceImpl implements WalletService {
     @Override
     public WalletResponse updateWallet(Integer id, CreateWalletRequest request) {
         User currentUser = getCurrentUser();
-        
         Wallet existingWallet = walletRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new WalletException("Wallet not found with id: " + id));
         validateUserOwnership(currentUser.getUserId(), existingWallet);
@@ -110,6 +111,10 @@ public class WalletServiceImpl implements WalletService {
         }
 
         // Update currency code if provided
+        BigDecimal income = transactionRepository.sumIncomeWallet(id, currentUser.getUserId());
+        BigDecimal expense = transactionRepository.sumExpenseWallet(id, currentUser.getUserId());
+
+        existingWallet.setCurrentBalance(existingWallet.getInitialBalance().add(income).subtract(expense));
         if (request.getCurrencyCode() != null && !request.getCurrencyCode().trim().isEmpty()) {
             existingWallet.setCurrencyCode(request.getCurrencyCode());
         }

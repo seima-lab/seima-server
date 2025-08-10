@@ -134,5 +134,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
     List<Transaction> listTransactionByAllWallet(@Param("walletId")Integer walletId,
                                               @Param("userId") Integer userId
                                              );
+
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.user.userId = :userId AND " +
+            "t.transactionType = 'EXPENSE' AND t.wallet.id in :walletId AND " +
+            "t.group is null")
+    BigDecimal sumExpenseWallet(@Param("walletId") Integer walletId, @Param("userId") Integer userId);
+
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.user.userId = :userId AND " +
+            "t.transactionType = 'INCOME' AND t.wallet.id in :walletId AND " +
+            "t.group is null")
+    BigDecimal sumIncomeWallet(@Param("walletId") Integer walletId, @Param("userId") Integer userId);
 }
 
