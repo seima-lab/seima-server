@@ -47,8 +47,6 @@ public class BudgetServiceImpl implements BudgetService {
     private FcmService fcmService;
     private UserDeviceRepository userDeviceRepository;
     private NotificationRepository notificationRepository;
-    private static final String TITLE = "Budget Notification";
-    private static final String MESSAGE = "Your spending has exceeded the set threshold. Please review your expenses.";
 
     @Override
     public Page<BudgetResponse> getAllBudget(Pageable pageable) {
@@ -312,23 +310,27 @@ public class BudgetServiceImpl implements BudgetService {
                 BigDecimal limit = budgetPeriod.getAmountLimit();
                 if(type.equals("EXPENSE")) {
                     if (remaining.compareTo(BigDecimal.ZERO) < 0) {
-                        title = "Budget Exceeded!";
-                        message = "You have exceeded your budget limit.";
+                        // >100%
+                        title = "Budget warning";
+                        message = "Your budget has exceeded the limit for this period.";
                         notificationType = NotificationType.BUDGET_LIMIT_EXCEEDED;
+
                     } else if (remaining.compareTo(BigDecimal.ZERO) == 0) {
-                        title = "Budget Depleted!";
-                        message = "You have fully used your budget for this period.";
+                        // =100%
+                        title = "Budget warning";
+                        message = "Your budget has reached the limit for this period.";
                         notificationType = NotificationType.BUDGET_LIMIT_REACHED;
+
                     } else {
                         BigDecimal warningThreshold = limit.multiply(BigDecimal.valueOf(0.1));
                         if (remaining.compareTo(warningThreshold) < 0) {
-                            title = "Budget Running Low!";
-                            message = "Only 10% of your budget remains. Spend wisely.";
+                            // 90% < x < 100%
+                            title = "Budget warning";
+                            message = "Your budget is nearing the limit for this period.";
                             notificationType = NotificationType.BUDGET_LIMIT_WARNING;
                         }
                     }
                 }
-
             }
 
             budgetPeriodRepository.saveAll(budgetPeriods);
