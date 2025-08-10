@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import vn.fpt.seima.seimaserver.dto.response.category.CategoryResponse;
+import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
 import vn.fpt.seima.seimaserver.entity.Category;
 
 import java.math.BigDecimal;
@@ -35,4 +36,6 @@ public class BudgetResponse {
     private LocalDateTime createdAt;
 
     private List<CategoryResponse> categories;
+    private List<WalletResponse> wallets;
+
 }

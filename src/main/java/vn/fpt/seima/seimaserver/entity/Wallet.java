@@ -1,13 +1,17 @@
 package vn.fpt.seima.seimaserver.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Set;
 
 @Getter
 @Setter 
@@ -73,6 +77,10 @@ public class Wallet {
     @JoinColumn(name = "wallet_type_id", nullable = false)
     private WalletType walletType;
 
-
+    @OneToMany(mappedBy = "wallet", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @JsonIgnore
+    private Set<BudgetWallet> budgetWallets;
 
 }
