@@ -435,7 +435,8 @@ public class BudgetServiceImpl implements BudgetService {
     
 
     @Override
-    public Page<BudgetResponse> getBudgetsByCategories(List<Integer> categoryIds, Pageable pageable) {
+    @Override
+    public Page<BudgetResponse> getBudgetsByContainsCategories(List<Integer> categoryIds, Pageable pageable) {
         User user = UserUtils.getCurrentUser();
         if (user == null) {
             throw new IllegalArgumentException("User must not be null");
@@ -444,7 +445,9 @@ public class BudgetServiceImpl implements BudgetService {
             throw new IllegalArgumentException("Category ids must not be empty");
         }
 
-        Page<Budget> budgets = budgetRepository.findByUserIdAndCategoryIds(user.getUserId(), categoryIds, pageable);
+        Page<Budget> budgets = budgetRepository.findByUserIdAndContainsAllCategoryIds(
+                user.getUserId(), categoryIds, categoryIds.size(), pageable
+        );
         return budgets.map(budgetMapper::toResponse);
     }
 
