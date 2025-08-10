@@ -31,9 +31,12 @@ public interface BudgetRepository extends JpaRepository<Budget, Integer> {
     @Query(value = "DELETE FROM budget WHERE budget_id = :budgetId", nativeQuery = true)
     void deleteBudget(@Param("budgetId") Integer budgetId);
 
-    @Query("SELECT DISTINCT b FROM Budget b JOIN b.budgetCategoryLimits bcl " +
-            "WHERE b.user.userId = :userId AND bcl.category.categoryId IN :categoryIds")
-    Page<Budget> findByUserIdAndCategoryIds(@Param("userId") Integer userId,
-                                            @Param("categoryIds") List<Integer> categoryIds,
-                                            Pageable pageable);
+    @Query("SELECT b FROM Budget b " +
+            "WHERE b.user.userId = :userId " +
+            "AND (SELECT COUNT(DISTINCT bcl.category.categoryId) FROM BudgetCategoryLimit bcl " +
+                 "WHERE bcl.budget = b AND bcl.category.categoryId IN :categoryIds) = :categoryCount")
+    Page<Budget> findByUserIdAndContainsAllCategoryIds(@Param("userId") Integer userId,
+                                                       @Param("categoryIds") List<Integer> categoryIds,
+                                                       @Param("categoryCount") long categoryCount,
+                                                       Pageable pageable);
 }

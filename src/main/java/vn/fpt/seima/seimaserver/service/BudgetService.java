@@ -28,5 +28,5 @@ public interface BudgetService {
 
     Page<BudgetResponse> getBudgetByName(String budgetName, Pageable pageable);
 
-    Page<BudgetResponse> getBudgetsByCategories(List<Integer> categoryIds, Pageable pageable);
+    Page<BudgetResponse> getBudgetsByContainsCategories(List<Integer> categoryIds, Pageable pageable);
 }
