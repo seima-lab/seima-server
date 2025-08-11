@@ -46,6 +46,9 @@ class NotificationServiceTest {
     @Mock
     private FcmService fcmService;
 
+    @Mock
+    private NotificationCacheService notificationCacheService;
+
     @InjectMocks
     private NotificationServiceImpl notificationService;
 
@@ -171,6 +174,7 @@ class NotificationServiceTest {
         Integer userId = 1;
         long expectedCount = 5L;
         when(userRepository.existsById(userId)).thenReturn(true);
+        when(notificationCacheService.getUnreadCountFromCache(userId)).thenReturn(null); // Cache miss
         when(notificationRepository.countUnreadByReceiverId(userId)).thenReturn(expectedCount);
 
         // When
@@ -179,7 +183,9 @@ class NotificationServiceTest {
         // Then
         assertEquals(expectedCount, result);
         verify(userRepository).existsById(userId);
+        verify(notificationCacheService).getUnreadCountFromCache(userId);
         verify(notificationRepository).countUnreadByReceiverId(userId);
+        verify(notificationCacheService).setUnreadCountInCache(userId, expectedCount);
     }
 
     @Test
@@ -195,6 +201,66 @@ class NotificationServiceTest {
         );
         assertEquals("User not found with id: " + userId, exception.getMessage());
         verify(userRepository).existsById(userId);
+    }
+
+    @Test
+    void getUnreadNotificationCount_WhenCacheHit_ShouldReturnCachedValue() {
+        // Given
+        Integer userId = 1;
+        long cachedCount = 3L;
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(notificationCacheService.getUnreadCountFromCache(userId)).thenReturn(cachedCount);
+
+        // When
+        long result = notificationService.getUnreadNotificationCount(userId);
+
+        // Then
+        assertEquals(cachedCount, result);
+        verify(userRepository).existsById(userId);
+        verify(notificationCacheService).getUnreadCountFromCache(userId);
+        verify(notificationRepository, never()).countUnreadByReceiverId(any());
+        verify(notificationCacheService, never()).setUnreadCountInCache(any(), any());
+    }
+
+    @Test
+    void getUnreadNotificationCount_WhenCacheError_ShouldFallbackToDatabase() {
+        // Given
+        Integer userId = 1;
+        long dbCount = 5L;
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(notificationCacheService.getUnreadCountFromCache(userId)).thenThrow(new RuntimeException("Cache error"));
+        when(notificationRepository.countUnreadByReceiverId(userId)).thenReturn(dbCount);
+
+        // When
+        long result = notificationService.getUnreadNotificationCount(userId);
+
+        // Then
+        assertEquals(dbCount, result);
+        verify(userRepository).existsById(userId);
+        verify(notificationCacheService).getUnreadCountFromCache(userId);
+        verify(notificationRepository).countUnreadByReceiverId(userId);
+        verify(notificationCacheService).setUnreadCountInCache(userId, dbCount);
+    }
+
+    @Test
+    void getUnreadNotificationCount_WhenSetCacheError_ShouldStillReturnCount() {
+        // Given
+        Integer userId = 1;
+        long dbCount = 5L;
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(notificationCacheService.getUnreadCountFromCache(userId)).thenReturn(null);
+        when(notificationRepository.countUnreadByReceiverId(userId)).thenReturn(dbCount);
+        doThrow(new RuntimeException("Set cache error")).when(notificationCacheService).setUnreadCountInCache(userId, dbCount);
+
+        // When
+        long result = notificationService.getUnreadNotificationCount(userId);
+
+        // Then
+        assertEquals(dbCount, result);
+        verify(userRepository).existsById(userId);
+        verify(notificationCacheService).getUnreadCountFromCache(userId);
+        verify(notificationRepository).countUnreadByReceiverId(userId);
+        verify(notificationCacheService).setUnreadCountInCache(userId, dbCount);
     }
 
     // Tests for markNotificationAsRead
@@ -213,6 +279,7 @@ class NotificationServiceTest {
         assertTrue(result);
         verify(userRepository).existsById(userId);
         verify(notificationRepository).markAsReadById(notificationId, userId);
+        verify(notificationCacheService).decrementUnreadCount(userId);
     }
 
     @Test
@@ -230,6 +297,7 @@ class NotificationServiceTest {
         assertFalse(result);
         verify(userRepository).existsById(userId);
         verify(notificationRepository).markAsReadById(notificationId, userId);
+        verify(notificationCacheService, never()).decrementUnreadCount(any());
     }
 
     @Test
@@ -284,6 +352,7 @@ class NotificationServiceTest {
         assertEquals(expectedCount, result);
         verify(userRepository).existsById(userId);
         verify(notificationRepository).markAllAsReadByReceiverId(userId);
+        verify(notificationCacheService).resetUnreadCount(userId);
     }
 
     @Test
@@ -327,6 +396,7 @@ class NotificationServiceTest {
         assertTrue(result);
         verify(userRepository).existsById(userId);
         verify(notificationRepository).deleteByIdAndReceiverId(notificationId, userId);
+        verify(notificationCacheService).decrementUnreadCount(userId);
     }
 
     @Test
@@ -344,6 +414,7 @@ class NotificationServiceTest {
         assertFalse(result);
         verify(userRepository).existsById(userId);
         verify(notificationRepository).deleteByIdAndReceiverId(notificationId, userId);
+        verify(notificationCacheService, never()).decrementUnreadCount(any());
     }
 
     @Test
@@ -398,6 +469,7 @@ class NotificationServiceTest {
         assertEquals(expectedCount, result);
         verify(userRepository).existsById(userId);
         verify(notificationRepository).deleteAllByReceiverId(userId);
+        verify(notificationCacheService).resetUnreadCount(userId);
     }
 
     @Test
@@ -452,6 +524,7 @@ class NotificationServiceTest {
         // Then
         verify(groupMemberRepository).findAdminAndOwnerMembers(groupId, GroupMemberStatus.ACTIVE);
         verify(userRepository).findById(senderUserId);
+        verify(notificationCacheService).incrementUnreadCount(testUser.getUserId());
     }
 
     @Test

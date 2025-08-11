@@ -31,6 +31,8 @@ public interface NotificationService {
 
 
     long getUnreadNotificationCount(Integer userId);
+    
+
 
 
     boolean deleteNotification(Integer notificationId, Integer userId);
