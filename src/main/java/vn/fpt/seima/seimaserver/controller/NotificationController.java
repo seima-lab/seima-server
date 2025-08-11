@@ -28,13 +28,6 @@ public class NotificationController {
 
     /**
      * Get notifications with pagination and filtering
-     * @param page page number (default: 0)
-     * @param size page size (default: 10)
-     * @param isRead filter by read status (null = all)
-     * @param type filter by notification type (null = all)
-     * @param startDate filter by start date (null = no start limit)
-     * @param endDate filter by end date (null = no end limit)
-     * @return ApiResponse containing paginated notifications
      */
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
@@ -113,6 +106,8 @@ public class NotificationController {
                     .build();
         }
     }
+    
+
     
 
     @PutMapping("/{notificationId}/read")

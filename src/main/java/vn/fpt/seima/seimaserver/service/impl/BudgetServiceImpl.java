@@ -454,4 +454,22 @@ public class BudgetServiceImpl implements BudgetService {
         return budgets.map(budgetMapper::toResponse);
     }
 
+    
+
+    @Override
+    public Page<BudgetResponse> getBudgetsByContainsCategories(List<Integer> categoryIds, Pageable pageable) {
+        User user = UserUtils.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            throw new IllegalArgumentException("Category ids must not be empty");
+        }
+
+        Page<Budget> budgets = budgetRepository.findByUserIdAndContainsAllCategoryIds(
+                user.getUserId(), categoryIds, categoryIds.size(), pageable
+        );
+        return budgets.map(budgetMapper::toResponse);
+    }
+
 }
