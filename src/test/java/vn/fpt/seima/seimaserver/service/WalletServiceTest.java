@@ -14,16 +14,14 @@ import vn.fpt.seima.seimaserver.entity.Wallet;
 import vn.fpt.seima.seimaserver.entity.WalletType;
 import vn.fpt.seima.seimaserver.exception.WalletException;
 import vn.fpt.seima.seimaserver.mapper.WalletMapper;
-import vn.fpt.seima.seimaserver.repository.TransactionRepository;
-import vn.fpt.seima.seimaserver.repository.UserRepository;
-import vn.fpt.seima.seimaserver.repository.WalletRepository;
-import vn.fpt.seima.seimaserver.repository.WalletTypeRepository;
+import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.impl.WalletServiceImpl;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -48,6 +46,8 @@ class WalletServiceTest {
 
     @Mock
     private TransactionRepository transactionRepository;
+    @Mock
+    private BudgetWalletRepository budgetWalletRepository;
 
     @InjectMocks
     private WalletServiceImpl walletService;
@@ -2309,105 +2309,117 @@ class WalletServiceTest {
 
     @Test
     void deleteWallet_Success_SoftDeletesWallet() {
-        // Given
-        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+        try (MockedStatic<UserUtils> mocked = mockStatic(UserUtils.class)) {
+            mocked.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
 
-            // When
             walletService.deleteWallet(1);
 
-            // Then
-            assertTrue(testWallet.getIsDeleted());
-            assertNotNull(testWallet.getDeletedAt());
+            assertTrue(testWallet.getIsDeleted(), "Wallet should be marked as deleted");
+            assertNotNull(testWallet.getDeletedAt(), "DeletedAt should be set");
+
             verify(walletRepository).findByIdAndNotDeleted(1);
             verify(walletRepository).save(testWallet);
+            verifyNoMoreInteractions(walletRepository);
         }
     }
 
     @Test
     void deleteWallet_Success_DeletesDefaultWallet() {
-        // Given
         testWallet.setIsDefault(true);
 
-        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+        try (MockedStatic<UserUtils> mocked = mockStatic(UserUtils.class)) {
+            mocked.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
 
-            // When
             walletService.deleteWallet(1);
 
-            // Then
-            assertTrue(testWallet.getIsDeleted());
-            assertNotNull(testWallet.getDeletedAt());
+            assertTrue(testWallet.getIsDeleted(), "Wallet should be marked as deleted");
+            assertNotNull(testWallet.getDeletedAt(), "DeletedAt should be set");
+            assertTrue(testWallet.getIsDefault(), "Wallet should remain default");
+
             verify(walletRepository).findByIdAndNotDeleted(1);
             verify(walletRepository).save(testWallet);
+            verifyNoMoreInteractions(walletRepository);
         }
     }
+
+
 
     @Test
     void deleteWallet_Success_DeletesNonDefaultWallet() {
         // Given
         testWallet.setIsDefault(false);
 
-        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+        try (MockedStatic<UserUtils> mocked = mockStatic(UserUtils.class)) {
+            mocked.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
 
             // When
             walletService.deleteWallet(1);
 
             // Then
-            assertTrue(testWallet.getIsDeleted());
-            assertNotNull(testWallet.getDeletedAt());
-            assertFalse(testWallet.getIsDefault()); // Should remain false
+            assertTrue(testWallet.getIsDeleted(), "Wallet should be marked as deleted");
+            assertNotNull(testWallet.getDeletedAt(), "DeletedAt should be set");
+            assertFalse(testWallet.getIsDefault(), "Wallet should remain non-default");
+
             verify(walletRepository).findByIdAndNotDeleted(1);
             verify(walletRepository).save(testWallet);
+            verifyNoMoreInteractions(walletRepository);
         }
     }
+
 
     @Test
     void deleteWallet_Success_DeletesWalletWithZeroBalance() {
         // Given
         testWallet.setCurrentBalance(BigDecimal.ZERO);
 
-        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+        try (MockedStatic<UserUtils> mocked = mockStatic(UserUtils.class)) {
+            mocked.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
 
             // When
             walletService.deleteWallet(1);
 
             // Then
-            assertTrue(testWallet.getIsDeleted());
-            assertNotNull(testWallet.getDeletedAt());
-            assertEquals(BigDecimal.ZERO, testWallet.getCurrentBalance());
+            assertTrue(testWallet.getIsDeleted(), "Wallet should be marked as deleted");
+            assertNotNull(testWallet.getDeletedAt(), "DeletedAt should be set");
+            assertEquals(BigDecimal.ZERO, testWallet.getCurrentBalance(), "Balance should remain unchanged");
+
             verify(walletRepository).findByIdAndNotDeleted(1);
             verify(walletRepository).save(testWallet);
+            verifyNoMoreInteractions(walletRepository);
         }
     }
+
 
     @Test
     void deleteWallet_Success_DeletesWalletWithLargeBalance() {
         // Given
         BigDecimal largeBalance = new BigDecimal("999999999.99");
         testWallet.setCurrentBalance(largeBalance);
+        testWallet.setIsDefault(false);
+        testWallet.setExcludeFromTotal(false);
 
-        try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
-            userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
+        try (MockedStatic<UserUtils> mocked = mockStatic(UserUtils.class)) {
+            mocked.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
 
             // When
             walletService.deleteWallet(1);
 
             // Then
-            assertTrue(testWallet.getIsDeleted());
-            assertNotNull(testWallet.getDeletedAt());
-            assertEquals(largeBalance, testWallet.getCurrentBalance());
+            assertTrue(testWallet.getIsDeleted(), "Wallet should be marked as deleted");
+            assertNotNull(testWallet.getDeletedAt(), "DeletedAt timestamp should be set");
+            assertEquals(largeBalance, testWallet.getCurrentBalance(), "Balance should remain unchanged");
+
             verify(walletRepository).findByIdAndNotDeleted(1);
             verify(walletRepository).save(testWallet);
+            verifyNoMoreInteractions(walletRepository);
         }
     }
+
 
     @Test
     void deleteWallet_Success_DeletesExcludedFromTotalWallet() {
@@ -2418,6 +2430,14 @@ class WalletServiceTest {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
 
+            // Mock các call khác để tránh lỗi khi chạy service
+            doNothing().when(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            when(transactionRepository.listTransactionByAllWallet(1, testUser.getUserId()))
+                    .thenReturn(Collections.emptyList());
+            when(transactionRepository.saveAll(Collections.emptyList()))
+                    .thenReturn(Collections.emptyList());
+            when(walletRepository.save(testWallet)).thenReturn(testWallet);
+
             // When
             walletService.deleteWallet(1);
 
@@ -2425,10 +2445,15 @@ class WalletServiceTest {
             assertTrue(testWallet.getIsDeleted());
             assertNotNull(testWallet.getDeletedAt());
             assertTrue(testWallet.getExcludeFromTotal()); // Should remain true
+
             verify(walletRepository).findByIdAndNotDeleted(1);
+            verify(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            verify(transactionRepository).listTransactionByAllWallet(1, testUser.getUserId());
+            verify(transactionRepository).saveAll(Collections.emptyList());
             verify(walletRepository).save(testWallet);
         }
     }
+
 
     @Test
     void deleteWallet_Success_VerifyTimestampIsSet() {
@@ -2439,16 +2464,33 @@ class WalletServiceTest {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
 
+            // Mock các call khác để tránh NullPointer
+            doNothing().when(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            when(transactionRepository.listTransactionByAllWallet(1, testUser.getUserId()))
+                    .thenReturn(Collections.emptyList());
+            when(transactionRepository.saveAll(Collections.emptyList()))
+                    .thenReturn(Collections.emptyList());
+            when(walletRepository.save(testWallet)).thenReturn(testWallet);
+
             // When
             walletService.deleteWallet(1);
 
             // Then
             assertTrue(testWallet.getIsDeleted());
             assertNotNull(testWallet.getDeletedAt());
-            assertTrue(testWallet.getDeletedAt().isAfter(beforeDelete) || testWallet.getDeletedAt().equals(beforeDelete));
+            assertTrue(
+                    testWallet.getDeletedAt().isAfter(beforeDelete) ||
+                            testWallet.getDeletedAt().equals(beforeDelete)
+            );
+
+            verify(walletRepository).findByIdAndNotDeleted(1);
+            verify(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            verify(transactionRepository).listTransactionByAllWallet(1, testUser.getUserId());
+            verify(transactionRepository).saveAll(Collections.emptyList());
             verify(walletRepository).save(testWallet);
         }
     }
+
 
     @Test
     void deleteWallet_ThrowsException_WhenCurrentUserIsNull() {
@@ -2605,11 +2647,18 @@ class WalletServiceTest {
 
     @Test
     void deleteWallet_ThrowsException_WhenRepositoryThrowsException() {
-        // Given
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
+            // Given
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
-            when(walletRepository.save(testWallet)).thenThrow(new RuntimeException("Database error"));
+
+            // Giả lập list transaction rỗng để skip setTransactionType
+            when(transactionRepository.listTransactionByAllWallet(1, testUser.getUserId()))
+                    .thenReturn(Collections.emptyList());
+
+            // Mock lỗi khi save wallet
+            when(walletRepository.save(testWallet))
+                    .thenThrow(new RuntimeException("Database error"));
 
             // When & Then
             RuntimeException exception = assertThrows(
@@ -2617,11 +2666,16 @@ class WalletServiceTest {
                     () -> walletService.deleteWallet(1)
             );
             assertEquals("Database error", exception.getMessage());
-            
+
+            // Verify các call cần thiết
             verify(walletRepository).findByIdAndNotDeleted(1);
+            verify(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            verify(transactionRepository).listTransactionByAllWallet(1, testUser.getUserId());
+            verify(transactionRepository).saveAll(Collections.emptyList());
             verify(walletRepository).save(testWallet);
         }
     }
+
 
     @Test
     void deleteWallet_ThrowsException_WhenRepositoryFindThrowsException() {

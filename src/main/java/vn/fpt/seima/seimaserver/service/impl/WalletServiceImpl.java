@@ -3,15 +3,13 @@ package vn.fpt.seima.seimaserver.service.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.wallet.CreateWalletRequest;
 import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.WalletException;
 import vn.fpt.seima.seimaserver.mapper.WalletMapper;
-import vn.fpt.seima.seimaserver.repository.TransactionRepository;
-import vn.fpt.seima.seimaserver.repository.UserRepository;
-import vn.fpt.seima.seimaserver.repository.WalletRepository;
-import vn.fpt.seima.seimaserver.repository.WalletTypeRepository;
+import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.WalletService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
@@ -29,6 +27,7 @@ public class WalletServiceImpl implements WalletService {
     private final WalletTypeRepository walletTypeRepository;
     private final WalletMapper walletMapper;
     private final TransactionRepository transactionRepository;
+    private final BudgetWalletRepository budgetWalletRepository;
 
     @Override
     public WalletResponse createWallet(CreateWalletRequest request) {
@@ -124,15 +123,25 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
+    @Transactional
     public void deleteWallet(Integer id) {
         User currentUser = getCurrentUser();
         
         Wallet wallet = walletRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new WalletException("Wallet not found with id: " + id));
         validateUserOwnership(currentUser.getUserId(), wallet);
-        
+
         wallet.setIsDeleted(true);
         wallet.setDeletedAt(Instant.now());
+        budgetWalletRepository.deleteBudgetWalletByWallet(id);
+        List<Transaction> transactions = transactionRepository.listTransactionByAllWallet(id, currentUser.getUserId());
+        if (!transactions.isEmpty()) {
+            transactions.forEach(transaction -> {
+                transaction.setTransactionType(TransactionType.INACTIVE);
+            });
+
+        }
+        transactionRepository.saveAll(transactions);
         walletRepository.save(wallet);
     }
 
