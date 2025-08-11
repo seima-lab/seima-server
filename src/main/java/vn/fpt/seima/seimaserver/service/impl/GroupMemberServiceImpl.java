@@ -45,6 +45,9 @@ public class GroupMemberServiceImpl implements GroupMemberService {
     @Autowired
     private  AppProperties appProperties;
 
+    @Value("${app.client.baseUrl}")
+    private String appBaseUrl;
+
     @Value("${app.email.group-rejection.html-template}")
     private String groupRejectionHtmlTemplate;
 
@@ -1271,14 +1274,19 @@ public class GroupMemberServiceImpl implements GroupMemberService {
             Long memberCount = groupMemberRepository.countActiveGroupMembers(
                     group.getGroupId(), GroupMemberStatus.ACTIVE);
 
-            // Prepare email context
-            Context context = new Context();
-            context.setVariable("acceptedUserName", acceptedUser.getUserFullName());
-            context.setVariable("acceptedByUserName", acceptedByUser.getUserFullName());
-            context.setVariable("groupName", group.getGroupName());
-            context.setVariable("groupAvatarUrl", group.getGroupAvatarUrl());
-            context.setVariable("memberCount", memberCount.intValue());
-            context.setVariable("appName", appProperties.getLabName());
+                    // Prepare email context
+        Context context = new Context();
+        context.setVariable("acceptedUserName", acceptedUser.getUserFullName());
+        context.setVariable("acceptedByUserName", acceptedByUser.getUserFullName());
+        context.setVariable("groupName", group.getGroupName());
+        context.setVariable("groupAvatarUrl", group.getGroupAvatarUrl());
+        context.setVariable("memberCount", memberCount.intValue());
+        context.setVariable("appName", appProperties.getLabName());
+        
+        // Create group link with user and group parameters
+        String groupLink = String.format("%s/group?userId=%d&groupId=%d", 
+                appBaseUrl, acceptedUser.getUserId(), group.getGroupId());
+        context.setVariable("groupLink", groupLink);
 
             // Send email
             String subject = String.format("Welcome to '%s' group on %s", 

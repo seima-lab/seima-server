@@ -32,7 +32,7 @@ public class GroupInvitationWebController {
         try {
             // Call service to process invitation token and handle business logic
             GroupInvitationLandingResponse response = groupInvitationService.processInvitationToken(inviteToken);
-            int x= 1;
+         
             switch (response.getResultType()) {
                 // Các trường hợp này cần chuyển hướng người dùng đến deep link của Branch
                 case STATUS_CHANGE_TO_PENDING_APPROVAL:
@@ -59,4 +59,6 @@ public class GroupInvitationWebController {
             return "error_invalid_invitation"; // Return static error page for any unexpected error
         }
     }
+
+
 } 
