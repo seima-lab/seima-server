@@ -6,9 +6,8 @@ import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.request.budget.UpdateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
 import vn.fpt.seima.seimaserver.dto.response.category.CategoryResponse;
-import vn.fpt.seima.seimaserver.entity.Budget;
-import vn.fpt.seima.seimaserver.entity.BudgetCategoryLimit;
-import vn.fpt.seima.seimaserver.entity.Category;
+import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
+import vn.fpt.seima.seimaserver.entity.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +23,7 @@ public interface BudgetMapper {
     Budget toEntity(CreateBudgetRequest request);
 
     @Mapping(target = "categories", expression = "java(mapCategories(budget.getBudgetCategoryLimits()))")
+    @Mapping(target = "wallets", expression = "java(mapWallets(budget.getBudgetWallets()))")
     BudgetResponse toResponse(Budget budget);
 
     @Mapping(target = "budgetId", ignore = true)
@@ -40,6 +40,21 @@ public interface BudgetMapper {
                     res.setCategoryId(cat.getCategoryId());
                     res.setCategoryName(cat.getCategoryName());
                     res.setCategoryIconUrl(cat.getCategoryIconUrl());
+                    return res;
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    default List<WalletResponse> mapWallets(Set<BudgetWallet> limits) {
+        if (limits == null) return new ArrayList<>();
+        return limits.stream()
+                .map(limit -> {
+                    Wallet cat = limit.getWallet();
+                    if (cat == null) return null;
+                    WalletResponse res = new WalletResponse();
+                    res.setId(cat.getId());
+                    res.setWalletName(cat.getWalletName());
                     return res;
                 })
                 .filter(Objects::nonNull)

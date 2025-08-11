@@ -16,11 +16,14 @@ public interface WalletMapper {
     @Mapping(target = "currentBalance", source = "balance")
     @Mapping(target = "bankName", source = "bankName")
     @Mapping(target = "iconUrl", source = "iconUrl")
+    @Mapping(target = "initialBalance", source = "initialBalance")
+
     Wallet toEntity(CreateWalletRequest request);
 
     @Mapping(target = "walletTypeName", source = "walletType.typeName")
     @Mapping(target = "bankName", source = "bankName")
     @Mapping(target = "iconUrl", source = "iconUrl")
+    @Mapping(target = "initialBalance", source = "initialBalance")
     WalletResponse toResponse(Wallet wallet);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
@@ -32,5 +35,7 @@ public interface WalletMapper {
     @Mapping(target = "currentBalance", source = "balance")
     @Mapping(target = "bankName", source = "bankName")
     @Mapping(target = "iconUrl", source = "iconUrl")
+    @Mapping(target = "initialBalance", source = "initialBalance")
+
     void updateEntity(@MappingTarget Wallet wallet, CreateWalletRequest request);
 } 
