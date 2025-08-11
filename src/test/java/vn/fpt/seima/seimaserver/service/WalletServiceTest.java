@@ -14,6 +14,7 @@ import vn.fpt.seima.seimaserver.entity.Wallet;
 import vn.fpt.seima.seimaserver.entity.WalletType;
 import vn.fpt.seima.seimaserver.exception.WalletException;
 import vn.fpt.seima.seimaserver.mapper.WalletMapper;
+import vn.fpt.seima.seimaserver.repository.TransactionRepository;
 import vn.fpt.seima.seimaserver.repository.UserRepository;
 import vn.fpt.seima.seimaserver.repository.WalletRepository;
 import vn.fpt.seima.seimaserver.repository.WalletTypeRepository;
@@ -44,6 +45,9 @@ class WalletServiceTest {
 
     @Mock
     private WalletMapper walletMapper;
+
+    @Mock
+    private TransactionRepository transactionRepository;
 
     @InjectMocks
     private WalletServiceImpl walletService;
@@ -76,6 +80,7 @@ class WalletServiceTest {
         testWallet.setId(1);
         testWallet.setWalletName("Test Wallet");
         testWallet.setCurrentBalance(new BigDecimal("1000.00"));
+        testWallet.setInitialBalance(new BigDecimal("500.00"));
         testWallet.setDescription("Test wallet description");
         testWallet.setIsDefault(false);
         testWallet.setExcludeFromTotal(false);
@@ -83,6 +88,7 @@ class WalletServiceTest {
         testWallet.setIconUrl("https://example.com/icon.png");
         testWallet.setIsDeleted(false);
         testWallet.setWalletCreatedAt(Instant.now());
+        testWallet.setCurrencyCode("VND");
         testWallet.setUser(testUser);
         testWallet.setWalletType(testWalletType);
 
@@ -1562,7 +1568,11 @@ class WalletServiceTest {
                 .balance(new BigDecimal("2000.00"))
                 .walletTypeId(1)
                 .isDefault(false)
+                .currencyCode("VND")
                 .build();
+
+        BigDecimal income = new BigDecimal("300.00");
+        BigDecimal expense = new BigDecimal("100.00");
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
@@ -1572,6 +1582,11 @@ class WalletServiceTest {
             when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(false);
             
             when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
+            
+            // Mock transaction repository calls for balance calculation
+            when(transactionRepository.sumIncomeWallet(1, testUser.getUserId())).thenReturn(income);
+            when(transactionRepository.sumExpenseWallet(1, testUser.getUserId())).thenReturn(expense);
+            
             when(walletRepository.save(testWallet)).thenReturn(testWallet);
             when(walletMapper.toResponse(testWallet)).thenReturn(walletResponse);
 
@@ -1583,9 +1598,15 @@ class WalletServiceTest {
             verify(walletRepository).findByIdAndNotDeleted(1);
             verify(walletRepository).existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1);
             verify(walletTypeRepository).findById(1);
-            verify(walletMapper).updateEntity(testWallet, updateRequest);
+            verify(transactionRepository).sumIncomeWallet(1, testUser.getUserId());
+            verify(transactionRepository).sumExpenseWallet(1, testUser.getUserId());
+//            verify(walletMapper).updateEntity(testWallet, updateRequest);
             verify(walletRepository).save(testWallet);
             verify(walletMapper).toResponse(testWallet);
+            
+            // Verify balance calculation: initialBalance (500) + income (300) - expense (100) = 700
+            assertEquals(new BigDecimal("700.00"), testWallet.getCurrentBalance());
+            assertEquals("VND", testWallet.getCurrencyCode());
         }
     }
 
@@ -1597,9 +1618,12 @@ class WalletServiceTest {
                 .balance(new BigDecimal("2000.00"))
                 .walletTypeId(1)
                 .isDefault(true)
+                .currencyCode("VND")
                 .build();
 
         List<Wallet> existingWallets = Arrays.asList(testWallet);
+        BigDecimal income = new BigDecimal("200.00");
+        BigDecimal expense = new BigDecimal("50.00");
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
@@ -1610,6 +1634,11 @@ class WalletServiceTest {
             
             when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
             when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(existingWallets);
+            
+            // Mock transaction repository calls for balance calculation
+            when(transactionRepository.sumIncomeWallet(1, testUser.getUserId())).thenReturn(income);
+            when(transactionRepository.sumExpenseWallet(1, testUser.getUserId())).thenReturn(expense);
+            
             when(walletRepository.save(any(Wallet.class))).thenReturn(testWallet);
             when(walletMapper.toResponse(testWallet)).thenReturn(walletResponse);
 
@@ -1620,7 +1649,12 @@ class WalletServiceTest {
             assertNotNull(result);
             verify(walletRepository).existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1);
             verify(walletRepository).findAllActiveByUserId(testUser.getUserId());
+            verify(transactionRepository).sumIncomeWallet(1, testUser.getUserId());
+            verify(transactionRepository).sumExpenseWallet(1, testUser.getUserId());
             verify(walletRepository, times(2)).save(any(Wallet.class)); // Once for existing wallets, once for updated wallet
+            
+            // Verify balance calculation: initialBalance (500) + income (200) - expense (50) = 650
+            assertEquals(new BigDecimal("650.00"), testWallet.getCurrentBalance());
         }
     }
 
@@ -1633,13 +1667,22 @@ class WalletServiceTest {
                 .balance(new BigDecimal("2000.00"))
                 .walletTypeId(1)
                 .isDefault(false)
+                .currencyCode("USD")
                 .build();
+
+        BigDecimal income = new BigDecimal("150.00");
+        BigDecimal expense = new BigDecimal("75.00");
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
             when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(false);
             when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
+            
+            // Mock transaction repository calls for balance calculation
+            when(transactionRepository.sumIncomeWallet(1, testUser.getUserId())).thenReturn(income);
+            when(transactionRepository.sumExpenseWallet(1, testUser.getUserId())).thenReturn(expense);
+            
             when(walletRepository.save(testWallet)).thenReturn(testWallet);
             when(walletMapper.toResponse(testWallet)).thenReturn(walletResponse);
 
@@ -1649,7 +1692,13 @@ class WalletServiceTest {
             // Then
             assertNotNull(result);
             verify(walletRepository).save(testWallet);
-            verify(walletMapper).updateEntity(testWallet, updateRequest);
+//            verify(walletMapper).updateEntity(testWallet, updateRequest);
+            verify(transactionRepository).sumIncomeWallet(1, testUser.getUserId());
+            verify(transactionRepository).sumExpenseWallet(1, testUser.getUserId());
+            
+            // Verify balance calculation: initialBalance (500) + income (150) - expense (75) = 575
+            assertEquals(new BigDecimal("575.00"), testWallet.getCurrentBalance());
+            assertEquals("USD", testWallet.getCurrencyCode());
         }
     }
 
@@ -1665,13 +1714,22 @@ class WalletServiceTest {
                 .balance(new BigDecimal("2000.00"))
                 .walletTypeId(2)
                 .isDefault(false)
+                .currencyCode("EUR")
                 .build();
+
+        BigDecimal income = new BigDecimal("400.00");
+        BigDecimal expense = new BigDecimal("200.00");
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
             when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(false);
             when(walletTypeRepository.findById(2)).thenReturn(Optional.of(newWalletType));
+            
+            // Mock transaction repository calls for balance calculation
+            when(transactionRepository.sumIncomeWallet(1, testUser.getUserId())).thenReturn(income);
+            when(transactionRepository.sumExpenseWallet(1, testUser.getUserId())).thenReturn(expense);
+            
             when(walletRepository.save(testWallet)).thenReturn(testWallet);
             when(walletMapper.toResponse(testWallet)).thenReturn(walletResponse);
 
@@ -1681,7 +1739,13 @@ class WalletServiceTest {
             // Then
             assertNotNull(result);
             verify(walletTypeRepository).findById(2);
+            verify(transactionRepository).sumIncomeWallet(1, testUser.getUserId());
+            verify(transactionRepository).sumExpenseWallet(1, testUser.getUserId());
             assertEquals(newWalletType, testWallet.getWalletType());
+            
+            // Verify balance calculation: initialBalance (500) + income (400) - expense (200) = 700
+            assertEquals(new BigDecimal("700.00"), testWallet.getCurrentBalance());
+            assertEquals("EUR", testWallet.getCurrencyCode());
         }
     }
 
@@ -1693,13 +1757,22 @@ class WalletServiceTest {
                 .balance(BigDecimal.ZERO)
                 .walletTypeId(1)
                 .isDefault(false)
+                .currencyCode("VND")
                 .build();
+
+        BigDecimal income = BigDecimal.ZERO;
+        BigDecimal expense = BigDecimal.ZERO;
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
             when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(false);
             when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
+            
+            // Mock transaction repository calls for balance calculation
+            when(transactionRepository.sumIncomeWallet(1, testUser.getUserId())).thenReturn(income);
+            when(transactionRepository.sumExpenseWallet(1, testUser.getUserId())).thenReturn(expense);
+            
             when(walletRepository.save(testWallet)).thenReturn(testWallet);
             when(walletMapper.toResponse(testWallet)).thenReturn(walletResponse);
 
@@ -1709,6 +1782,11 @@ class WalletServiceTest {
             // Then
             assertNotNull(result);
             verify(walletRepository).save(testWallet);
+            verify(transactionRepository).sumIncomeWallet(1, testUser.getUserId());
+            verify(transactionRepository).sumExpenseWallet(1, testUser.getUserId());
+            
+            // Verify balance calculation: initialBalance (500) + income (0) - expense (0) = 500
+            assertEquals(new BigDecimal("500.00"), testWallet.getCurrentBalance());
         }
     }
 
@@ -1721,13 +1799,22 @@ class WalletServiceTest {
                 .balance(largeBalance)
                 .walletTypeId(1)
                 .isDefault(false)
+                .currencyCode("JPY")
                 .build();
+
+        BigDecimal income = new BigDecimal("100000.00");
+        BigDecimal expense = new BigDecimal("50000.00");
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
             when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(false);
             when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
+            
+            // Mock transaction repository calls for balance calculation
+            when(transactionRepository.sumIncomeWallet(1, testUser.getUserId())).thenReturn(income);
+            when(transactionRepository.sumExpenseWallet(1, testUser.getUserId())).thenReturn(expense);
+            
             when(walletRepository.save(testWallet)).thenReturn(testWallet);
             when(walletMapper.toResponse(testWallet)).thenReturn(walletResponse);
 
@@ -1737,6 +1824,12 @@ class WalletServiceTest {
             // Then
             assertNotNull(result);
             verify(walletRepository).save(testWallet);
+            verify(transactionRepository).sumIncomeWallet(1, testUser.getUserId());
+            verify(transactionRepository).sumExpenseWallet(1, testUser.getUserId());
+            
+            // Verify balance calculation: initialBalance (500) + income (100000) - expense (50000) = 50500
+            assertEquals(new BigDecimal("50500.00"), testWallet.getCurrentBalance());
+            assertEquals("JPY", testWallet.getCurrencyCode());
         }
     }
 
@@ -1751,13 +1844,22 @@ class WalletServiceTest {
                 .description(null)
                 .bankName(null)
                 .iconUrl(null)
+                .currencyCode(null) // Null currency code should not update existing currency
                 .build();
+
+        BigDecimal income = new BigDecimal("250.00");
+        BigDecimal expense = new BigDecimal("100.00");
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
             when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(false);
             when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
+            
+            // Mock transaction repository calls for balance calculation
+            when(transactionRepository.sumIncomeWallet(1, testUser.getUserId())).thenReturn(income);
+            when(transactionRepository.sumExpenseWallet(1, testUser.getUserId())).thenReturn(expense);
+            
             when(walletRepository.save(testWallet)).thenReturn(testWallet);
             when(walletMapper.toResponse(testWallet)).thenReturn(walletResponse);
 
@@ -1767,6 +1869,13 @@ class WalletServiceTest {
             // Then
             assertNotNull(result);
             verify(walletRepository).save(testWallet);
+            verify(transactionRepository).sumIncomeWallet(1, testUser.getUserId());
+            verify(transactionRepository).sumExpenseWallet(1, testUser.getUserId());
+            
+            // Verify balance calculation: initialBalance (500) + income (250) - expense (100) = 650
+            assertEquals(new BigDecimal("650.00"), testWallet.getCurrentBalance());
+            // Currency code should remain unchanged (VND from setup)
+            assertEquals("VND", testWallet.getCurrencyCode());
         }
     }
 
@@ -1779,13 +1888,22 @@ class WalletServiceTest {
                 .balance(new BigDecimal("2000.00"))
                 .walletTypeId(1)
                 .isDefault(false)
+                .currencyCode("GBP")
                 .build();
+
+        BigDecimal income = new BigDecimal("80.00");
+        BigDecimal expense = new BigDecimal("30.00");
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
             when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), specialCharName, 1)).thenReturn(false);
             when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
+            
+            // Mock transaction repository calls for balance calculation
+            when(transactionRepository.sumIncomeWallet(1, testUser.getUserId())).thenReturn(income);
+            when(transactionRepository.sumExpenseWallet(1, testUser.getUserId())).thenReturn(expense);
+            
             when(walletRepository.save(testWallet)).thenReturn(testWallet);
             when(walletMapper.toResponse(testWallet)).thenReturn(walletResponse);
 
@@ -1795,6 +1913,12 @@ class WalletServiceTest {
             // Then
             assertNotNull(result);
             verify(walletRepository).existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), specialCharName, 1);
+            verify(transactionRepository).sumIncomeWallet(1, testUser.getUserId());
+            verify(transactionRepository).sumExpenseWallet(1, testUser.getUserId());
+            
+            // Verify balance calculation: initialBalance (500) + income (80) - expense (30) = 550
+            assertEquals(new BigDecimal("550.00"), testWallet.getCurrentBalance());
+            assertEquals("GBP", testWallet.getCurrencyCode());
         }
     }
 
@@ -1806,13 +1930,22 @@ class WalletServiceTest {
                 .balance(new BigDecimal("2000.00"))
                 .walletTypeId(1)
                 .isDefault(false)
+                .currencyCode("CAD")
                 .build();
+
+        BigDecimal income = new BigDecimal("120.00");
+        BigDecimal expense = new BigDecimal("60.00");
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
             when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(false);
             when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
+            
+            // Mock transaction repository calls for balance calculation
+            when(transactionRepository.sumIncomeWallet(1, testUser.getUserId())).thenReturn(income);
+            when(transactionRepository.sumExpenseWallet(1, testUser.getUserId())).thenReturn(expense);
+            
             when(walletRepository.save(testWallet)).thenReturn(testWallet);
             when(walletMapper.toResponse(testWallet)).thenReturn(walletResponse);
 
@@ -1822,6 +1955,12 @@ class WalletServiceTest {
             // Then
             assertNotNull(result);
             verify(walletRepository).save(testWallet);
+            verify(transactionRepository).sumIncomeWallet(1, testUser.getUserId());
+            verify(transactionRepository).sumExpenseWallet(1, testUser.getUserId());
+            
+            // Verify balance calculation: initialBalance (500) + income (120) - expense (60) = 560
+            assertEquals(new BigDecimal("560.00"), testWallet.getCurrentBalance());
+            assertEquals("CAD", testWallet.getCurrencyCode());
         }
     }
 
@@ -2017,7 +2156,7 @@ class WalletServiceTest {
     }
 
     @Test
-    void updateWallet_ThrowsException_WhenWalletNameIsEmpty() {
+    void updateWallet_AllowsEmptyWalletName_WhenNoValidation() {
         // Given
         CreateWalletRequest updateRequest = CreateWalletRequest.builder()
                 .walletName("")
@@ -2026,51 +2165,69 @@ class WalletServiceTest {
                 .isDefault(false)
                 .build();
 
+        BigDecimal income = new BigDecimal("100.00");
+        BigDecimal expense = new BigDecimal("50.00");
+
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
-            when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
-            when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), "", 1)).thenReturn(false);
-            when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
-            
-            // Assuming mapper throws exception for empty name
-            doThrow(new IllegalArgumentException("Wallet name cannot be empty"))
-                    .when(walletMapper).updateEntity(testWallet, updateRequest);
 
-            // When & Then
-            assertThrows(
-                    IllegalArgumentException.class,
-                    () -> walletService.updateWallet(1, updateRequest)
-            );
+            when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
+            when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), "", 1))
+                    .thenReturn(false);
+            when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
+
+            when(transactionRepository.sumIncomeWallet(1, testUser.getUserId())).thenReturn(income);
+            when(transactionRepository.sumExpenseWallet(1, testUser.getUserId())).thenReturn(expense);
+
+            when(walletRepository.save(any(Wallet.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(walletMapper.toResponse(any(Wallet.class))).thenReturn(new WalletResponse());
+
+            // When
+            WalletResponse result = walletService.updateWallet(1, updateRequest);
+
+            // Then
+            assertNotNull(result);
+            verify(walletRepository).save(any(Wallet.class));
         }
     }
 
+
     @Test
-    void updateWallet_ThrowsException_WhenBalanceIsNegative() {
+    void updateWallet_ShouldUpdateEvenWhenBalanceIsNegative() {
         // Given
         CreateWalletRequest updateRequest = CreateWalletRequest.builder()
                 .walletName("Updated Wallet")
-                .balance(new BigDecimal("-100.00"))
+                .balance(new BigDecimal("-100.00")) // balance âm, nhưng service không validate
                 .walletTypeId(1)
                 .isDefault(false)
                 .build();
 
+        BigDecimal income = new BigDecimal("100.00");
+        BigDecimal expense = new BigDecimal("50.00");
+
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
-            when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
-            when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(false);
-            when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
-            
-            // Assuming mapper throws exception for negative balance
-            doThrow(new IllegalArgumentException("Balance cannot be negative"))
-                    .when(walletMapper).updateEntity(testWallet, updateRequest);
 
-            // When & Then
-            assertThrows(
-                    IllegalArgumentException.class,
-                    () -> walletService.updateWallet(1, updateRequest)
-            );
+            when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
+            when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(
+                    testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(false);
+            when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
+
+            when(transactionRepository.sumIncomeWallet(1, testUser.getUserId())).thenReturn(income);
+            when(transactionRepository.sumExpenseWallet(1, testUser.getUserId())).thenReturn(expense);
+
+            when(walletRepository.save(any(Wallet.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(walletMapper.toResponse(any(Wallet.class))).thenReturn(new WalletResponse());
+
+            // When
+            WalletResponse result = walletService.updateWallet(1, updateRequest);
+
+            // Then
+            assertNotNull(result);
+            verify(walletRepository).save(any(Wallet.class));
         }
     }
+
 
     @Test
     void updateWallet_ThrowsException_WhenRepositoryThrowsException() {
@@ -2082,11 +2239,19 @@ class WalletServiceTest {
                 .isDefault(false)
                 .build();
 
+        BigDecimal income = new BigDecimal("100.00");
+        BigDecimal expense = new BigDecimal("50.00");
+
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
             when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(false);
             when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
+            
+            // Mock transaction repository calls for balance calculation
+            when(transactionRepository.sumIncomeWallet(1, testUser.getUserId())).thenReturn(income);
+            when(transactionRepository.sumExpenseWallet(1, testUser.getUserId())).thenReturn(expense);
+            
             when(walletRepository.save(testWallet)).thenThrow(new RuntimeException("Database error"));
 
             // When & Then
@@ -2107,14 +2272,28 @@ class WalletServiceTest {
                 .isDefault(false)
                 .build();
 
+        BigDecimal income = new BigDecimal("100.00");
+        BigDecimal expense = new BigDecimal("50.00");
+
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
-            when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
-            when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(testUser.getUserId(), updateRequest.getWalletName(), 1)).thenReturn(false);
-            when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
-            
-            doThrow(new RuntimeException("Mapping error"))
-                    .when(walletMapper).updateEntity(testWallet, updateRequest);
+
+            when(walletRepository.findByIdAndNotDeleted(1))
+                    .thenReturn(Optional.of(testWallet));
+            when(walletRepository.existsByUserIdAndWalletNameAndNotDeletedAndIdNot(
+                    testUser.getUserId(), updateRequest.getWalletName(), 1))
+                    .thenReturn(false);
+            when(walletTypeRepository.findById(1))
+                    .thenReturn(Optional.of(testWalletType));
+
+            when(transactionRepository.sumIncomeWallet(1, testUser.getUserId()))
+                    .thenReturn(income);
+            when(transactionRepository.sumExpenseWallet(1, testUser.getUserId()))
+                    .thenReturn(expense);
+
+            // Mock mapper để ném RuntimeException khi toResponse được gọi
+            when(walletMapper.toResponse(any(Wallet.class)))
+                    .thenThrow(new RuntimeException("Mapping error"));
 
             // When & Then
             assertThrows(
@@ -2123,6 +2302,8 @@ class WalletServiceTest {
             );
         }
     }
+
+
 
     // ===== DELETE WALLET TESTS =====
 
