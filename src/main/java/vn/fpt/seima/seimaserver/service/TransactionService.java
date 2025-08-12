@@ -10,6 +10,7 @@ import vn.fpt.seima.seimaserver.entity.TransactionType;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.List;
 
 public interface TransactionService {
 
@@ -44,4 +45,6 @@ public interface TransactionService {
     Page<TransactionResponse> getTransactionByBudget(Integer budgetId, Pageable pageable);
 
     TransactionWalletResponse getTransactionWallet(Integer id, LocalDate dateFrom, LocalDate dateTo, String type);
+
+    List<TransactionTodayResponse> getTransactionToday();
 }
