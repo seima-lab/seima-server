@@ -7,13 +7,11 @@ import org.mapstruct.ReportingPolicy;
 import vn.fpt.seima.seimaserver.dto.request.budget.CreateBudgetRequest;
 import vn.fpt.seima.seimaserver.dto.request.transaction.CreateTransactionRequest;
 import vn.fpt.seima.seimaserver.dto.response.budget.BudgetResponse;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOcrResponse;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionOverviewResponse;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionReportResponse;
-import vn.fpt.seima.seimaserver.dto.response.transaction.TransactionResponse;
+import vn.fpt.seima.seimaserver.dto.response.transaction.*;
 import vn.fpt.seima.seimaserver.entity.Budget;
 import vn.fpt.seima.seimaserver.entity.Transaction;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
@@ -46,4 +44,11 @@ public interface TransactionMapper {
     @Mapping(target = "categoryIconUrl", source = "category.categoryIconUrl")
     @Mapping(target = "amount", source = "amount")
     TransactionReportResponse.ReportByCategory toTransactionReportByCategory(Transaction transaction);
+
+    @Mapping(target = "walletId", source = "transaction.wallet.id")
+    @Mapping(target = "categoryId", source = "transaction.category.categoryId")
+    @Mapping(target = "groupId", source = "transaction.group.groupId")
+    @Mapping(target = "userId", source = "transaction.user.userId")
+    @Mapping(target = "balance", source = "balance")
+    TransactionTodayResponse transactionToday(Transaction transaction, BigDecimal balance);
 }

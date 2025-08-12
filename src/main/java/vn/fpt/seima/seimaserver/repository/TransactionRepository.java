@@ -144,5 +144,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
             "t.transactionType = 'INCOME' AND t.wallet.id in :walletId AND " +
             "t.group is null")
     BigDecimal sumIncomeWallet(@Param("walletId") Integer walletId, @Param("userId") Integer userId);
+
+    @Query("SELECT t FROM Transaction t WHERE t.transactionType != :type and t.transactionDate BETWEEN :startOfDay AND :endOfDay and t.user.userId = :userId and t.group is null")
+    List<Transaction> listTransactionToday(
+            @Param("transactionType") TransactionType type,
+            @Param("userId") Integer userId,
+            @Param("startOfDay") LocalDateTime startOfDay,
+            @Param("endOfDay") LocalDateTime endOfDay);
 }
 

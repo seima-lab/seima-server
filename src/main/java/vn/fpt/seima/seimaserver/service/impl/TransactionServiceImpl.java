@@ -25,10 +25,7 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.YearMonth;
+import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
@@ -798,6 +795,28 @@ public class TransactionServiceImpl implements TransactionService {
                 .summary(summary)
                 .reportByWallet(reportByWallet)
                 .build();
+    }
+
+    /**
+     * @return TransactionTodayResponse
+     */
+    @Override
+    public List<TransactionTodayResponse> getTransactionToday() {
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+        LocalDateTime endOfDay = LocalDate.now().atTime(LocalTime.MAX);
+        List<Transaction> transactions = transactionRepository.listTransactionToday(TransactionType.INACTIVE,currentUser.getUserId(),startOfDay,endOfDay);
+        BigDecimal balance = walletRepository.findAllActiveByUserId(currentUser.getUserId())
+                .stream()
+                .map(Wallet::getCurrentBalance)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return transactions.stream()
+                .map(transaction -> transactionMapper.transactionToday(transaction, balance))
+                .collect(Collectors.toList());
     }
 
     /**
