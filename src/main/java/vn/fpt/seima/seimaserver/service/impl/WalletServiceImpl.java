@@ -117,6 +117,7 @@ public class WalletServiceImpl implements WalletService {
         if (request.getCurrencyCode() != null && !request.getCurrencyCode().trim().isEmpty()) {
             existingWallet.setCurrencyCode(request.getCurrencyCode());
         }
+        walletMapper.updateEntity(existingWallet, request);
 
         existingWallet = walletRepository.save(existingWallet);
         return walletMapper.toResponse(existingWallet);
