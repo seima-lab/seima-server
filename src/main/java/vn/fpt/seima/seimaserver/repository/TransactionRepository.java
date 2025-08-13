@@ -151,5 +151,16 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
             @Param("userId") Integer userId,
             @Param("startOfDay") LocalDateTime startOfDay,
             @Param("endOfDay") LocalDateTime endOfDay);
+
+    @Query("SELECT t FROM Transaction t " +
+            "WHERE t.user = :users " +
+            "AND t.transactionDate BETWEEN :startDate AND :endDate " +
+            "AND t.transactionType != 'INACTIVE' " +
+            "AND t.group IS NULL")
+    List<Transaction> listTransactionsChart(
+            @Param("users") User users,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
 }
 

@@ -33,5 +33,6 @@ public class TransactionTodayResponse {
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt;
-    private BigDecimal balance;
+    private String categoryName;
+    private String categoryIconUrl;
 }

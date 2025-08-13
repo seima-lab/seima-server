@@ -257,4 +257,17 @@ public class TransactionController {
             return new ApiResponse<>(500, ex.getMessage(), null);
         }
     }
+
+    @GetMapping("/view-chart")
+    public ApiResponse<TransactionReportResponse> viewChartTransactions(
+            @RequestParam(value = "startDate") LocalDate startDate,
+            @RequestParam(value = "endDate") LocalDate endDate
+    ) {
+        try {
+            TransactionReportResponse transactions = transactionService.getTransactionChart(startDate,endDate);
+            return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
+        } catch (Exception ex) {
+            return new ApiResponse<>(500, ex.getMessage(), null);
+        }
+    }
 } 
