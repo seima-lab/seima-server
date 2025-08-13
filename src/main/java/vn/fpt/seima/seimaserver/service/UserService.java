@@ -16,5 +16,4 @@ public interface UserService {
     User updateUserProfileWithImage(Integer userId, @Valid UserUpdateRequestDto userUpdateRequestDto);
     
 
-    void deactivateUserAccount(Integer userId);
 }
