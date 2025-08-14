@@ -25,10 +25,7 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.YearMonth;
+import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
@@ -495,9 +492,6 @@ public class TransactionServiceImpl implements TransactionService {
      * @return TransactionCategoryReportResponse
      */
 
-
-
-
     @Override
     public TransactionCategoryReportResponse getCategoryReport(PeriodType type, Integer categoryId, LocalDate dateFrom, LocalDate dateTo, Integer groupId) {
         List<User> listUser = new ArrayList<>();
@@ -736,7 +730,6 @@ public class TransactionServiceImpl implements TransactionService {
         return transactions.map(transactionMapper::toResponse);
     }
 
-
     @Override
     public TransactionWalletResponse getTransactionWallet(Integer id, LocalDate dateFrom, LocalDate dateTo, String type) {
         User currentUser = UserUtils.getCurrentUser();
@@ -797,6 +790,68 @@ public class TransactionServiceImpl implements TransactionService {
         return TransactionWalletResponse.builder()
                 .summary(summary)
                 .reportByWallet(reportByWallet)
+                .build();
+    }
+
+    /**
+     * @return TransactionTodayResponse
+     */
+    @Override
+    public List<TransactionTodayResponse> getTransactionToday() {
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+        LocalDateTime endOfDay = LocalDate.now().atTime(LocalTime.MAX);
+        List<Transaction> transactions = transactionRepository.listTransactionToday(TransactionType.INACTIVE,currentUser.getUserId(),startOfDay,endOfDay);
+
+        return transactions.stream()
+                .map(transaction -> transactionMapper.transactionToday(transaction))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * @param startDate of transaction
+     * @param endDate of transaction
+     * @return TransactionReportResponse
+     */
+    @Override
+    public TransactionReportResponse getTransactionChart(LocalDate startDate, LocalDate endDate) {
+        User currentUser = UserUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+        List<Transaction> transactions =
+                transactionRepository.listTransactionsChart(currentUser, startDateTime, endDateTime);
+
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        BigDecimal totalExpense = BigDecimal.ZERO;
+
+        for (Transaction t : transactions) {
+            BigDecimal amount = t.getAmount();
+
+            if (t.getTransactionType() == TransactionType.EXPENSE) {
+                totalExpense = totalExpense.add(amount);
+            } else if (t.getTransactionType() == TransactionType.INCOME) {
+                totalIncome = totalIncome.add(amount);
+            }
+        }
+
+        BigDecimal balance = totalIncome.subtract(totalExpense);
+
+        TransactionReportResponse.Summary summary = TransactionReportResponse.Summary.builder()
+                .totalIncome(totalIncome)
+                .totalExpense(totalExpense)
+                .balance(balance)
+                .build();
+
+        return TransactionReportResponse.builder()
+                .summary(summary)
+                .transactionsByCategory(null)
                 .build();
     }
 

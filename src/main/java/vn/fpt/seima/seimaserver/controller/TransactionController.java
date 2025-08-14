@@ -23,6 +23,7 @@ import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.List;
 
 @RestController
 @AllArgsConstructor
@@ -239,6 +240,31 @@ public class TransactionController {
         try {
             TransactionWalletResponse transactions = transactionService.getTransactionWallet(id, startDate, endDate, type);
 
+            return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
+        } catch (Exception ex) {
+            return new ApiResponse<>(500, ex.getMessage(), null);
+        }
+    }
+
+    @GetMapping("/transaction-today")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<List<TransactionTodayResponse>> viewTransactionToday() {
+        try {
+            List<TransactionTodayResponse> transactions = transactionService.getTransactionToday();
+
+            return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
+        } catch (Exception ex) {
+            return new ApiResponse<>(500, ex.getMessage(), null);
+        }
+    }
+
+    @GetMapping("/view-chart")
+    public ApiResponse<TransactionReportResponse> viewChartTransactions(
+            @RequestParam(value = "startDate") LocalDate startDate,
+            @RequestParam(value = "endDate") LocalDate endDate
+    ) {
+        try {
+            TransactionReportResponse transactions = transactionService.getTransactionChart(startDate,endDate);
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
         } catch (Exception ex) {
             return new ApiResponse<>(500, ex.getMessage(), null);

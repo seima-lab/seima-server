@@ -47,8 +47,7 @@ public class BudgetServiceImpl implements BudgetService {
     private FcmService fcmService;
     private UserDeviceRepository userDeviceRepository;
     private NotificationRepository notificationRepository;
-    private static final String TITLE = "Budget Notification";
-    private static final String MESSAGE = "Your spending has exceeded the set threshold. Please review your expenses.";
+    private BudgetWalletRepository budgetWalletRepository;
 
     @Override
     public Page<BudgetResponse> getAllBudget(Pageable pageable) {
@@ -87,9 +86,12 @@ public class BudgetServiceImpl implements BudgetService {
         }
 
         if (request.getCategoryList().isEmpty()) {
-            throw new IllegalArgumentException("Category list must not be empty");
+            throw new IllegalArgumentException("Category must not be empty");
         }
 
+        if (request.getWalletList().isEmpty()) {
+            throw new IllegalArgumentException("Wallet must not be empty");
+        }
         if (!budgetRepository.countBudgetByUserId(user.getUserId())) {
             throw new IllegalArgumentException("The user cannot have more than 5 budgets.");
         }
@@ -121,6 +123,12 @@ public class BudgetServiceImpl implements BudgetService {
 
             budgetCategoryLimitRepository.save(budgetCategoryLimit);
         }
+        request.getWalletList().forEach(wallet -> {
+            BudgetWallet budgetWallet = new BudgetWallet();
+            budgetWallet.setWallet(wallet);
+            budgetWallet.setBudget(budget);
+            budgetWalletRepository.save(budgetWallet);
+        });
         List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
                 user.getUserId(),
                 categoryIds,
@@ -160,7 +168,9 @@ public class BudgetServiceImpl implements BudgetService {
             if (request.getCategoryList() == null || request.getCategoryList().isEmpty()) {
                 throw new IllegalArgumentException("Category list must not be empty");
             }
-
+            if (request.getWalletList().isEmpty()) {
+                throw new IllegalArgumentException("Wallet must not be empty");
+            }
             List<Integer> categoryIds = new ArrayList<>();
             budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(existingBudget.getBudgetId());
             for (Category category : request.getCategoryList()) {
@@ -170,6 +180,13 @@ public class BudgetServiceImpl implements BudgetService {
                 budgetCategoryLimitRepository.save(budgetCategoryLimit);
                 categoryIds.add(category.getCategoryId());
             }
+            budgetWalletRepository.deleteBudgetWalletByBudget(existingBudget.getBudgetId());
+            request.getWalletList().forEach(wallet -> {
+                BudgetWallet budgetWallet = new BudgetWallet();
+                budgetWallet.setWallet(wallet);
+                budgetWallet.setBudget(existingBudget);
+                budgetWalletRepository.save(budgetWallet);
+            });
             Budget updatedBudget;
             if (request.isUpdateAmount()) {
                 LocalDateTime now = LocalDateTime.now();
@@ -253,6 +270,7 @@ public class BudgetServiceImpl implements BudgetService {
                 .orElseThrow(() -> new IllegalArgumentException("Budget not found for this id: " + id));
 
         budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(budget.getBudgetId());
+        budgetWalletRepository.deleteBudgetWalletByBudget(budget.getBudgetId());
         budgetPeriodRepository.deleteAll(budgetPeriodRepository.findByBudget_BudgetId(budget.getBudgetId()));
         budgetRepository.deleteBudget(id);
     }
@@ -312,23 +330,27 @@ public class BudgetServiceImpl implements BudgetService {
                 BigDecimal limit = budgetPeriod.getAmountLimit();
                 if(type.equals("EXPENSE")) {
                     if (remaining.compareTo(BigDecimal.ZERO) < 0) {
-                        title = "Budget Exceeded!";
-                        message = "You have exceeded your budget limit.";
+                        // >100%
+                        title = "Budget warning";
+                        message = "Your budget has exceeded the limit for this period.";
                         notificationType = NotificationType.BUDGET_LIMIT_EXCEEDED;
+
                     } else if (remaining.compareTo(BigDecimal.ZERO) == 0) {
-                        title = "Budget Depleted!";
-                        message = "You have fully used your budget for this period.";
+                        // =100%
+                        title = "Budget warning";
+                        message = "Your budget has reached the limit for this period.";
                         notificationType = NotificationType.BUDGET_LIMIT_REACHED;
+
                     } else {
                         BigDecimal warningThreshold = limit.multiply(BigDecimal.valueOf(0.1));
                         if (remaining.compareTo(warningThreshold) < 0) {
-                            title = "Budget Running Low!";
-                            message = "Only 10% of your budget remains. Spend wisely.";
+                            // 90% < x < 100%
+                            title = "Budget warning";
+                            message = "Your budget is nearing the limit for this period.";
                             notificationType = NotificationType.BUDGET_LIMIT_WARNING;
                         }
                     }
                 }
-
             }
 
             budgetPeriodRepository.saveAll(budgetPeriods);
@@ -429,6 +451,24 @@ public class BudgetServiceImpl implements BudgetService {
         }
         
         Page<Budget> budgets = budgetRepository.findByUser_UserIdAndBudgetNameContaining(user.getUserId(), budgetName.trim(), pageable);
+        return budgets.map(budgetMapper::toResponse);
+    }
+
+    
+
+    @Override
+    public Page<BudgetResponse> getBudgetsByContainsCategories(List<Integer> categoryIds, Pageable pageable) {
+        User user = UserUtils.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            throw new IllegalArgumentException("Category ids must not be empty");
+        }
+
+        Page<Budget> budgets = budgetRepository.findByUserIdAndContainsAllCategoryIds(
+                user.getUserId(), categoryIds, categoryIds.size(), pageable
+        );
         return budgets.map(budgetMapper::toResponse);
     }
 

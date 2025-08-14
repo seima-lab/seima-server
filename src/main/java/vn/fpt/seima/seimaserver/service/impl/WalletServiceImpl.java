@@ -3,14 +3,13 @@ package vn.fpt.seima.seimaserver.service.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.wallet.CreateWalletRequest;
 import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.WalletException;
 import vn.fpt.seima.seimaserver.mapper.WalletMapper;
-import vn.fpt.seima.seimaserver.repository.UserRepository;
-import vn.fpt.seima.seimaserver.repository.WalletRepository;
-import vn.fpt.seima.seimaserver.repository.WalletTypeRepository;
+import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.WalletService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
@@ -27,6 +26,8 @@ public class WalletServiceImpl implements WalletService {
     private final UserRepository userRepository;
     private final WalletTypeRepository walletTypeRepository;
     private final WalletMapper walletMapper;
+    private final TransactionRepository transactionRepository;
+    private final BudgetWalletRepository budgetWalletRepository;
 
     @Override
     public WalletResponse createWallet(CreateWalletRequest request) {
@@ -89,7 +90,6 @@ public class WalletServiceImpl implements WalletService {
     @Override
     public WalletResponse updateWallet(Integer id, CreateWalletRequest request) {
         User currentUser = getCurrentUser();
-        
         Wallet existingWallet = walletRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new WalletException("Wallet not found with id: " + id));
         validateUserOwnership(currentUser.getUserId(), existingWallet);
@@ -110,25 +110,39 @@ public class WalletServiceImpl implements WalletService {
         }
 
         // Update currency code if provided
+        BigDecimal income = transactionRepository.sumIncomeWallet(id, currentUser.getUserId());
+        BigDecimal expense = transactionRepository.sumExpenseWallet(id, currentUser.getUserId());
+
+        existingWallet.setCurrentBalance(existingWallet.getInitialBalance().add(income).subtract(expense));
         if (request.getCurrencyCode() != null && !request.getCurrencyCode().trim().isEmpty()) {
             existingWallet.setCurrencyCode(request.getCurrencyCode());
         }
-
         walletMapper.updateEntity(existingWallet, request);
+
         existingWallet = walletRepository.save(existingWallet);
         return walletMapper.toResponse(existingWallet);
     }
 
     @Override
+    @Transactional
     public void deleteWallet(Integer id) {
         User currentUser = getCurrentUser();
         
         Wallet wallet = walletRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new WalletException("Wallet not found with id: " + id));
         validateUserOwnership(currentUser.getUserId(), wallet);
-        
+
         wallet.setIsDeleted(true);
         wallet.setDeletedAt(Instant.now());
+        budgetWalletRepository.deleteBudgetWalletByWallet(id);
+        List<Transaction> transactions = transactionRepository.listTransactionByAllWallet(id, currentUser.getUserId());
+        if (!transactions.isEmpty()) {
+            transactions.forEach(transaction -> {
+                transaction.setTransactionType(TransactionType.INACTIVE);
+            });
+
+        }
+        transactionRepository.saveAll(transactions);
         walletRepository.save(wallet);
     }
 

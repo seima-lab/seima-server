@@ -60,5 +60,11 @@ public class Budget {
     private Set<BudgetCategoryLimit> budgetCategoryLimits;
 
     @OneToMany(mappedBy = "budget", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @JsonIgnore
+    private Set<BudgetWallet> budgetWallets;
+
+    @OneToMany(mappedBy = "budget", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<BudgetPeriod> budgetPeriods;
 }
