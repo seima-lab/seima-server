@@ -4,66 +4,106 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:remove="all">Removed from Group - Seima</title>
+    <style>
+        /* CSS Reset & Base Styles */
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+        table { border-collapse: collapse !important; }
+        body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+
+        /* Mobile Responsive Styles */
+        @media screen and (max-width: 600px) {
+            .container {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            .content-padding {
+                padding-left: 15px !important;
+                padding-right: 15px !important;
+            }
+            .header-padding {
+                padding: 30px 15px 20px 15px !important;
+            }
+            .main-header {
+                font-size: 22px !important;
+            }
+            .body-text {
+                font-size: 15px !important;
+                line-height: 1.6 !important;
+            }
+        }
+    </style>
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f5f5f5;">
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5; padding: 20px 0;">
-        <tr>
-            <td align="center">
-                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 600px;">
-                    <tr>
-                        <td style="padding: 40px 30px 30px 30px; text-align: center; border-bottom: 1px solid #e5e7eb;">
-                            <h1 style="margin: 0; color: #b91c1c; font-size: 24px; font-weight: bold;">🚫 Removed from Group</h1>
-                            <p style="margin: 15px 0 0 0; color: #b91c1c; font-size: 16px;">You have been removed from a group</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 30px 30px 20px 30px;">
-                            <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
-                                Hi <strong th:text="${removedUserName}">User</strong>,
-                            </p>
-                            <p style="margin: 15px 0 0 0; color: #374151; font-size: 16px; line-height: 1.5;">
-                                You have been removed from the group <strong th:text="${groupName}">Group Name</strong> by <strong th:text="${removedByUserName}">Admin</strong>.
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 0 30px;">
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border: 2px solid #e2e8f0; border-radius: 8px;">
-                                <tr>
-                                    <td style="padding: 25px; text-align: center;">
-                                        <h2 style="margin: 0 0 10px 0; color: #2563eb; font-size: 20px; font-weight: bold;" th:text="${groupName}">Group Name</h2>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 20px 30px;">
-                            <p style="margin: 0 0 15px 0; color: #b91c1c; font-size: 16px; font-weight: bold;">What this means:</p>
-                            <ul style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.6;">
-                                <li style="margin-bottom: 8px;">You no longer have access to the group and its activities</li>
-                                <li style="margin-bottom: 8px;">If you think this was a mistake, please contact the group admin</li>
-                                <li style="margin-bottom: 0;">Thank you for being part of our community!</li>
-                            </ul>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 0 30px 20px 30px;">
-                            <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
-                                If you have any questions, please contact support.
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 30px; border-top: 1px solid #e5e7eb; text-align: center; background-color: #f9fafb;">
-                            <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
-                                This email was sent from <strong th:text="${appName}">Seima</strong>
-                            </p>
-                        </td>
-                    </tr>
-                </table>
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5;">
+    <tr>
+        <td align="center" style="padding: 20px 0;">
+            <!--[if (gte mso 9)|(IE)]>
+            <table align="center" border="0" cellspacing="0" cellpadding="0" width="600">
+                <tr>
+                    <td align="center" valign="top" width="600">
+            <![endif]-->
+            <table class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 600px;">
+                <tr>
+                    <td class="header-padding" style="padding: 40px 30px 30px 30px; text-align: center; border-bottom: 1px solid #e5e7eb;">
+                        <h1 class="main-header" style="margin: 0; color: #b91c1c; font-size: 24px; font-weight: bold;">🚫 Removed from Group</h1>
+                        <p class="body-text" style="margin: 15px 0 0 0; color: #b91c1c; font-size: 16px;">You have been removed from a group.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="content-padding" style="padding: 30px 30px 20px 30px;">
+                        <p class="body-text" style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
+                            Hi <strong th:text="${removedUserName}">User</strong>,
+                        </p>
+                        <p class="body-text" style="margin: 15px 0 0 0; color: #374151; font-size: 16px; line-height: 1.5;">
+                            You have been removed from the group <strong th:text="${groupName}">Group Name</strong> by <strong th:text="${removedByUserName}">Admin</strong>.
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="content-padding" style="padding: 0 30px 20px 30px;">
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            <tr>
+                                <td style="padding: 25px; text-align: center;">
+                                    <h2 style="margin: 0; color: #1f2937; font-size: 20px; font-weight: bold;" th:text="${groupName}">Group Name</h2>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="content-padding" style="padding: 20px 30px;">
+                        <p class="body-text" style="margin: 0 0 15px 0; color: #b91c1c; font-size: 16px; font-weight: bold;">What this means:</p>
+                        <ul class="body-text" style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                            <li style="margin-bottom: 8px;">You no longer have access to the group and its activities.</li>
+                            <li style="margin-bottom: 8px;">If you think this was a mistake, please contact the group admin.</li>
+                            <li>All your data related to this group remains for reporting purposes.</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="content-padding" style="padding: 0 30px 30px 30px;">
+                        <p class="body-text" style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5; text-align: center;">
+                            Thank you for your past participation.
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 30px; border-top: 1px solid #e5e7eb; text-align: center; background-color: #f9fafb;">
+                        <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
+                            This email was sent from <strong th:text="${appName}">Seima</strong>.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            <!--[if (gte mso 9)|(IE)]>
             </td>
-        </tr>
-    </table>
+            </tr>
+            </table>
+            <![endif]-->
+        </td>
+    </tr>
+</table>
 </body>
-</html> 
+</html>
