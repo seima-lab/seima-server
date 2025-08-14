@@ -196,60 +196,7 @@ class UserServiceTest {
         }
     }
 
-    // Tests for deactivateUserAccount
-    @Test
-    void deactivateUserAccount_WhenValidUserId_ShouldDeactivateUser() {
-        // Given
-        Integer userId = 1;
-        when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
-        when(userRepository.save(any(User.class))).thenReturn(testUser);
 
-        // When
-        userService.deactivateUserAccount(userId);
-
-        // Then
-        assertFalse(testUser.getUserIsActive());
-        verify(userRepository).findById(userId);
-        verify(userRepository).save(testUser);
-    }
-
-    @Test
-    void deactivateUserAccount_WhenUserIdIsNull_ShouldThrowIllegalArgumentException() {
-        // When & Then
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> userService.deactivateUserAccount(null)
-        );
-        assertEquals("User ID cannot be null", exception.getMessage());
-    }
-
-    @Test
-    void deactivateUserAccount_WhenUserNotFound_ShouldThrowResourceNotFoundException() {
-        // Given
-        Integer userId = 999;
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
-
-        // When & Then
-        ResourceNotFoundException exception = assertThrows(
-                ResourceNotFoundException.class,
-                () -> userService.deactivateUserAccount(userId)
-        );
-        assertEquals("User not found with id: " + userId, exception.getMessage());
-    }
-
-    @Test
-    void deactivateUserAccount_WhenUserAlreadyInactive_ShouldNotUpdateUser() {
-        // Given
-        Integer userId = 1;
-        testUser.setUserIsActive(false);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
-
-        // When
-        userService.deactivateUserAccount(userId);
-
-        // Then
-        verify(userRepository, never()).save(any(User.class));
-    }
 
     // Tests for updateUserProfileWithImage
     @Test

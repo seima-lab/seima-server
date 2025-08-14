@@ -114,34 +114,6 @@ public class UserController {
         }
     }
 
-    @PutMapping("/deactivate")
-    public ApiResponse<Object> deactivateCurrentUserAccount() {
-        try {
-            User currentUser = UserUtils.getCurrentUser();
-            if (currentUser == null) {
-                return ApiResponse.builder()
-                        .statusCode(HttpStatus.UNAUTHORIZED.value())
-                        .message("User not authenticated.")
-                        .build();
-            }
 
-            // Handle group leadership transfer before deactivating
-            groupMemberService.handleUserAccountDeactivation(currentUser.getUserId());
-            
-            // Deactivate the user account
-            userService.deactivateUserAccount(currentUser.getUserId());
-            
-            return ApiResponse.builder()
-                    .statusCode(HttpStatus.OK.value())
-                    .message("Account deactivated successfully. Group leadership has been transferred if applicable.")
-                    .build();
-                    
-        } catch (Exception e) {
-            return ApiResponse.builder()
-                    .statusCode(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                    .message("Error deactivating account: " + e.getMessage())
-                    .build();
-        }
-    }
 }
 
