@@ -47,4 +47,7 @@ public interface TransactionService {
     TransactionWalletResponse getTransactionWallet(Integer id, LocalDate dateFrom, LocalDate dateTo, String type);
 
     List<TransactionTodayResponse> getTransactionToday();
+
+    TransactionReportResponse getTransactionChart(LocalDate startDate, LocalDate endDate);
+
 }
