@@ -640,7 +640,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
 
         GroupMember currentUserMember = currentUserMembership.get();
         GroupMemberRole currentUserRole = currentUserMember.getRole();
-        if (currentUserRole != GroupMemberRole.OWNER) {
+        if (currentUserRole != GroupMemberRole.OWNER && currentUserRole != GroupMemberRole.ADMIN) {
             throw new GroupException("Only group owner can update member roles");
         }
 
@@ -1151,7 +1151,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         context.setVariable("appName", appProperties.getLabName());
         
         // Create group link with user and group parameters
-        String groupLink = String.format("%s/group?userId=%d&groupId=%d", 
+        String groupLink = String.format("%s/invite/success-acceptance/group?userId=%d&groupId=%d",
                 appBaseUrl, acceptedUser.getUserId(), group.getGroupId());
         context.setVariable("groupLink", groupLink);
 
