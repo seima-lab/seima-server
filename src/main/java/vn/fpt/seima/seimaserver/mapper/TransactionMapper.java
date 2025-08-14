@@ -49,6 +49,8 @@ public interface TransactionMapper {
     @Mapping(target = "categoryId", source = "transaction.category.categoryId")
     @Mapping(target = "groupId", source = "transaction.group.groupId")
     @Mapping(target = "userId", source = "transaction.user.userId")
-    @Mapping(target = "balance", source = "balance")
-    TransactionTodayResponse transactionToday(Transaction transaction, BigDecimal balance);
+    @Mapping(target = "categoryName", source = "transaction.category.categoryName")
+    @Mapping(target = "categoryIconUrl", source = "transaction.category.categoryIconUrl")
+
+    TransactionTodayResponse transactionToday(Transaction transaction);
 }

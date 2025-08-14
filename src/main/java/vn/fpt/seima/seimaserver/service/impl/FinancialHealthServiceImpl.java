@@ -31,6 +31,7 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
     private static final String MESSAGE = "Your financial health is currently low. Consider reviewing your expenses.";
     private final ObjectMapper objectMapper;
     private final BudgetPeriodRepository budgetPeriodRepository;
+    private final WalletRepository walletRepository;
 
     /**
      * @return FinancialHealthResponse
@@ -169,8 +170,12 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
         } else {
             level = "Low";
         }
+        BigDecimal balance = walletRepository.findAllActiveByUserId(currentUser.getUserId())
+                .stream()
+                .map(Wallet::getCurrentBalance)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         saveToRedisAndNotifyIfChanged(currentUser, finalScore, level, fcmTokens);
-        return new FinancialHealthResponse(finalScore, level, LocalDateTime.now());
+        return new FinancialHealthResponse(finalScore, level, LocalDateTime.now(), balance);
     }
     private void saveToRedisAndNotifyIfChanged(User currentUser, int finalScore, String level, List<String> fcmTokens) {
         String redisKey = "financial_health:" + currentUser.getUserId();
