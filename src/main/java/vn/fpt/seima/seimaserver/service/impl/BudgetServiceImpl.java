@@ -104,9 +104,6 @@ public class BudgetServiceImpl implements BudgetService {
             }
         }
 
-        if (request.getEndDate() == null) {
-            request.setEndDate(LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59));
-        }
         List<Integer> categoryIds = new ArrayList<>();
         for (Category category : request.getCategoryList()){
             categoryIds.add(category.getCategoryId());
