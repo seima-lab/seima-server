@@ -10,10 +10,7 @@ import org.thymeleaf.context.Context;
 import vn.fpt.seima.seimaserver.config.base.AppProperties;
 import vn.fpt.seima.seimaserver.dto.request.group.EmailInvitationRequest;
 import vn.fpt.seima.seimaserver.dto.request.group.InvitationTokenData;
-import vn.fpt.seima.seimaserver.dto.response.group.BranchLinkResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.EmailInvitationResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.GroupInvitationLandingResponse;
-import vn.fpt.seima.seimaserver.dto.response.group.ResultType;
+import vn.fpt.seima.seimaserver.dto.response.group.*;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.GroupException;
 import vn.fpt.seima.seimaserver.repository.GroupMemberRepository;
@@ -120,10 +117,10 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
     @Override
     @Transactional
     public EmailInvitationResponse sendEmailInvitation(EmailInvitationRequest request) {
-        logger.info("Processing email invitation for group: {} to email: {}", request.getGroupId(), request.getEmail());
-        
-        // Validate request
+        // Validate request first
         validateEmailInvitationRequest(request);
+        
+        logger.info("Processing email invitation for group: {} to email: {}", request.getGroupId(), request.getEmail());
         
         // Get current user (inviter)
         User currentUser = UserUtils.getCurrentUser();
@@ -474,6 +471,104 @@ public class GroupInvitationServiceImpl implements GroupInvitationService {
         } catch (Exception e) {
             logger.error("Error processing invitation token: {}", invitationToken, e);
             return buildInvalidTokenResponse(invitationToken, "Failed to process invitation");
+        }
+    }
+
+    @Override
+    public SuccessAcceptanceGroupResponse handleSuccessAcceptance(Long userId, Long groupId) {
+        logger.info("Handling success acceptance for user {} to group {}", userId, groupId);
+        
+        try {
+            // Validate input parameters
+            if (userId == null || groupId == null) {
+                logger.warn("Invalid parameters: userId={}, groupId={}", userId, groupId);
+                return SuccessAcceptanceGroupResponse.builder()
+                        .resultType(ResultType.INVALID_OR_USED_TOKEN)
+                        .message("Invalid user ID or group ID")
+                        .build();
+            }
+            
+            // Find and validate group
+            Optional<Group> groupOpt = groupRepository.findById(groupId.intValue());
+            if (groupOpt.isEmpty()) {
+                logger.warn("Group not found: groupId={}", groupId);
+                return SuccessAcceptanceGroupResponse.builder()
+                        .resultType(ResultType.GROUP_INACTIVE_OR_DELETED)
+                        .message("Group not found")
+                        .build();
+            }
+            
+            Group group = groupOpt.get();
+            if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
+                logger.warn("Group is not active: groupId={}", groupId);
+                return SuccessAcceptanceGroupResponse.builder()
+                        .resultType(ResultType.GROUP_INACTIVE_OR_DELETED)
+                        .message("Group is no longer active")
+                        .build();
+            }
+            
+            // Find and validate user
+            Optional<User> userOpt = userRepository.findById(userId.intValue());
+            if (userOpt.isEmpty()) {
+                logger.warn("User not found: userId={}", userId);
+                return SuccessAcceptanceGroupResponse.builder()
+                        .resultType(ResultType.INVALID_OR_USED_TOKEN)
+                        .message("User not found")
+                        .build();
+            }
+            
+            User user = userOpt.get();
+            if (!Boolean.TRUE.equals(user.getUserIsActive())) {
+                logger.warn("User is not active: userId={}", userId);
+                return SuccessAcceptanceGroupResponse.builder()
+                        .resultType(ResultType.INVALID_OR_USED_TOKEN)
+                        .message("User account is not active")
+                        .build();
+            }
+            
+            // Check if user is an active member of the group
+            Optional<GroupMember> groupMemberOpt = groupMemberRepository.findByUserAndGroupAndStatus(
+                    userId.intValue(), groupId.intValue(), GroupMemberStatus.ACTIVE);
+            
+            if (groupMemberOpt.isEmpty()) {
+                logger.warn("User {} is not an active member of group {}", userId, groupId);
+                return SuccessAcceptanceGroupResponse.builder()
+                        .resultType(ResultType.INVALID_OR_USED_TOKEN)
+                        .message("User is not a member of this group")
+                        .build();
+            }
+            
+            // Create Branch Deep Link for redirecting to the group
+            try {
+                BranchLinkResponse branchLinkResponse = branchLinkService.createInvitationDeepLink(
+                        groupId.intValue(),
+                        userId.intValue(),
+                        null, // No inviter needed for success acceptance
+                        "VIEW_GROUP"
+                );
+                
+                logger.info("Successfully created deep link for user {} to group {}", userId, groupId);
+                
+                return SuccessAcceptanceGroupResponse.builder()
+                        .resultType(ResultType.SUCCESS)
+                        .joinButtonLink(branchLinkResponse.getUrl())
+                        .message("Successfully accepted invitation to group")
+                        .build();
+                        
+            } catch (Exception e) {
+                logger.error("Failed to create deep link for user {} to group {}", userId, groupId, e);
+                return SuccessAcceptanceGroupResponse.builder()
+                        .resultType(ResultType.INVALID_OR_USED_TOKEN)
+                        .message("Failed to create group access link")
+                        .build();
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error handling success acceptance for user {} to group {}", userId, groupId, e);
+            return SuccessAcceptanceGroupResponse.builder()
+                    .resultType(ResultType.INVALID_OR_USED_TOKEN)
+                    .message("An error occurred while processing your request")
+                    .build();
         }
     }
 

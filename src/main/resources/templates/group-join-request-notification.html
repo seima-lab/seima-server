@@ -4,69 +4,105 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:remove="all">New Join Request - Seima</title>
+    <style>
+        /* CSS Reset cho email client */
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+        table { border-collapse: collapse !important; }
+        body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+
+        /* Mobile Responsive Styles */
+        @media screen and (max-width: 600px) {
+            .container {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            .content-padding {
+                padding: 20px 15px !important; /* Giảm padding trên mobile */
+            }
+
+            .header-padding {
+                padding: 30px 15px 20px 15px !important;
+            }
+
+            .footer-padding {
+                padding: 20px 15px !important;
+            }
+
+            .main-header {
+                font-size: 22px !important; /* Giảm kích thước font */
+            }
+
+            .body-text {
+                font-size: 15px !important; /* Tăng nhẹ font chữ thân bài cho dễ đọc */
+            }
+        }
+    </style>
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f5f5f5;">
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5; padding: 20px 0;">
-        <tr>
-            <td align="center">
-                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 600px;">
-                    <tr>
-                        <td style="padding: 40px 30px 30px 30px; text-align: center; border-bottom: 1px solid #e5e7eb;">
-                            <h1 style="margin: 0; color: #1f2937; font-size: 24px; font-weight: bold;">🔔 New Join Request</h1>
-                            <p style="margin: 15px 0 0 0; color: #6b7280; font-size: 16px;">A new member wants to join your group</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 30px 30px 20px 30px;">
-                            <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
-                                Hi <strong th:text="${adminName}">Admin</strong>,
-                            </p>
-                            <p style="margin: 15px 0 0 0; color: #374151; font-size: 16px; line-height: 1.5;">
-                                <strong th:text="${invitedUserName}">User Name</strong> has requested to join your group <strong th:text="${groupName}">Group Name</strong>.
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 0 30px;">
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border: 2px solid #e2e8f0; border-radius: 8px;">
-                                <tr>
-                                    <td style="padding: 25px; text-align: center;">
-                                        <h2 style="margin: 0 0 10px 0; color: #2563eb; font-size: 20px; font-weight: bold;" th:text="${groupName}">Group Name</h2>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 20px 30px;">
-                            <p style="margin: 0 0 15px 0; color: #374151; font-size: 16px; font-weight: bold;">What you can do:</p>
-                            <ul style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.6;">
-                                <li style="margin-bottom: 8px;">Review the join request in your group management page</li>
-                                <li style="margin-bottom: 8px;">Accept or reject the new member</li>
-                                <li style="margin-bottom: 0;">Keep your group safe and active!</li>
-                            </ul>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 0 30px 20px 30px;">
-                            <p style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
-                                Thank you for helping manage your group. If you have any questions, please contact support.
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 30px; border-top: 1px solid #e5e7eb; text-align: center; background-color: #f9fafb;">
-                            <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
-                                This email was sent from <strong th:text="${appName}">Seima</strong>
-                            </p>
-                            <p style="margin: 0; color: #6b7280; font-size: 14px;">
-                                Thank you for being part of our community!
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f5f5f5; padding: 20px 0;">
+    <tr>
+        <td align="center">
+            <table class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 600px;">
+                <tr>
+                    <td class="header-padding" style="padding: 40px 30px 30px 30px; text-align: center; border-bottom: 1px solid #e5e7eb;">
+                        <h1 class="main-header" style="margin: 0; color: #1f2937; font-size: 24px; font-weight: bold;">🔔 New Join Request</h1>
+                        <p class="body-text" style="margin: 15px 0 0 0; color: #6b7280; font-size: 16px;">A new member wants to join your group</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="content-padding" style="padding: 30px 30px 20px 30px;">
+                        <p class="body-text" style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
+                            Hi <strong th:text="${adminName}">Admin</strong>,
+                        </p>
+                        <p class="body-text" style="margin: 15px 0 0 0; color: #374151; font-size: 16px; line-height: 1.5;">
+                            <strong th:text="${invitedUserName}">User Name</strong> has requested to join your group <strong th:text="${groupName}">Group Name</strong>.
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 0 30px;" class="content-padding">
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; text-align: center;">
+                                    <p style="margin: 0; color: #374151; font-size: 18px; font-weight: bold;" th:text="${groupName}">Nhóm gia đình</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="content-padding" style="padding: 20px 30px;">
+                        <p class="body-text" style="margin: 0 0 15px 0; color: #374151; font-size: 16px; font-weight: bold;">What you can do:</p>
+                        <ul style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.6;" class="body-text">
+                            <li style="margin-bottom: 8px;">Review the join request in your group management page</li>
+                            <li style="margin-bottom: 8px;">Accept or reject the new member</li>
+                            <li style="margin-bottom: 0;">Keep your group safe and active!</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="content-padding" style="padding: 0 30px 20px 30px;">
+                        <p class="body-text" style="margin: 0; color: #374151; font-size: 16px; line-height: 1.5;">
+                            Thank you for helping manage your group. If you have any questions, please contact support.
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="footer-padding" style="padding: 30px; border-top: 1px solid #e5e7eb; text-align: center; background-color: #f9fafb;">
+                        <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
+                            This email was sent from <strong th:text="${appName}">Seima</strong>
+                        </p>
+                        <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                            Thank you for being part of our community!
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
 </body>
-</html> 
+</html>

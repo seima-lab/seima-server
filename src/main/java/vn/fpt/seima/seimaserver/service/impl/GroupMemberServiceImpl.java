@@ -45,6 +45,9 @@ public class GroupMemberServiceImpl implements GroupMemberService {
     @Autowired
     private  AppProperties appProperties;
 
+    @Value("${app.client.baseUrl}")
+    private String appBaseUrl;
+
     @Value("${app.email.group-rejection.html-template}")
     private String groupRejectionHtmlTemplate;
 
@@ -402,139 +405,6 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         return currentUser;
     }
 
-    @Override
-    @Transactional
-    public void handleUserAccountDeactivation(Integer userId) {
-        log.info("Handling account deactivation for user ID: {}", userId);
-
-        if (userId == null) {
-            throw new GroupException("User ID cannot be null");
-        }
-
-        // Find all groups where this user has leadership roles (ADMIN or OWNER)
-        List<GroupMember> adminRoles = groupMemberRepository.findByUserIdAndRole(userId, GroupMemberRole.ADMIN);
-        List<GroupMember> ownerRoles = groupMemberRepository.findByUserIdAndRole(userId, GroupMemberRole.OWNER);
-
-        // Handle OWNER role deactivation first (higher priority)
-        for (GroupMember ownerRole : ownerRoles) {
-            Group group = ownerRole.getGroup();
-            
-            // Skip if group is already inactive
-            if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
-                continue;
-            }
-
-            log.info("Processing OWNER account deactivation for group ID: {} (user {} was owner)", 
-                    group.getGroupId(), userId);
-
-            // Find active admins to promote to owner
-            List<GroupMember> activeAdmins = groupMemberRepository.findActiveGroupMembers(
-                    group.getGroupId(), GroupMemberStatus.ACTIVE)
-                    .stream()
-                    .filter(member -> member.getRole() == GroupMemberRole.ADMIN)
-                    .filter(member -> Boolean.TRUE.equals(member.getUser().getUserIsActive()))
-                    .collect(Collectors.toList());
-
-            if (!activeAdmins.isEmpty()) {
-                // Promote the first active admin to owner
-                GroupMember newOwner = activeAdmins.get(0);
-                newOwner.setRole(GroupMemberRole.OWNER);
-                groupMemberRepository.save(newOwner);
-                
-                log.info("Promoted user {} from ADMIN to OWNER for group {}", 
-                        newOwner.getUser().getUserId(), group.getGroupId());
-                continue;
-            }
-
-            // No active admins available, find active members to promote
-            List<GroupMember> activeMembers = groupMemberRepository.findActiveGroupMembers(
-                    group.getGroupId(), GroupMemberStatus.ACTIVE)
-                    .stream()
-                    .filter(member -> member.getRole() == GroupMemberRole.MEMBER)
-                    .filter(member -> Boolean.TRUE.equals(member.getUser().getUserIsActive()))
-                    .collect(Collectors.toList());
-
-            if (!activeMembers.isEmpty()) {
-                // Promote the first active member to owner
-                GroupMember newOwner = activeMembers.get(0);
-                newOwner.setRole(GroupMemberRole.OWNER);
-                groupMemberRepository.save(newOwner);
-                
-                log.info("Promoted user {} from MEMBER to OWNER for group {}", 
-                        newOwner.getUser().getUserId(), group.getGroupId());
-            } else {
-                // No active members left, deactivate the group
-                group.setGroupIsActive(false);
-                groupRepository.save(group);
-                
-                log.info("No active members left in group {}, group has been deactivated", group.getGroupId());
-            }
-        }
-
-        // Handle ADMIN role deactivation
-        for (GroupMember adminRole : adminRoles) {
-            Group group = adminRole.getGroup();
-            
-            // Skip if group is already inactive
-            if (!Boolean.TRUE.equals(group.getGroupIsActive())) {
-                continue;
-            }
-
-            log.info("Processing ADMIN account deactivation for group ID: {} (user {} was admin)", 
-                    group.getGroupId(), userId);
-
-            // Check if there's still an active owner
-            Optional<GroupMember> activeOwner = groupMemberRepository.findGroupOwner(
-                    group.getGroupId(), GroupMemberStatus.ACTIVE);
-            
-            if (activeOwner.isPresent() && Boolean.TRUE.equals(activeOwner.get().getUser().getUserIsActive())) {
-                // Owner exists and is active, no action needed for admin removal
-                log.info("Group {} has active owner, no action needed for admin removal", group.getGroupId());
-                continue;
-            }
-
-            // Find other active admins in the group
-            List<GroupMember> otherActiveAdmins = groupMemberRepository.findActiveGroupMembers(
-                    group.getGroupId(), GroupMemberStatus.ACTIVE)
-                    .stream()
-                    .filter(member -> member.getRole() == GroupMemberRole.ADMIN)
-                    .filter(member -> !member.getUser().getUserId().equals(userId))
-                    .filter(member -> Boolean.TRUE.equals(member.getUser().getUserIsActive()))
-                    .collect(Collectors.toList());
-
-            if (!otherActiveAdmins.isEmpty()) {
-                // There are other active admins, no action needed
-                log.info("Group {} has other active admins, no leadership transfer needed", group.getGroupId());
-                continue;
-            }
-
-            // Find active members to promote
-            List<GroupMember> activeMembers = groupMemberRepository.findActiveGroupMembers(
-                    group.getGroupId(), GroupMemberStatus.ACTIVE)
-                    .stream()
-                    .filter(member -> member.getRole() == GroupMemberRole.MEMBER)
-                    .filter(member -> Boolean.TRUE.equals(member.getUser().getUserIsActive()))
-                    .collect(Collectors.toList());
-
-            if (!activeMembers.isEmpty()) {
-                // Promote the first active member to admin
-                GroupMember newAdmin = activeMembers.get(0);
-                newAdmin.setRole(GroupMemberRole.ADMIN);
-                groupMemberRepository.save(newAdmin);
-                
-                log.info("Promoted user {} to admin for group {}", 
-                        newAdmin.getUser().getUserId(), group.getGroupId());
-            } else {
-                // No active members left, deactivate the group
-                group.setGroupIsActive(false);
-                groupRepository.save(group);
-                
-                log.info("No active members left in group {}, group has been deactivated", group.getGroupId());
-            }
-        }
-
-        log.info("Account deactivation handling completed for user ID: {}", userId);
-    }
 
     @Override
     @Transactional
@@ -760,7 +630,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
      * Validate current user is owner of the group
      */
     private GroupMember validateOwnerPermission(Integer currentUserId, Group group) {
-        Optional<GroupMember> currentUserMembership = groupMemberRepository.findByUserIdAndGroupId(
+        Optional<GroupMember> currentUserMembership = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(
                 currentUserId, group.getGroupId());
 
         if (currentUserMembership.isEmpty() || 
@@ -770,7 +640,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
 
         GroupMember currentUserMember = currentUserMembership.get();
         GroupMemberRole currentUserRole = currentUserMember.getRole();
-        if (currentUserRole != GroupMemberRole.OWNER) {
+        if (currentUserRole != GroupMemberRole.OWNER && currentUserRole != GroupMemberRole.ADMIN) {
             throw new GroupException("Only group owner can update member roles");
         }
 
@@ -854,7 +724,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         }
 
         // Check if current user is admin or owner of the group
-        Optional<GroupMember> currentUserMembership = groupMemberRepository.findByUserIdAndGroupId(
+        Optional<GroupMember> currentUserMembership = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(
                 currentUser.getUserId(), groupId);
         
         if (currentUserMembership.isEmpty() || 
@@ -908,7 +778,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
         GroupMemberRole memberRole = memberToRemove.getRole();
         
         // Get current user's role
-        GroupMemberRole currentUserRole = groupMemberRepository.findByUserIdAndGroupId(
+        GroupMemberRole currentUserRole = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(
                 currentUser.getUserId(), groupId)
                 .map(GroupMember::getRole)
                 .orElseThrow(() -> new GroupException("Current user membership not found"));
@@ -1127,7 +997,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
     }
 
     private GroupMember validateCurrentUserIsOwner(Integer userId, Integer groupId) {
-        Optional<GroupMember> memberOptional = groupMemberRepository.findByUserIdAndGroupId(userId, groupId);
+        Optional<GroupMember> memberOptional = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(userId, groupId);
 
         if (memberOptional.isEmpty()) {
             throw new GroupException("You are not a member of this group");
@@ -1147,7 +1017,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
     }
 
     private GroupMember validateNewOwnerEligibility(Integer newOwnerUserId, Integer groupId) {
-        Optional<GroupMember> memberOptional = groupMemberRepository.findByUserIdAndGroupId(newOwnerUserId, groupId);
+        Optional<GroupMember> memberOptional = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(newOwnerUserId, groupId);
 
         if (memberOptional.isEmpty()) {
             throw new GroupException("Selected user is not a member of this group");
@@ -1193,7 +1063,7 @@ public class GroupMemberServiceImpl implements GroupMemberService {
      * Find active member for exit operation
      */
     private GroupMember findActiveMemberForExit(Integer userId, Integer groupId) {
-        Optional<GroupMember> memberOptional = groupMemberRepository.findByUserIdAndGroupId(userId, groupId);
+        Optional<GroupMember> memberOptional = groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(userId, groupId);
 
         if (memberOptional.isEmpty()) {
             throw new GroupException("You are not a member of this group");
@@ -1271,14 +1141,19 @@ public class GroupMemberServiceImpl implements GroupMemberService {
             Long memberCount = groupMemberRepository.countActiveGroupMembers(
                     group.getGroupId(), GroupMemberStatus.ACTIVE);
 
-            // Prepare email context
-            Context context = new Context();
-            context.setVariable("acceptedUserName", acceptedUser.getUserFullName());
-            context.setVariable("acceptedByUserName", acceptedByUser.getUserFullName());
-            context.setVariable("groupName", group.getGroupName());
-            context.setVariable("groupAvatarUrl", group.getGroupAvatarUrl());
-            context.setVariable("memberCount", memberCount.intValue());
-            context.setVariable("appName", appProperties.getLabName());
+                    // Prepare email context
+        Context context = new Context();
+        context.setVariable("acceptedUserName", acceptedUser.getUserFullName());
+        context.setVariable("acceptedByUserName", acceptedByUser.getUserFullName());
+        context.setVariable("groupName", group.getGroupName());
+        context.setVariable("groupAvatarUrl", group.getGroupAvatarUrl());
+        context.setVariable("memberCount", memberCount.intValue());
+        context.setVariable("appName", appProperties.getLabName());
+        
+        // Create group link with user and group parameters
+        String groupLink = String.format("%s/invite/success-acceptance/group?userId=%d&groupId=%d",
+                appBaseUrl, acceptedUser.getUserId(), group.getGroupId());
+        context.setVariable("groupLink", groupLink);
 
             // Send email
             String subject = String.format("Welcome to '%s' group on %s", 

@@ -44,16 +44,21 @@ public class GroupPermissionService {
 
     /**
      * Check if user can update member role
-     * Only OWNER can update member roles
+     * Only OWNER and ADMIN can update member roles
      */
     public boolean canUpdateMemberRole(GroupMemberRole currentRole, GroupMemberRole targetCurrentRole, GroupMemberRole newRole) {
-        // Only owner can update roles
-        if (currentRole != GroupMemberRole.OWNER) {
+        // Only owner and admin can update roles
+        if (currentRole != GroupMemberRole.OWNER && currentRole != GroupMemberRole.ADMIN) {
             return false;
         }
         
-        // Cannot change owner role
+        // Cannot change owner role (only owner can change owner role)
         if (targetCurrentRole == GroupMemberRole.OWNER) {
+            return false;
+        }
+        
+        // Admin cannot change other admin roles (only owner can)
+        if (targetCurrentRole == GroupMemberRole.ADMIN && currentRole == GroupMemberRole.ADMIN) {
             return false;
         }
         
@@ -61,7 +66,7 @@ public class GroupPermissionService {
         if (newRole == GroupMemberRole.OWNER) {
             return false;
         }
-        
+            
         return true;
     }
 
