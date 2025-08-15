@@ -15,6 +15,7 @@ import vn.fpt.seima.seimaserver.service.BudgetPeriodService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
@@ -32,7 +33,12 @@ public class BudgetPeriodServiceImpl implements BudgetPeriodService {
     public List<BudgetPeriod> generateBudgetPeriods(Budget budget) {
         List<BudgetPeriod> periods = new ArrayList<>();
         LocalDateTime start = budget.getStartDate();
-        LocalDateTime end = budget.getEndDate();
+        LocalDateTime end;
+        if (budget.getEndDate() != null) {
+            end = budget.getEndDate();
+        } else {
+            end = LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59);
+        }
 
         int index = 1;
 
