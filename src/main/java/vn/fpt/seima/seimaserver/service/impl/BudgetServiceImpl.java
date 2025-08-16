@@ -141,7 +141,9 @@ public class BudgetServiceImpl implements BudgetService {
                 }
             }
         }
-
+        if (savedBudget.getPeriodType() == PeriodType.DAILY){
+            periods.removeFirst();
+        }
         budgetPeriodRepository.saveAll(periods);
         return budgetMapper.toResponse(savedBudget);
     }
@@ -227,10 +229,6 @@ public class BudgetServiceImpl implements BudgetService {
                     }
                 }
 
-                if (request.getEndDate() == null) {
-                    request.setEndDate(LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59));
-                }
-
                 budgetPeriodRepository.deleteAll(budgetPeriodRepository.findByBudget_BudgetId(existingBudget.getBudgetId()));
 
                 budgetMapper.updateBudgetFromDto(request, existingBudget);
@@ -249,7 +247,9 @@ public class BudgetServiceImpl implements BudgetService {
                         }
                     }
                 }
-
+                if (updatedBudget.getPeriodType() == PeriodType.DAILY){
+                    periods.removeFirst();
+                }
                 budgetPeriodRepository.saveAll(periods);
             }
 
