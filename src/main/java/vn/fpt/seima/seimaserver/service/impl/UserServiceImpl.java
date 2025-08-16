@@ -107,28 +107,7 @@ public class UserServiceImpl implements UserService {
     }
 
 
-    @Override
-    @Transactional
-    public void deactivateUserAccount(Integer userId) {
-        if (userId == null) {
-            throw new IllegalArgumentException("User ID cannot be null");
-        }
-        
-        User userToDeactivate = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
-        
-        // Check if user is already inactive
-        if (!Boolean.TRUE.equals(userToDeactivate.getUserIsActive())) {
-            logger.warn("User {} is already inactive", userId);
-            return;
-        }
-        
-        // Deactivate the user
-        userToDeactivate.setUserIsActive(false);
-        userRepository.save(userToDeactivate);
-        
-        logger.info("User account deactivated successfully for userId: {}", userId);
-    }
+
 
     @Override
     @Transactional

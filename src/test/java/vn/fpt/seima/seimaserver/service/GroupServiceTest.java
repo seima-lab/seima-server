@@ -502,7 +502,7 @@ class GroupServiceTest {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             
             when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.findByUserIdAndGroupId(TEST_USER_ID, TEST_GROUP_ID))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_USER_ID, TEST_GROUP_ID))
                     .thenReturn(Optional.of(testGroupMember));
 
             // When
@@ -567,7 +567,7 @@ class GroupServiceTest {
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(groupRepository.findById(TEST_GROUP_ID)).thenReturn(Optional.of(testGroup));
-            when(groupMemberRepository.findByUserIdAndGroupId(TEST_USER_ID, TEST_GROUP_ID))
+            when(groupMemberRepository.findMostRecentMembershipByUserIdAndGroupId(TEST_USER_ID, TEST_GROUP_ID))
                     .thenReturn(Optional.empty());
 
             // When
