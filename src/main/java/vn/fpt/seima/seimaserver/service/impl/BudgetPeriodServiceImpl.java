@@ -47,6 +47,10 @@ public class BudgetPeriodServiceImpl implements BudgetPeriodService {
             int expectedDays = 0;
 
             switch (budget.getPeriodType()) {
+                case DAILY:
+                    expectedEnd = start;
+                    expectedDays = 1;
+                    break;
                 case WEEKLY:
                     expectedEnd = start.plusDays(6);
                     expectedDays = 7;
