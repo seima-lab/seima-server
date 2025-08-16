@@ -43,5 +43,4 @@ jobs:
       - name: 'Post-deployment Notification'
         run: |
           echo "✅ Deployment Successful!"
-          echo "🚀 Latest version from main branch has been deployed to Production."
           echo "🔗 Live URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"

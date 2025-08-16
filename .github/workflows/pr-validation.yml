@@ -3,7 +3,6 @@ name: 'PR Validation Gate'
 on:
   pull_request:
     branches:
-      - main
       - dev
 
 jobs:
