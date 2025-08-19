@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class WalletServiceImpl implements WalletService {
 
     private final WalletRepository walletRepository;
@@ -28,6 +29,7 @@ public class WalletServiceImpl implements WalletService {
     private final WalletMapper walletMapper;
     private final TransactionRepository transactionRepository;
     private final BudgetWalletRepository budgetWalletRepository;
+    private final BankInformationRepository bankInformationRepository;
 
     @Override
     public WalletResponse createWallet(CreateWalletRequest request) {
@@ -56,6 +58,12 @@ public class WalletServiceImpl implements WalletService {
         wallet.setUser(currentUser);
         wallet.setWalletType(walletType);
         wallet.setIsDeleted(false);
+        
+        // Set bank information if bankId is provided
+        if (request.getBankId() != null) {
+            bankInformationRepository.findById(request.getBankId())
+                .ifPresent(wallet::setBankInformation);
+        }
         
         // Set currency code if provided, otherwise use default
         if (request.getCurrencyCode() != null && !request.getCurrencyCode().trim().isEmpty()) {
@@ -107,6 +115,14 @@ public class WalletServiceImpl implements WalletService {
             WalletType walletType = walletTypeRepository.findById(request.getWalletTypeId())
                     .orElseThrow(() -> new WalletException("Wallet type not found with id: " + request.getWalletTypeId()));
             existingWallet.setWalletType(walletType);
+        }
+
+        // Update bank information if bankId is provided
+        if (request.getBankId() != null) {
+            bankInformationRepository.findById(request.getBankId())
+                .ifPresent(existingWallet::setBankInformation);
+        } else {
+            existingWallet.setBankInformation(null);
         }
 
         // Update currency code if provided

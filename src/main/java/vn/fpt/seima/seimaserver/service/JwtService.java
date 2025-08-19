@@ -58,7 +58,6 @@ public class JwtService {
 
     public String generateAccessToken(UserInGoogleReponseDto user) {
         Map<String, Object> claims = new HashMap<>();
-        // You can add more claims here if needed, e.g., roles
         return createToken(claims, user.getEmail(), accessTokenExpirationMs);
     }
 
@@ -78,7 +77,6 @@ public class JwtService {
 
     public Boolean validateToken(String token, UserDetails springUserDetails) { // Tham số là UserDetails của Spring
         final String emailFromToken = extractEmail(token);
-        // springUserDetails.getUsername() sẽ trả về email (dựa trên cấu hình AppUserDetailsService của bạn)
         return (emailFromToken.equals(springUserDetails.getUsername()) && !isTokenExpired(token));
     }
 
@@ -87,7 +85,6 @@ public class JwtService {
             Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token);
             return !isTokenExpired(token);
         } catch (Exception e) {
-            // Log different exceptions: MalformedJwtException, ExpiredJwtException, UnsupportedJwtException, IllegalArgumentException
             return false;
         }
     }
