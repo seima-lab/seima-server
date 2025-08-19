@@ -44,32 +44,40 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
             throw new IllegalArgumentException("User must not be null");
         }
 
+        String redisKey = "financial_health:" + currentUser.getUserId();
+        Object cached = redisService.get(redisKey);
+
+        if (cached != null) {
+            FinancialHealthResponse cachedResponse = objectMapper.convertValue(cached, FinancialHealthResponse.class);
+            log.info(" Get FinancialHealthResponse from Redis: {}", cachedResponse);
+            return cachedResponse;
+        }
+
         LocalDate dateFrom = LocalDate.now().withDayOfMonth(1);
         LocalDate dateFromPast = LocalDate.now()
                 .minusMonths(1)
                 .withDayOfMonth(1);
         LocalDate dateTo = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
 
-        List<Transaction> transactionsPast = transactionRepository.findExpensesByUserAndDateRange(currentUser.getUserId(),
+        boolean exists = transactionRepository.existsExpensesByUserAndDateRange(
+                currentUser.getUserId(),
                 dateFromPast.atStartOfDay(),
                 dateTo.atTime(23, 59, 59));
-        if (transactionsPast.isEmpty()) {
+
+        if (!exists) {
             finalScore = 100;
         }
         else{
-            List<Transaction> transactions = transactionRepository.findExpensesByUserAndDateRange(currentUser.getUserId(),
-                    dateFrom.atStartOfDay(),
-                    dateTo.atTime(23, 59, 59));
 
-            BigDecimal totalIncome = BigDecimal.ZERO;
-            BigDecimal totalExpense = BigDecimal.ZERO;
-            for (Transaction transaction : transactions) {
-                if (transaction.getTransactionType() == TransactionType.EXPENSE) {
-                    totalExpense = totalExpense.add(transaction.getAmount());
-                } else if (transaction.getTransactionType() == TransactionType.INCOME) {
-                    totalIncome = totalIncome.add(transaction.getAmount());
-                }
-            }
+            FinancialHealthResponse.IncomeExpenseSummary incomeExpense =
+                    transactionRepository.findIncomeAndExpense(currentUser.getUserId(),
+                            dateFrom.atStartOfDay(),
+                            dateTo.atTime(23, 59, 59));
+
+            BigDecimal totalIncome = incomeExpense != null && incomeExpense.getIncome() != null
+                    ? incomeExpense.getIncome() : BigDecimal.ZERO;
+            BigDecimal totalExpense = incomeExpense != null && incomeExpense.getExpense() != null
+                    ? incomeExpense.getExpense() : BigDecimal.ZERO;
 
             int savingScore = 0;
             if (totalIncome.compareTo(BigDecimal.ZERO) > 0) {
@@ -106,22 +114,16 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
             LocalDate prevMonthStart = dateFrom.minusMonths(1);
             LocalDate prevMonthEnd = prevMonthStart.withDayOfMonth(prevMonthStart.lengthOfMonth());
 
-            List<Transaction> lastMonthTxs = transactionRepository.findExpensesByUserAndDateRange(
-                    currentUser.getUserId(),
-                    prevMonthStart.atStartOfDay(),
-                    prevMonthEnd.atTime(23, 59, 59)
-            );
 
-            BigDecimal prevIncome = BigDecimal.ZERO;
-            BigDecimal prevExpense = BigDecimal.ZERO;
+            FinancialHealthResponse.IncomeExpenseSummary incomeExpensePrev =
+                    transactionRepository.findIncomeAndExpense(currentUser.getUserId(),
+                            prevMonthStart.atStartOfDay(),
+                            prevMonthEnd.atTime(23, 59, 59));
 
-            for (Transaction tx : lastMonthTxs) {
-                if (tx.getTransactionType() == TransactionType.INCOME) {
-                    prevIncome = prevIncome.add(tx.getAmount());
-                } else if (tx.getTransactionType() == TransactionType.EXPENSE) {
-                    prevExpense = prevExpense.add(tx.getAmount());
-                }
-            }
+            BigDecimal prevIncome = incomeExpensePrev != null && incomeExpensePrev.getIncome() != null
+                    ? incomeExpensePrev.getIncome() : BigDecimal.ZERO;
+            BigDecimal prevExpense = incomeExpensePrev != null && incomeExpensePrev.getExpense() != null
+                    ? incomeExpensePrev.getExpense() : BigDecimal.ZERO;
 
             BigDecimal actual = totalIncome.subtract(totalExpense);
             BigDecimal expected = prevIncome.subtract(prevExpense);
@@ -170,14 +172,23 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
         } else {
             level = "Low";
         }
-        BigDecimal balance = walletRepository.findAllActiveByUserId(currentUser.getUserId())
-                .stream()
-                .map(Wallet::getCurrentBalance)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        saveToRedisAndNotifyIfChanged(currentUser, finalScore, level, fcmTokens);
-        return new FinancialHealthResponse(finalScore, level, LocalDateTime.now(), balance);
+        LocalDateTime updateAt = LocalDateTime.now();
+        BigDecimal balance = walletRepository.sumBalanceByUserId(currentUser.getUserId());
+
+        saveToRedisAndNotifyIfChanged(currentUser, finalScore,balance ,level, fcmTokens, updateAt);
+        return  FinancialHealthResponse.builder()
+                .score(finalScore)
+                .level(level)
+                .updatedAt(updateAt)
+                .balance(balance)
+                .build();
     }
-    private void saveToRedisAndNotifyIfChanged(User currentUser, int finalScore, String level, List<String> fcmTokens) {
+    private void saveToRedisAndNotifyIfChanged(User currentUser,
+                                               int finalScore,
+                                               BigDecimal balance,
+                                               String level,
+                                               List<String> fcmTokens,
+                                               LocalDateTime updateAt) {
         String redisKey = "financial_health:" + currentUser.getUserId();
         Object rawData = redisService.get(redisKey);
 
@@ -214,10 +225,10 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
         Map<String, String> redisData = new HashMap<>();
         redisData.put("score", String.valueOf(finalScore));
         redisData.put("level", level);
-        redisData.put("updatedAt", LocalDateTime.now().toString());
-
+        redisData.put("updatedAt", updateAt.toString());
+        redisData.put("balance", String.valueOf(balance));
         redisService.set(redisKey, redisData);
-        redisService.setTimeToLive(redisKey, Duration.ofDays(30).toDays());
+        redisService.setTimeToLive(redisKey, Duration.ofDays(3600*24).toDays());
     }
 
 }

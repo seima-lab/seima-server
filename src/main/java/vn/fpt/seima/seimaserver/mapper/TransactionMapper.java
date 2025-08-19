@@ -37,6 +37,7 @@ public interface TransactionMapper {
     @Mapping(target = "description", source = "description")
     @Mapping(target = "transactionDate", source = "transactionDate")
     @Mapping(target = "walletId", source = "wallet.id")
+    @Mapping(target = "receiptImageUrl", source = "receiptImageUrl")
     TransactionOverviewResponse.TransactionItem toTransactionItem(Transaction transaction);
 
 

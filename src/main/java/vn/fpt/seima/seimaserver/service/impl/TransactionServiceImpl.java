@@ -119,8 +119,9 @@ public class TransactionServiceImpl implements TransactionService {
                 }
                 YearMonth month = YearMonth.from(transaction.getTransactionDate());
                 String cacheKey = buildOverviewKey(transaction.getUser().getUserId(), month);
+                String financialHealthKey = "financial_health:" + user.getUserId();
                 redisService.delete(cacheKey);
-            }
+                redisService.delete(financialHealthKey);            }
             Transaction savedTransaction = transactionRepository.save(transaction);
 
             // Send notification to all group members except current user if transaction is group-related
@@ -207,7 +208,9 @@ public class TransactionServiceImpl implements TransactionService {
                 }
                 YearMonth month = YearMonth.from(transaction.getTransactionDate());
                 String cacheKey = buildOverviewKey(transaction.getUser().getUserId(), month);
+                String financialHealthKey = "financial_health:" + user.getUserId();
                 redisService.delete(cacheKey);
+                redisService.delete(financialHealthKey);
             }
             transactionMapper.updateTransactionFromDto(request, transaction);
             Transaction updatedTransaction = transactionRepository.save(transaction);
@@ -248,8 +251,9 @@ public class TransactionServiceImpl implements TransactionService {
         else{
             YearMonth month = YearMonth.from(transaction.getTransactionDate());
             String cacheKey = buildOverviewKey(transaction.getUser().getUserId(), month);
+            String financialHealthKey = "financial_health:" + transaction.getUser().getUserId();
             redisService.delete(cacheKey);
-
+            redisService.delete(financialHealthKey);
             Wallet wallet = transaction.getWallet();
             if (transaction.getTransactionType() == TransactionType.EXPENSE) {
 
