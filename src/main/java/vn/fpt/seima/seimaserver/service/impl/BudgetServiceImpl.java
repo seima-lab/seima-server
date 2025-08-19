@@ -111,6 +111,8 @@ public class BudgetServiceImpl implements BudgetService {
         Budget budget = budgetMapper.toEntity(request);
 
         budget.setUser(user);
+        budget.setStartDate(request.getStartDate().toLocalDate().atStartOfDay());
+        budget.setEndDate(request.getEndDate().toLocalDate().atTime(23, 59, 59));
         Budget savedBudget = budgetRepository.save(budget);
 
         for (Category category : request.getCategoryList()) {
@@ -170,6 +172,7 @@ public class BudgetServiceImpl implements BudgetService {
             if (request.getWalletList().isEmpty()) {
                 throw new IllegalArgumentException("Wallet must not be empty");
             }
+
             List<Integer> categoryIds = new ArrayList<>();
             budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(existingBudget.getBudgetId());
             for (Category category : request.getCategoryList()) {
@@ -233,6 +236,9 @@ public class BudgetServiceImpl implements BudgetService {
 
                 budgetMapper.updateBudgetFromDto(request, existingBudget);
                 existingBudget.setUser(user);
+                existingBudget.setStartDate(request.getStartDate().toLocalDate().atStartOfDay());
+                existingBudget.setEndDate(request.getEndDate().toLocalDate().atTime(23,59,59));
+
                 updatedBudget = budgetRepository.save(existingBudget);
 
                 List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(updatedBudget);
