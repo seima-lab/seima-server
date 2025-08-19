@@ -56,5 +56,6 @@ public class TransactionOverviewResponse {
 
         private LocalDateTime transactionDate;
         private Integer walletId;
+        private String receiptImageUrl;
     }
 }
