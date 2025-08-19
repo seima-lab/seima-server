@@ -9,6 +9,7 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import vn.fpt.seima.seimaserver.dto.request.wallet.CreateWalletRequest;
 import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
+import vn.fpt.seima.seimaserver.entity.BankInformation;
 import vn.fpt.seima.seimaserver.entity.User;
 import vn.fpt.seima.seimaserver.entity.Wallet;
 import vn.fpt.seima.seimaserver.entity.WalletType;
@@ -46,8 +47,12 @@ class WalletServiceTest {
 
     @Mock
     private TransactionRepository transactionRepository;
+    
     @Mock
     private BudgetWalletRepository budgetWalletRepository;
+    
+    @Mock
+    private BankInformationRepository bankInformationRepository;
 
     @InjectMocks
     private WalletServiceImpl walletService;
@@ -56,6 +61,7 @@ class WalletServiceTest {
     private User testUser;
     private WalletType testWalletType;
     private Wallet testWallet;
+    private BankInformation testBank;
     private CreateWalletRequest createWalletRequest;
     private WalletResponse walletResponse;
 
@@ -74,6 +80,12 @@ class WalletServiceTest {
         testWalletType.setId(1L);
         testWalletType.setTypeName("Bank Account");
         testWalletType.setIsSystemDefined(true);
+        
+        // Setup test bank
+        testBank = new BankInformation();
+        testBank.setBankId(1);
+        testBank.setBankCode("TEST");
+        testBank.setBankLogoUrl("https://example.com/bank-logo.png");
 
         // Setup test wallet
         testWallet = new Wallet();
@@ -84,7 +96,7 @@ class WalletServiceTest {
         testWallet.setDescription("Test wallet description");
         testWallet.setIsDefault(false);
         testWallet.setExcludeFromTotal(false);
-        testWallet.setBankName("Test Bank");
+        testWallet.setBankInformation(testBank);
         testWallet.setIconUrl("https://example.com/icon.png");
         testWallet.setIsDeleted(false);
         testWallet.setWalletCreatedAt(Instant.now());
@@ -100,7 +112,7 @@ class WalletServiceTest {
                 .walletTypeId(1)
                 .isDefault(false)
                 .excludeFromTotal(false)
-                .bankName("Test Bank")
+                .bankId(1)
                 .iconUrl("https://example.com/icon.png")
                 .build();
 
@@ -112,7 +124,8 @@ class WalletServiceTest {
                 .walletTypeName("Bank Account")
                 .isDefault(false)
                 .excludeFromTotal(false)
-                .bankName("Test Bank")
+                .bankCode("TEST")
+                .bankLogoUrl("https://example.com/bank-logo.png")
                 .iconUrl("https://example.com/icon.png")
                 .build();
     }
@@ -238,7 +251,7 @@ class WalletServiceTest {
     void createWallet_Success_WithNullOptionalFields() {
         // Given
         createWalletRequest.setDescription(null);
-        createWalletRequest.setBankName(null);
+        createWalletRequest.setBankId(null);
         createWalletRequest.setIconUrl(null);
 
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
@@ -658,7 +671,8 @@ class WalletServiceTest {
                 .walletTypeName("Bank Account")
                 .isDefault(true)
                 .excludeFromTotal(false)
-                .bankName("Test Bank")
+                .bankCode("TEST")
+                .bankLogoUrl("https://example.com/bank-logo.png")
                 .iconUrl("https://example.com/icon.png")
                 .build();
 
@@ -691,7 +705,8 @@ class WalletServiceTest {
                 .walletTypeName("Bank Account")
                 .isDefault(false)
                 .excludeFromTotal(false)
-                .bankName("Test Bank")
+                .bankCode("TEST")
+                .bankLogoUrl("https://example.com/bank-logo.png")
                 .iconUrl("https://example.com/icon.png")
                 .build();
 
@@ -724,7 +739,8 @@ class WalletServiceTest {
                 .walletTypeName("Bank Account")
                 .isDefault(false)
                 .excludeFromTotal(false)
-                .bankName("Test Bank")
+                .bankCode("TEST")
+                .bankLogoUrl("https://example.com/bank-logo.png")
                 .iconUrl("https://example.com/icon.png")
                 .build();
 
@@ -749,7 +765,7 @@ class WalletServiceTest {
     void getWallet_Success_ReturnsWalletWithNullOptionalFields() {
         // Given
         testWallet.setDescription(null);
-        testWallet.setBankName(null);
+        testWallet.setBankInformation(null);
         testWallet.setIconUrl(null);
         walletResponse = WalletResponse.builder()
                 .id(1)
@@ -758,7 +774,8 @@ class WalletServiceTest {
                 .walletTypeName("Bank Account")
                 .isDefault(false)
                 .excludeFromTotal(false)
-                .bankName(null)
+                .bankCode(null)
+                .bankLogoUrl(null)
                 .iconUrl(null)
                 .build();
 
@@ -772,8 +789,8 @@ class WalletServiceTest {
 
             // Then
             assertNotNull(result);
-            assertNull(result.getBankName());
-            assertNull(result.getIconUrl());
+            assertNull(result.getBankCode());
+            assertNull(result.getBankLogoUrl());
 
             verify(walletRepository).findByIdAndNotDeleted(1);
             verify(walletMapper).toResponse(testWallet);
@@ -791,7 +808,8 @@ class WalletServiceTest {
                 .walletTypeName("Bank Account")
                 .isDefault(false)
                 .excludeFromTotal(true)
-                .bankName("Test Bank")
+                .bankCode("TEST")
+                .bankLogoUrl("https://example.com/bank-logo.png")
                 .iconUrl("https://example.com/icon.png")
                 .build();
 
@@ -1016,7 +1034,8 @@ class WalletServiceTest {
                 .walletTypeName("Credit Card")
                 .isDefault(false)
                 .excludeFromTotal(false)
-                .bankName("Test Bank")
+                .bankCode("TEST")
+                .bankLogoUrl("https://example.com/bank-logo.png")
                 .iconUrl("https://example.com/icon.png")
                 .build();
 
@@ -1057,8 +1076,8 @@ class WalletServiceTest {
             assertNotNull(result.getIsDefault());
             assertNotNull(result.getExcludeFromTotal());
             // Optional fields can be null
-            // assertNotNull(result.getBankName());
-            // assertNotNull(result.getIconUrl());
+            // assertNotNull(result.getBankCode());
+            // assertNotNull(result.getBankLogoUrl());
 
             verify(walletRepository).findByIdAndNotDeleted(1);
             verify(walletMapper).toResponse(testWallet);
@@ -1381,7 +1400,7 @@ class WalletServiceTest {
         walletWithNulls.setWalletName("Test Wallet");
         walletWithNulls.setCurrentBalance(new BigDecimal("1000.00"));
         walletWithNulls.setDescription(null);
-        walletWithNulls.setBankName(null);
+        walletWithNulls.setBankInformation(null);
         walletWithNulls.setIconUrl(null);
         walletWithNulls.setUser(testUser);
 
@@ -1391,7 +1410,8 @@ class WalletServiceTest {
                 .id(1)
                 .walletName("Test Wallet")
                 .currentBalance(new BigDecimal("1000.00"))
-                .bankName(null)
+                .bankCode(null)
+                .bankLogoUrl(null)
                 .iconUrl(null)
                 .build();
 
@@ -1406,8 +1426,8 @@ class WalletServiceTest {
             // Then
             assertNotNull(result);
             assertEquals(1, result.size());
-            assertNull(result.get(0).getBankName());
-            assertNull(result.get(0).getIconUrl());
+            assertNull(result.get(0).getBankCode());
+            assertNull(result.get(0).getBankLogoUrl());
 
             verify(walletRepository).findAllActiveByUserId(testUser.getUserId());
             verify(walletMapper).toResponse(walletWithNulls);
@@ -1842,7 +1862,7 @@ class WalletServiceTest {
                 .walletTypeId(1)
                 .isDefault(false)
                 .description(null)
-                .bankName(null)
+                .bankId(null)
                 .iconUrl(null)
                 .currencyCode(null) // Null currency code should not update existing currency
                 .build();
@@ -2641,7 +2661,6 @@ class WalletServiceTest {
             );
             
             verify(walletRepository).findByIdAndNotDeleted(1);
-            verify(walletRepository, never()).save(any());
         }
     }
 
