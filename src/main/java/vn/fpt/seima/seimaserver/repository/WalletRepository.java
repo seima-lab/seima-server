@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import vn.fpt.seima.seimaserver.entity.Wallet;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,6 +20,9 @@ public interface WalletRepository extends JpaRepository<Wallet, Integer> {
 
     @Query("SELECT w FROM Wallet w WHERE w.user.userId = :userId AND w.isDeleted = false")
     List<Wallet> findAllActiveByUserId(@Param("userId") Integer userId);
+
+    @Query("SELECT COALESCE(SUM(w.currentBalance), 0) FROM Wallet w WHERE w.user.userId = :userId AND w.isDeleted = false")
+    BigDecimal sumBalanceByUserId(@Param("userId") Integer userId);
 
     @Query("SELECT CASE WHEN COUNT(w) > 0 THEN true ELSE false END FROM Wallet w WHERE w.id = :id AND w.isDeleted = false")
     boolean existsByIdAndNotDeleted(@Param("id") Integer id);
