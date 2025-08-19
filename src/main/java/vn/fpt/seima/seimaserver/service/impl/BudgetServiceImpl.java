@@ -112,7 +112,9 @@ public class BudgetServiceImpl implements BudgetService {
 
         budget.setUser(user);
         budget.setStartDate(request.getStartDate().toLocalDate().atStartOfDay());
-        budget.setEndDate(request.getEndDate().toLocalDate().atTime(23, 59, 59));
+        if (request.getEndDate() != null) {
+            budget.setEndDate(request.getEndDate().toLocalDate().atTime(23, 59, 59));
+        }
         Budget savedBudget = budgetRepository.save(budget);
 
         for (Category category : request.getCategoryList()) {
@@ -132,9 +134,10 @@ public class BudgetServiceImpl implements BudgetService {
                 user.getUserId(),
                 categoryIds,
                 request.getStartDate(),
-                request.getEndDate()
+                LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59)
         );
         List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(savedBudget);
+
         for (Transaction transaction : transactions) {
             for (BudgetPeriod period : periods) {
                 if (!transaction.getTransactionDate().isBefore(period.getStartDate()) &&
@@ -237,14 +240,18 @@ public class BudgetServiceImpl implements BudgetService {
                 budgetMapper.updateBudgetFromDto(request, existingBudget);
                 existingBudget.setUser(user);
                 existingBudget.setStartDate(request.getStartDate().toLocalDate().atStartOfDay());
-                existingBudget.setEndDate(request.getEndDate().toLocalDate().atTime(23,59,59));
+                if (request.getEndDate() != null) {
+                    existingBudget.setEndDate(request.getEndDate().toLocalDate().atTime(23, 59, 59));
+                }
 
                 updatedBudget = budgetRepository.save(existingBudget);
 
                 List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(updatedBudget);
-                List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
-                        user.getUserId(), categoryIds, request.getStartDate(), request.getEndDate());
 
+                List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
+                        user.getUserId(), categoryIds, request.getStartDate(), LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59));
+
+                log.info("size:" + transactions.size());
                 for (Transaction transaction : transactions) {
                     for (BudgetPeriod period : periods) {
                         if (!transaction.getTransactionDate().isBefore(period.getStartDate())
@@ -256,6 +263,7 @@ public class BudgetServiceImpl implements BudgetService {
                 if (updatedBudget.getPeriodType() == PeriodType.DAILY){
                     periods.removeFirst();
                 }
+
                 budgetPeriodRepository.saveAll(periods);
             }
 
