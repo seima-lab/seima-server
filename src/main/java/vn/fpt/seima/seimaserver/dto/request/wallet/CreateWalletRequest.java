@@ -34,7 +34,7 @@ public class CreateWalletRequest {
 
     private Boolean excludeFromTotal = false;
 
-    private String bankName;
+    private Integer bankId;
 
     private String iconUrl;
 

@@ -757,13 +757,21 @@ public class AuthServiceImpl implements AuthService {
         
         // 5. Validate new password is different
         passwordValidationService.validateNewPasswordDifferent(user, changePasswordRequestDto.getNewPassword());
-        
+
         // 6. Update password
         String encodedNewPassword = passwordEncoder.encode(changePasswordRequestDto.getNewPassword());
         user.setUserPassword(encodedNewPassword);
         userRepository.save(user);
+
+        // 7. Check if logout all another devices is requested or not
+        if(changePasswordRequestDto.isLogoutAllDevices()){
+            logoutAllAnotherDevices(user.getUserId());
+        }
         
         logger.info("Password changed successfully for user: {}", userEmail);
         return true;
+    }
+
+    private void logoutAllAnotherDevices(Integer userId) {
     }
 }
