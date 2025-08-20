@@ -267,10 +267,32 @@ public class TransactionServiceImpl implements TransactionService {
                         if (budget == null) {
                             continue;
                         }
+
                         List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetIdAndTime(budget.getBudgetId(), transaction.getTransactionDate());
                         for (BudgetPeriod budgetPeriod : budgetPeriods) {
-                            if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate()))
-                                budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount().add(transaction.getAmount()));
+                            log.info("Checking BudgetPeriod id={}, transactionDate={}, startDate={}, endDate={}",
+                                    budgetPeriod.getBudgetPeriodId(),
+                                    transaction.getTransactionDate(),
+                                    budgetPeriod.getStartDate(),
+                                    budgetPeriod.getEndDate());
+
+                            if (budgetPeriod.getStartDate() != null && budgetPeriod.getEndDate() != null) {
+                                if (transaction.getTransactionDate().isBefore(budgetPeriod.getEndDate())
+                                        && transaction.getTransactionDate().isAfter(budgetPeriod.getStartDate())) {
+
+                                    log.info("Transaction {} falls within BudgetPeriod {} -> Updating remainingAmount",
+                                            transaction.getTransactionId(), budgetPeriod.getBudgetPeriodId());
+
+                                    budgetPeriod.setRemainingAmount(
+                                            budgetPeriod.getRemainingAmount().add(transaction.getAmount()));
+                                }
+                            } else {
+                                log.warn("BudgetPeriod {} has null startDate or endDate (startDate={}, endDate={})",
+                                        budgetPeriod.getBudgetPeriodId(),
+                                        budgetPeriod.getStartDate(),
+                                        budgetPeriod.getEndDate());
+                            }
+
                             budgetPeriodRepository.save(budgetPeriod);
                         }
                     }
@@ -722,11 +744,15 @@ public class TransactionServiceImpl implements TransactionService {
             }
             categoryIds.addAll(categories.stream().map(Category::getCategoryId).collect(Collectors.toList()));
         }
+        LocalDateTime endDate = budget.getEndDate();
+        if (budget.getEndDate() == null) {
+            endDate = LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59);
+        }
         Page<Transaction> transactions = transactionRepository.getTransactionByBudget(
                 currentUser.getUserId(),
                 categoryIds,
                 budget.getStartDate(),
-                budget.getEndDate(),
+                endDate,
                 pageable
         );
         return transactions.map(transactionMapper::toResponse);
