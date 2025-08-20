@@ -14,10 +14,16 @@ import java.util.List;
 
 @Repository
 public interface BudgetRepository extends JpaRepository<Budget, Integer> {
-    boolean existsByBudgetName(String budgetName);
+    @Query("SELECT CASE WHEN COUNT(b) > 0 THEN TRUE ELSE FALSE END " +
+            "FROM Budget b " +
+            "WHERE b.budgetName = :budgetName AND b.user.userId = :userId")
+    boolean existsByBudgetName(@Param("budgetName") String budgetName, @Param("userId") Integer userId);
 
     @Query("SELECT b FROM Budget b WHERE b.user.id = :userId")
     List<Budget> findByUserId(@Param("userId") Integer userId);
+
+    @Query("SELECT b FROM Budget b WHERE b.user.id = :userId and b.budgetId= :budgetId")
+    Budget findByUserIdBudget(@Param("userId") Integer userId, @Param("budgetId") Integer budgetId);
 
     @Query("select case when count(*) < 5 then true else false end from Budget b where b.user.id = :userId ")
     boolean countBudgetByUserId(@Param("userId") Integer userId);

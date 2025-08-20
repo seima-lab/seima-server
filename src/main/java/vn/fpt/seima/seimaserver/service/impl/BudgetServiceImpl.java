@@ -73,16 +73,15 @@ public class BudgetServiceImpl implements BudgetService {
         if (request == null) {
             throw new IllegalArgumentException("Request must not be null");
         }
-        if (budgetRepository.existsByBudgetName(request.getBudgetName())) {
+        User user = UserUtils.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        if (budgetRepository.existsByBudgetName(request.getBudgetName(), user.getUserId())) {
             throw new IllegalArgumentException("Budget name already exists");
         }
         if(request.getOverallAmountLimit().compareTo(BigDecimal.ZERO) <= 0){
             throw new IllegalArgumentException("Overall amount limit must be greater than zero");
-        }
-
-        User user = UserUtils.getCurrentUser();
-        if (user == null) {
-            throw new IllegalArgumentException("User must not be null");
         }
 
         if (request.getCategoryList().isEmpty()) {
@@ -221,7 +220,7 @@ public class BudgetServiceImpl implements BudgetService {
 
                 updatedBudget = existingBudget;
             } else {
-                if (budgetRepository.existsByBudgetName(request.getBudgetName())
+                if (budgetRepository.existsByBudgetName(request.getBudgetName(), user.getUserId())
                         && !existingBudget.getBudgetName().equals(request.getBudgetName())) {
                     throw new IllegalArgumentException("Budget name already exists");
                 }
