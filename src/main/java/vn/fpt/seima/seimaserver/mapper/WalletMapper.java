@@ -14,14 +14,15 @@ public interface WalletMapper {
     @Mapping(target = "walletCreatedAt", ignore = true)
     @Mapping(target = "walletIsArchived", ignore = true)
     @Mapping(target = "currentBalance", source = "balance")
-    @Mapping(target = "bankName", source = "bankName")
+    @Mapping(target = "bankInformation", ignore = true)
     @Mapping(target = "iconUrl", source = "iconUrl")
     @Mapping(target = "initialBalance", source = "initialBalance")
 
     Wallet toEntity(CreateWalletRequest request);
 
     @Mapping(target = "walletTypeName", source = "walletType.typeName")
-    @Mapping(target = "bankName", source = "bankName")
+    @Mapping(target = "bankCode", source = "bankInformation.bankCode")
+    @Mapping(target = "bankLogoUrl", source = "bankInformation.bankLogoUrl")
     @Mapping(target = "iconUrl", source = "iconUrl")
     @Mapping(target = "initialBalance", source = "initialBalance")
     WalletResponse toResponse(Wallet wallet);
@@ -33,7 +34,7 @@ public interface WalletMapper {
     @Mapping(target = "walletCreatedAt", ignore = true)
     @Mapping(target = "walletIsArchived", ignore = true)
     @Mapping(target = "currentBalance", source = "balance")
-    @Mapping(target = "bankName", source = "bankName")
+    @Mapping(target = "bankInformation", ignore = true)
     @Mapping(target = "iconUrl", source = "iconUrl")
     @Mapping(target = "initialBalance", source = "initialBalance")
 

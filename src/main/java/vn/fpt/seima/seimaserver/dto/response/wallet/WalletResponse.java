@@ -18,12 +18,12 @@ public class WalletResponse {
     private Integer id;
     private String walletName;
     private BigDecimal currentBalance;
-    private String walletTypeName;  // Tên ngân hàng/loại ví
+    private String walletTypeName;  // Tên loại ví
     private Boolean isDefault;      // Ví mặc định
     private Boolean excludeFromTotal; // Loại trừ khỏi tổng
-    private String bankName;       // Tên ngân hàng
-    private String iconUrl;        // Logo của ngân hàng
+    private String bankCode;       // Mã ngân hàng
+    private String bankLogoUrl;    // Logo của ngân hàng
+    private String iconUrl;        // Icon của ví
     private String currencyCode;   // Mã tiền tệ
     private BigDecimal initialBalance;
-
 }

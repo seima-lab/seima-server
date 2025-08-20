@@ -57,9 +57,9 @@ public class Wallet {
     @Column(name = "exclude_from_total")
     private Boolean excludeFromTotal = false;
 
-    @Size(max = 100)
-    @Column(name = "bank_name")
-    private String bankName;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bank_id")
+    private BankInformation bankInformation;
 
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
