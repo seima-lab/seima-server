@@ -239,37 +239,35 @@ public class TransactionServiceImpl implements TransactionService {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found with ID: " + id));
 
-        if(transaction.getGroup()!= null) {
-            Group  group = groupRepository.findById(transaction.getGroup().getGroupId())
+        if (transaction.getGroup() != null) {
+            Group group = groupRepository.findById(transaction.getGroup().getGroupId())
                     .orElseThrow(() -> new IllegalArgumentException("Group not found with id: " + transaction.getGroup().getGroupId()));
 
             if (!groupMemberRepository.existsByUserUserIdAndGroupGroupId(transaction.getUser().getUserId(), group.getGroupId())) {
                 throw new IllegalArgumentException("You are not authorized to create this group category.");
             }
             transaction.setGroup(group);
-        }
-        else{
+        } else {
+
             YearMonth month = YearMonth.from(transaction.getTransactionDate());
+
             String cacheKey = buildOverviewKey(transaction.getUser().getUserId(), month);
             String financialHealthKey = "financial_health:" + transaction.getUser().getUserId();
             redisService.delete(cacheKey);
             redisService.delete(financialHealthKey);
             Wallet wallet = transaction.getWallet();
             if (transaction.getTransactionType() == TransactionType.EXPENSE) {
-
                 wallet.setCurrentBalance(wallet.getCurrentBalance().add(transaction.getAmount()));
-
                 List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository.findByTransaction(transaction.getCategory().getCategoryId());
 
                 if (!budgetCategoryLimits.isEmpty()) {
                     for (BudgetCategoryLimit budgetCategoryLimit : budgetCategoryLimits) {
-                        Budget budget = budgetRepository.findById(budgetCategoryLimit.getBudget().getBudgetId())
-                                .orElse(null);
+                        Budget budget = budgetRepository.findByUserIdBudget(transaction.getUser().getUserId(), budgetCategoryLimit.getBudget().getBudgetId());
+
                         if (budget == null) {
                             continue;
                         }
                         List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetIdAndTime(budget.getBudgetId(), transaction.getTransactionDate());
-
                         for (BudgetPeriod budgetPeriod : budgetPeriods) {
                             if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate()))
                                 budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount().add(transaction.getAmount()));
@@ -283,18 +281,18 @@ public class TransactionServiceImpl implements TransactionService {
             }
             walletRepository.save(wallet);
         }
-        
+
         // Send notification to all group members except current user if transaction is group-related
         if (transaction.getGroup() != null) {
             try {
                 sendTransactionDeleteNotificationToGroup(transaction, transaction.getUser());
             } catch (Exception e) {
-                log.error("Failed to send transaction delete notification for transaction {}: {}", 
+                log.error("Failed to send transaction delete notification for transaction {}: {}",
                         transaction.getTransactionId(), e.getMessage(), e);
                 // Don't throw exception to avoid affecting the main transaction flow
             }
         }
-        
+
         transaction.setTransactionType(TransactionType.INACTIVE);
         transactionRepository.save(transaction);
     }
