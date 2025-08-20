@@ -1,6 +1,7 @@
 package vn.fpt.seima.seimaserver.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cglib.core.Local;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,10 +15,7 @@ import vn.fpt.seima.seimaserver.repository.BudgetRepository;
 import vn.fpt.seima.seimaserver.service.BudgetPeriodService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.Period;
+import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +33,7 @@ public class BudgetPeriodServiceImpl implements BudgetPeriodService {
         LocalDateTime start = budget.getStartDate();
         LocalDateTime end;
         if (budget.getEndDate() != null) {
-            end = budget.getEndDate();
+            end = budget.getEndDate().toLocalDate().atTime(23, 59, 59);
         } else {
             end = LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59);
         }
@@ -71,7 +69,7 @@ public class BudgetPeriodServiceImpl implements BudgetPeriodService {
             if (expectedEnd.isAfter(end)) {
                 expectedEnd = end;
             }
-
+            expectedEnd = expectedEnd.toLocalDate().atTime(23, 59, 59);
             // Tính actual days của chu kỳ hiện tại
             int actualDays = (int) ChronoUnit.DAYS.between(start.toLocalDate(), expectedEnd.toLocalDate()) + 1;
 
@@ -90,7 +88,7 @@ public class BudgetPeriodServiceImpl implements BudgetPeriodService {
             }
 
             periods.add(period);
-            start = expectedEnd.plusDays(1);
+            start = expectedEnd.toLocalDate().plusDays(1).atStartOfDay();
         }
 
         return periods;
