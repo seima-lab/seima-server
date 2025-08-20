@@ -26,7 +26,7 @@ public class NormalRegisterRequestDto {
     @NotBlank(message = "Password is required")
     @Size(min = 8, max = 128, message = "Password must be between 8 and 128 characters")
     @Pattern(
-        regexp = "^(?=.*[a-zA-Z])(?=.*\\d)[a-zA-Z\\d]{8,}$",
+        regexp = "^(?=.*[a-zA-Z])(?=.*\\d)[A-Za-z\\d@$!%*?&.]{8,}$",
         message = "Password must be at least 8 characters long and contain at least one letter and one number"
     )
     private String password;
