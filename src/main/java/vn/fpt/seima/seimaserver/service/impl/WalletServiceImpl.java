@@ -148,6 +148,16 @@ public class WalletServiceImpl implements WalletService {
                 .orElseThrow(() -> new WalletException("Wallet not found with id: " + id));
         validateUserOwnership(currentUser.getUserId(), wallet);
 
+        
+        // Check if this is the last remaining wallet
+        List<Wallet> activeWallets = walletRepository.findAllActiveByUserId(currentUser.getUserId());
+        if (activeWallets.size() <= 1) {
+            throw new WalletException("Cannot delete the last remaining wallet. You must have at least one wallet.");
+        }
+        
+        // Check if this is a default wallet being deleted
+        boolean wasDefault = Boolean.TRUE.equals(wallet.getIsDefault());
+        
         wallet.setIsDeleted(true);
         wallet.setDeletedAt(Instant.now());
         budgetWalletRepository.deleteBudgetWalletByWallet(id);
@@ -160,12 +170,30 @@ public class WalletServiceImpl implements WalletService {
         }
         transactionRepository.saveAll(transactions);
         walletRepository.save(wallet);
+        
+        // If deleted wallet was default, automatically set another wallet as default
+        if (wasDefault) {
+            setAnotherWalletAsDefault(currentUser.getUserId(), id);
+        }
     }
 
     private void updateOtherWalletsDefaultStatus(Integer userId, boolean isDefault) {
         walletRepository.findAllActiveByUserId(userId).stream()
             .forEach(w -> {
                 w.setIsDefault(isDefault);
+                walletRepository.save(w);
+            });
+    }
+
+    private void setAnotherWalletAsDefault(Integer userId, Integer deletedWalletId) {
+        List<Wallet> activeWallets = walletRepository.findAllActiveByUserId(userId);
+        
+        // Find the first wallet that is not the deleted one
+        activeWallets.stream()
+            .filter(w -> !w.getId().equals(deletedWalletId))
+            .findFirst()
+            .ifPresent(w -> {
+                w.setIsDefault(true);
                 walletRepository.save(w);
             });
     }
