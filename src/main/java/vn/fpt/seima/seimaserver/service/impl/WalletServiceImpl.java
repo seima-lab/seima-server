@@ -3,13 +3,15 @@ package vn.fpt.seima.seimaserver.service.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import vn.fpt.seima.seimaserver.dto.request.wallet.CreateWalletRequest;
 import vn.fpt.seima.seimaserver.dto.response.wallet.WalletResponse;
 import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.WalletException;
 import vn.fpt.seima.seimaserver.mapper.WalletMapper;
-import vn.fpt.seima.seimaserver.repository.*;
+import vn.fpt.seima.seimaserver.repository.TransactionRepository;
+import vn.fpt.seima.seimaserver.repository.UserRepository;
+import vn.fpt.seima.seimaserver.repository.WalletRepository;
+import vn.fpt.seima.seimaserver.repository.WalletTypeRepository;
 import vn.fpt.seima.seimaserver.service.WalletService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
@@ -20,7 +22,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class WalletServiceImpl implements WalletService {
 
     private final WalletRepository walletRepository;
@@ -28,8 +29,6 @@ public class WalletServiceImpl implements WalletService {
     private final WalletTypeRepository walletTypeRepository;
     private final WalletMapper walletMapper;
     private final TransactionRepository transactionRepository;
-    private final BudgetWalletRepository budgetWalletRepository;
-    private final BankInformationRepository bankInformationRepository;
 
     @Override
     public WalletResponse createWallet(CreateWalletRequest request) {
@@ -58,12 +57,6 @@ public class WalletServiceImpl implements WalletService {
         wallet.setUser(currentUser);
         wallet.setWalletType(walletType);
         wallet.setIsDeleted(false);
-        
-        // Set bank information if bankId is provided
-        if (request.getBankId() != null) {
-            bankInformationRepository.findById(request.getBankId())
-                .ifPresent(wallet::setBankInformation);
-        }
         
         // Set currency code if provided, otherwise use default
         if (request.getCurrencyCode() != null && !request.getCurrencyCode().trim().isEmpty()) {
@@ -117,14 +110,6 @@ public class WalletServiceImpl implements WalletService {
             existingWallet.setWalletType(walletType);
         }
 
-        // Update bank information if bankId is provided
-        if (request.getBankId() != null) {
-            bankInformationRepository.findById(request.getBankId())
-                .ifPresent(existingWallet::setBankInformation);
-        } else {
-            existingWallet.setBankInformation(null);
-        }
-
         // Update currency code if provided
         BigDecimal income = transactionRepository.sumIncomeWallet(id, currentUser.getUserId());
         BigDecimal expense = transactionRepository.sumExpenseWallet(id, currentUser.getUserId());
@@ -133,39 +118,56 @@ public class WalletServiceImpl implements WalletService {
         if (request.getCurrencyCode() != null && !request.getCurrencyCode().trim().isEmpty()) {
             existingWallet.setCurrencyCode(request.getCurrencyCode());
         }
-        walletMapper.updateEntity(existingWallet, request);
 
+        walletMapper.updateEntity(existingWallet, request);
         existingWallet = walletRepository.save(existingWallet);
         return walletMapper.toResponse(existingWallet);
     }
 
     @Override
-    @Transactional
     public void deleteWallet(Integer id) {
         User currentUser = getCurrentUser();
         
         Wallet wallet = walletRepository.findByIdAndNotDeleted(id)
                 .orElseThrow(() -> new WalletException("Wallet not found with id: " + id));
         validateUserOwnership(currentUser.getUserId(), wallet);
-
+        
+        // Check if this is the last remaining wallet
+        List<Wallet> activeWallets = walletRepository.findAllActiveByUserId(currentUser.getUserId());
+        if (activeWallets.size() <= 1) {
+            throw new WalletException("Cannot delete the last remaining wallet. You must have at least one wallet.");
+        }
+        
+        // Check if this is a default wallet being deleted
+        boolean wasDefault = Boolean.TRUE.equals(wallet.getIsDefault());
+        
         wallet.setIsDeleted(true);
         wallet.setDeletedAt(Instant.now());
-        budgetWalletRepository.deleteBudgetWalletByWallet(id);
-        List<Transaction> transactions = transactionRepository.listTransactionByAllWallet(id, currentUser.getUserId());
-        if (!transactions.isEmpty()) {
-            transactions.forEach(transaction -> {
-                transaction.setTransactionType(TransactionType.INACTIVE);
-            });
-
-        }
-        transactionRepository.saveAll(transactions);
         walletRepository.save(wallet);
+        
+        // If deleted wallet was default, automatically set another wallet as default
+        if (wasDefault) {
+            setAnotherWalletAsDefault(currentUser.getUserId(), id);
+        }
     }
 
     private void updateOtherWalletsDefaultStatus(Integer userId, boolean isDefault) {
         walletRepository.findAllActiveByUserId(userId).stream()
             .forEach(w -> {
                 w.setIsDefault(isDefault);
+                walletRepository.save(w);
+            });
+    }
+
+    private void setAnotherWalletAsDefault(Integer userId, Integer deletedWalletId) {
+        List<Wallet> activeWallets = walletRepository.findAllActiveByUserId(userId);
+        
+        // Find the first wallet that is not the deleted one
+        activeWallets.stream()
+            .filter(w -> !w.getId().equals(deletedWalletId))
+            .findFirst()
+            .ifPresent(w -> {
+                w.setIsDefault(true);
                 walletRepository.save(w);
             });
     }
