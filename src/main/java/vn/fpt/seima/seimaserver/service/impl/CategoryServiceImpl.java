@@ -11,6 +11,7 @@ import vn.fpt.seima.seimaserver.mapper.CategoryMapper;
 import vn.fpt.seima.seimaserver.repository.*;
 import vn.fpt.seima.seimaserver.service.BudgetService;
 import vn.fpt.seima.seimaserver.service.CategoryService;
+import vn.fpt.seima.seimaserver.service.RedisService;
 import vn.fpt.seima.seimaserver.service.WalletService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
@@ -28,6 +29,7 @@ public class CategoryServiceImpl implements CategoryService {
     private TransactionRepository transactionRepository;
     private BudgetService budgetService;
     private WalletService walletService;
+    private RedisService redisService;
 
     @Override
     public List<CategoryResponse> getAllCategoryByTypeAndUser(Integer categoryType, Integer groupId) {
@@ -204,6 +206,8 @@ public class CategoryServiceImpl implements CategoryService {
                     "update-add",
                     transaction.getCurrencyCode());
         }
+        String financialHealthKey = "financial_health:" + currentUser.getUserId();
+        redisService.delete(financialHealthKey);
         transactionRepository.deleteByCategory_CategoryId(id);
         budgetCategoryLimitRepository.deleteByCategory_CategoryId(id);
         categoryRepository.deleteById(id);

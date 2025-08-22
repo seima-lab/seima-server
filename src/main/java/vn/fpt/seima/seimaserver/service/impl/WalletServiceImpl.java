@@ -10,11 +10,14 @@ import vn.fpt.seima.seimaserver.entity.*;
 import vn.fpt.seima.seimaserver.exception.WalletException;
 import vn.fpt.seima.seimaserver.mapper.WalletMapper;
 import vn.fpt.seima.seimaserver.repository.*;
+import vn.fpt.seima.seimaserver.service.RedisService;
 import vn.fpt.seima.seimaserver.service.WalletService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,6 +33,9 @@ public class WalletServiceImpl implements WalletService {
     private final TransactionRepository transactionRepository;
     private final BudgetWalletRepository budgetWalletRepository;
     private final BankInformationRepository bankInformationRepository;
+    private final RedisService redisService;
+    private final BudgetCategoryLimitRepository budgetCategoryLimitRepository;
+    private final BudgetPeriodRepository budgetPeriodRepository;
 
     @Override
     public WalletResponse createWallet(CreateWalletRequest request) {
@@ -71,7 +77,8 @@ public class WalletServiceImpl implements WalletService {
         } else {
             wallet.setCurrencyCode("VND"); // Default currency
         }
-
+        String financialHealthKey = "financial_health:" + currentUser.getUserId();
+        redisService.delete(financialHealthKey);
         wallet = walletRepository.save(wallet);
         return walletMapper.toResponse(wallet);
     }
@@ -130,6 +137,17 @@ public class WalletServiceImpl implements WalletService {
         BigDecimal expense = transactionRepository.sumExpenseWallet(id, currentUser.getUserId());
 
         existingWallet.setCurrentBalance(existingWallet.getInitialBalance().add(income).subtract(expense));
+
+        List<Transaction> transactions = transactionRepository.listTransactionByAllWallet(id, currentUser.getUserId());
+        for (Transaction transaction : transactions) {
+            YearMonth month = YearMonth.from(transaction.getTransactionDate());
+            String cacheKey = buildOverviewKey(currentUser.getUserId(), month);
+            redisService.delete(cacheKey);
+        }
+
+        String financialHealthKey = "financial_health:" + currentUser.getUserId();
+        redisService.delete(financialHealthKey);
+
         if (request.getCurrencyCode() != null && !request.getCurrencyCode().trim().isEmpty()) {
             existingWallet.setCurrencyCode(request.getCurrencyCode());
         }
@@ -162,12 +180,31 @@ public class WalletServiceImpl implements WalletService {
         wallet.setDeletedAt(Instant.now());
         budgetWalletRepository.deleteBudgetWalletByWallet(id);
         List<Transaction> transactions = transactionRepository.listTransactionByAllWallet(id, currentUser.getUserId());
-        if (!transactions.isEmpty()) {
-            transactions.forEach(transaction -> {
-                transaction.setTransactionType(TransactionType.INACTIVE);
-            });
 
+        if (!transactions.isEmpty()) {
+            for (Transaction transaction : transactions) {
+                transaction.setTransactionType(TransactionType.INACTIVE);
+                YearMonth month = YearMonth.from(transaction.getTransactionDate());
+                String cacheKey = buildOverviewKey(currentUser.getUserId(), month);
+                redisService.delete(cacheKey);
+                List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository.findByTransaction(transaction.getCategory().getCategoryId());
+                if (!budgetCategoryLimits.isEmpty()) {
+                    for (BudgetCategoryLimit budgetCategoryLimit : budgetCategoryLimits) {
+                        List<BudgetPeriod> periods = budgetPeriodRepository.findByBudget_BudgetId(budgetCategoryLimit.getBudget().getBudgetId());
+                        for (BudgetPeriod period : periods) {
+                            if (!transaction.getTransactionDate().isBefore(period.getStartDate())
+                                    && !transaction.getTransactionDate().isAfter(period.getEndDate())) {
+                                period.setRemainingAmount(period.getRemainingAmount().add(transaction.getAmount()));
+                            }
+                        }
+                    }
+                }
+
+            };
         }
+
+        String financialHealthKey = "financial_health:" + currentUser.getUserId();
+        redisService.delete(financialHealthKey);
         transactionRepository.saveAll(transactions);
         walletRepository.save(wallet);
         
@@ -237,5 +274,8 @@ public class WalletServiceImpl implements WalletService {
 
             walletRepository.save(existingWallet);
         }
+    }
+    private String buildOverviewKey(Integer userId, YearMonth month) {
+        return String.format("tx:overview:%d:%s", userId, month);
     }
 } 
