@@ -184,6 +184,16 @@ public class TransactionServiceImpl implements TransactionService {
                 }
                 Wallet wallet = walletRepository.findById(request.getWalletId())
                         .orElseThrow(() -> new IllegalArgumentException("Wallet not found"));
+                if (!request.getWalletId().equals(transaction.getWallet().getId())) {
+                    if (transaction.getTransactionType().equals(TransactionType.EXPENSE)) {
+                        walletService.reduceAmount(transaction.getWallet().getId(),transaction.getAmount(), "update-add", request.getCurrencyCode());
+                        walletService.reduceAmount(request.getWalletId(),request.getAmount(), "update-subtract", request.getCurrencyCode());
+                    }
+                    else {
+                        walletService.reduceAmount(transaction.getWallet().getId(),transaction.getAmount(), "update-subtract", request.getCurrencyCode());
+                        walletService.reduceAmount(request.getWalletId(),request.getAmount(), "update-add", request.getCurrencyCode());
+                    }
+                }
                 transaction.setWallet(wallet);
                 BigDecimal newAmount = BigDecimal.ZERO;
                 String type = null;
