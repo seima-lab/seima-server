@@ -2332,6 +2332,17 @@ class WalletServiceTest {
         try (MockedStatic<UserUtils> mocked = mockStatic(UserUtils.class)) {
             mocked.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
+            
+            // Mock multiple active wallets so the "last wallet" validation doesn't trigger
+            List<Wallet> multipleWallets = Arrays.asList(testWallet, new Wallet());
+            when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(multipleWallets);
+            
+            // Mock other dependencies
+            doNothing().when(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            when(transactionRepository.listTransactionByAllWallet(1, testUser.getUserId()))
+                    .thenReturn(Collections.emptyList());
+            when(transactionRepository.saveAll(Collections.emptyList()))
+                    .thenReturn(Collections.emptyList());
 
             walletService.deleteWallet(1);
 
@@ -2339,8 +2350,11 @@ class WalletServiceTest {
             assertNotNull(testWallet.getDeletedAt(), "DeletedAt should be set");
 
             verify(walletRepository).findByIdAndNotDeleted(1);
+            verify(walletRepository).findAllActiveByUserId(testUser.getUserId());
+            verify(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            verify(transactionRepository).listTransactionByAllWallet(1, testUser.getUserId());
+            verify(transactionRepository).saveAll(Collections.emptyList());
             verify(walletRepository).save(testWallet);
-            verifyNoMoreInteractions(walletRepository);
         }
     }
 
@@ -2351,6 +2365,19 @@ class WalletServiceTest {
         try (MockedStatic<UserUtils> mocked = mockStatic(UserUtils.class)) {
             mocked.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
+            
+            // Mock multiple active wallets so the "last wallet" validation doesn't trigger
+            Wallet otherWallet = new Wallet();
+            otherWallet.setId(2);
+            List<Wallet> multipleWallets = Arrays.asList(testWallet, otherWallet);
+            when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(multipleWallets);
+            
+            // Mock other dependencies
+            doNothing().when(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            when(transactionRepository.listTransactionByAllWallet(1, testUser.getUserId()))
+                    .thenReturn(Collections.emptyList());
+            when(transactionRepository.saveAll(Collections.emptyList()))
+                    .thenReturn(Collections.emptyList());
 
             walletService.deleteWallet(1);
 
@@ -2359,8 +2386,11 @@ class WalletServiceTest {
             assertTrue(testWallet.getIsDefault(), "Wallet should remain default");
 
             verify(walletRepository).findByIdAndNotDeleted(1);
-            verify(walletRepository).save(testWallet);
-            verifyNoMoreInteractions(walletRepository);
+            verify(walletRepository, times(2)).findAllActiveByUserId(testUser.getUserId()); // Called twice: once for validation, once for setting another wallet as default
+            verify(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            verify(transactionRepository).listTransactionByAllWallet(1, testUser.getUserId());
+            verify(transactionRepository).saveAll(Collections.emptyList());
+            verify(walletRepository, times(2)).save(any(Wallet.class)); // Called twice: once for setting another wallet as default, once for the deleted wallet
         }
     }
 
@@ -2374,6 +2404,17 @@ class WalletServiceTest {
         try (MockedStatic<UserUtils> mocked = mockStatic(UserUtils.class)) {
             mocked.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
+            
+            // Mock multiple active wallets so the "last wallet" validation doesn't trigger
+            List<Wallet> multipleWallets = Arrays.asList(testWallet, new Wallet());
+            when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(multipleWallets);
+            
+            // Mock other dependencies
+            doNothing().when(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            when(transactionRepository.listTransactionByAllWallet(1, testUser.getUserId()))
+                    .thenReturn(Collections.emptyList());
+            when(transactionRepository.saveAll(Collections.emptyList()))
+                    .thenReturn(Collections.emptyList());
 
             // When
             walletService.deleteWallet(1);
@@ -2384,8 +2425,11 @@ class WalletServiceTest {
             assertFalse(testWallet.getIsDefault(), "Wallet should remain non-default");
 
             verify(walletRepository).findByIdAndNotDeleted(1);
+            verify(walletRepository).findAllActiveByUserId(testUser.getUserId());
+            verify(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            verify(transactionRepository).listTransactionByAllWallet(1, testUser.getUserId());
+            verify(transactionRepository).saveAll(Collections.emptyList());
             verify(walletRepository).save(testWallet);
-            verifyNoMoreInteractions(walletRepository);
         }
     }
 
@@ -2398,6 +2442,17 @@ class WalletServiceTest {
         try (MockedStatic<UserUtils> mocked = mockStatic(UserUtils.class)) {
             mocked.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
+            
+            // Mock multiple active wallets so the "last wallet" validation doesn't trigger
+            List<Wallet> multipleWallets = Arrays.asList(testWallet, new Wallet());
+            when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(multipleWallets);
+            
+            // Mock other dependencies
+            doNothing().when(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            when(transactionRepository.listTransactionByAllWallet(1, testUser.getUserId()))
+                    .thenReturn(Collections.emptyList());
+            when(transactionRepository.saveAll(Collections.emptyList()))
+                    .thenReturn(Collections.emptyList());
 
             // When
             walletService.deleteWallet(1);
@@ -2408,8 +2463,11 @@ class WalletServiceTest {
             assertEquals(BigDecimal.ZERO, testWallet.getCurrentBalance(), "Balance should remain unchanged");
 
             verify(walletRepository).findByIdAndNotDeleted(1);
+            verify(walletRepository).findAllActiveByUserId(testUser.getUserId());
+            verify(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            verify(transactionRepository).listTransactionByAllWallet(1, testUser.getUserId());
+            verify(transactionRepository).saveAll(Collections.emptyList());
             verify(walletRepository).save(testWallet);
-            verifyNoMoreInteractions(walletRepository);
         }
     }
 
@@ -2425,6 +2483,17 @@ class WalletServiceTest {
         try (MockedStatic<UserUtils> mocked = mockStatic(UserUtils.class)) {
             mocked.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
+            
+            // Mock multiple active wallets so the "last wallet" validation doesn't trigger
+            List<Wallet> multipleWallets = Arrays.asList(testWallet, new Wallet());
+            when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(multipleWallets);
+            
+            // Mock other dependencies
+            doNothing().when(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            when(transactionRepository.listTransactionByAllWallet(1, testUser.getUserId()))
+                    .thenReturn(Collections.emptyList());
+            when(transactionRepository.saveAll(Collections.emptyList()))
+                    .thenReturn(Collections.emptyList());
 
             // When
             walletService.deleteWallet(1);
@@ -2435,8 +2504,11 @@ class WalletServiceTest {
             assertEquals(largeBalance, testWallet.getCurrentBalance(), "Balance should remain unchanged");
 
             verify(walletRepository).findByIdAndNotDeleted(1);
+            verify(walletRepository).findAllActiveByUserId(testUser.getUserId());
+            verify(budgetWalletRepository).deleteBudgetWalletByWallet(1);
+            verify(transactionRepository).listTransactionByAllWallet(1, testUser.getUserId());
+            verify(transactionRepository).saveAll(Collections.emptyList());
             verify(walletRepository).save(testWallet);
-            verifyNoMoreInteractions(walletRepository);
         }
     }
 
@@ -2449,6 +2521,10 @@ class WalletServiceTest {
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
+            
+            // Mock multiple active wallets so the "last wallet" validation doesn't trigger
+            List<Wallet> multipleWallets = Arrays.asList(testWallet, new Wallet());
+            when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(multipleWallets);
 
             // Mock các call khác để tránh lỗi khi chạy service
             doNothing().when(budgetWalletRepository).deleteBudgetWalletByWallet(1);
@@ -2467,6 +2543,7 @@ class WalletServiceTest {
             assertTrue(testWallet.getExcludeFromTotal()); // Should remain true
 
             verify(walletRepository).findByIdAndNotDeleted(1);
+            verify(walletRepository).findAllActiveByUserId(testUser.getUserId());
             verify(budgetWalletRepository).deleteBudgetWalletByWallet(1);
             verify(transactionRepository).listTransactionByAllWallet(1, testUser.getUserId());
             verify(transactionRepository).saveAll(Collections.emptyList());
@@ -2483,6 +2560,10 @@ class WalletServiceTest {
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
+            
+            // Mock multiple active wallets so the "last wallet" validation doesn't trigger
+            List<Wallet> multipleWallets = Arrays.asList(testWallet, new Wallet());
+            when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(multipleWallets);
 
             // Mock các call khác để tránh NullPointer
             doNothing().when(budgetWalletRepository).deleteBudgetWalletByWallet(1);
@@ -2504,6 +2585,7 @@ class WalletServiceTest {
             );
 
             verify(walletRepository).findByIdAndNotDeleted(1);
+            verify(walletRepository).findAllActiveByUserId(testUser.getUserId());
             verify(budgetWalletRepository).deleteBudgetWalletByWallet(1);
             verify(transactionRepository).listTransactionByAllWallet(1, testUser.getUserId());
             verify(transactionRepository).saveAll(Collections.emptyList());
@@ -2671,6 +2753,10 @@ class WalletServiceTest {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
             when(walletRepository.findByIdAndNotDeleted(1)).thenReturn(Optional.of(testWallet));
 
+            // Mock multiple active wallets so the "last wallet" validation doesn't trigger
+            List<Wallet> multipleWallets = Arrays.asList(testWallet, new Wallet());
+            when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(multipleWallets);
+
             // Giả lập list transaction rỗng để skip setTransactionType
             when(transactionRepository.listTransactionByAllWallet(1, testUser.getUserId()))
                     .thenReturn(Collections.emptyList());
@@ -2688,6 +2774,7 @@ class WalletServiceTest {
 
             // Verify các call cần thiết
             verify(walletRepository).findByIdAndNotDeleted(1);
+            verify(walletRepository).findAllActiveByUserId(testUser.getUserId());
             verify(budgetWalletRepository).deleteBudgetWalletByWallet(1);
             verify(transactionRepository).listTransactionByAllWallet(1, testUser.getUserId());
             verify(transactionRepository).saveAll(Collections.emptyList());
