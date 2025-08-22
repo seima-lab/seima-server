@@ -50,6 +50,9 @@ class WalletServiceTest {
     
     @Mock
     private BudgetWalletRepository budgetWalletRepository;
+
+    @Mock
+    private RedisService redisService;
     
     @Mock
     private BankInformationRepository bankInformationRepository;
@@ -137,13 +140,13 @@ class WalletServiceTest {
         // Given
         try (MockedStatic<UserUtils> userUtilsMock = mockStatic(UserUtils.class)) {
             userUtilsMock.when(UserUtils::getCurrentUser).thenReturn(testUser);
-            
+
             // Mock for wallet limit validation (less than 5 wallets)
             when(walletRepository.findAllActiveByUserId(testUser.getUserId())).thenReturn(Arrays.asList());
-            
+
             // Mock for wallet name uniqueness validation (name doesn't exist)
             when(walletRepository.existsByUserIdAndWalletNameAndNotDeleted(testUser.getUserId(), createWalletRequest.getWalletName())).thenReturn(false);
-            
+
             when(walletTypeRepository.findById(1)).thenReturn(Optional.of(testWalletType));
             when(walletMapper.toEntity(createWalletRequest)).thenReturn(testWallet);
             when(walletRepository.save(any(Wallet.class))).thenReturn(testWallet);
