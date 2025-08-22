@@ -138,7 +138,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
                                              @Param("to") LocalDateTime to);
 
         @Query("select t from Transaction t where t.user.userId = :userId " +
-                "AND t.transactionDate BETWEEN :dateFrom AND :dateTo and t.group is null and t.wallet.id = :walletId")
+                "AND t.transactionDate BETWEEN :dateFrom AND :dateTo and t.group is null and t.wallet.id = :walletId and t.transactionType != 'INACTIVE'")
         List<Transaction> listTransactionByWallet(@Param("walletId")Integer walletId,
                                                   @Param("userId") Integer userId ,
                                                   @Param("dateFrom") LocalDateTime dateFrom,
