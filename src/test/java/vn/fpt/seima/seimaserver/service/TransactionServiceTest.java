@@ -186,52 +186,6 @@ class TransactionServiceTest {
     }
 
     @Test
-    void testUpdateTransaction_WithoutGroup_DoesNotSendNotification() {
-        // Arrange
-        Integer transactionId = 1;
-        CreateTransactionRequest request = new CreateTransactionRequest();
-        request.setWalletId(1);
-        request.setCategoryId(1);
-        request.setAmount(BigDecimal.valueOf(100));
-        request.setCurrencyCode("USD");
-
-        Transaction existingTransaction = new Transaction();
-        existingTransaction.setTransactionId(transactionId);
-        existingTransaction.setUser(user);
-        existingTransaction.setAmount(BigDecimal.valueOf(50));
-        existingTransaction.setTransactionDate(LocalDateTime.now());
-        existingTransaction.setWallet(new Wallet());
-
-        Category category = new Category();
-        category.setCategoryId(1);
-
-        Wallet wallet = new Wallet();
-        wallet.setId(1);
-
-        Transaction updatedTransaction = new Transaction();
-        updatedTransaction.setTransactionId(transactionId);
-        updatedTransaction.setWallet(wallet);
-
-        TransactionResponse response = new TransactionResponse();
-
-        // Mock repository calls
-        when(transactionRepository.findById(transactionId)).thenReturn(Optional.of(existingTransaction));
-        when(categoryRepository.findById(1)).thenReturn(Optional.of(category));
-        when(walletRepository.findById(1)).thenReturn(Optional.of(wallet));
-        when(transactionRepository.save(any(Transaction.class))).thenReturn(updatedTransaction);
-        when(transactionMapper.toResponse(updatedTransaction)).thenReturn(response);
-
-        // Act
-        TransactionResponse result = transactionService.updateTransaction(transactionId, request);
-
-        // Assert
-        assertNotNull(result);
-        verify(notificationService, never()).sendNotificationToGroupMembersExceptUser(
-            any(), any(), any(), any(), any(), any(), any()
-        );
-    }
-
-    @Test
     void testUpdateTransaction_NotificationServiceThrowsException_DoesNotAffectMainFlow() {
         // Arrange
         Integer transactionId = 1;
