@@ -166,6 +166,11 @@ public class WalletServiceImpl implements WalletService {
                 .orElseThrow(() -> new WalletException("Wallet not found with id: " + id));
         validateUserOwnership(currentUser.getUserId(), wallet);
 
+        // Check if there are any budgets linked to this wallet
+        List<BudgetWallet> budgetWallets = budgetWalletRepository.findBudgetWalletsByWalletId(id);
+        if (!budgetWallets.isEmpty()) {
+            throw new WalletException("There are budgets currently using wallet " + wallet.getWalletName() + ". Please update the budgets before deleting this wallet.");
+        }
         
         // Check if this is the last remaining wallet
         List<Wallet> activeWallets = walletRepository.findAllActiveByUserId(currentUser.getUserId());
