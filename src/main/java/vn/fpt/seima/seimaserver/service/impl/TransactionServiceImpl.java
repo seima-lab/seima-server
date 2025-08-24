@@ -109,12 +109,17 @@ public class TransactionServiceImpl implements TransactionService {
                         .orElseThrow(() -> new IllegalArgumentException("Wallet not found"));
                 transaction.setWallet(wallet);
                 if (type == TransactionType.EXPENSE) {
-                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "EXPENSE", request.getCurrencyCode());
-                    walletService.reduceAmount(request.getWalletId(), transaction.getAmount(), "EXPENSE", request.getCurrencyCode());
+                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),
+                            transaction.getAmount(), transaction.getTransactionDate(),
+                            "EXPENSE", request.getCurrencyCode(),
+                            transaction.getWallet().getId());
+                    walletService.reduceAmount(request.getWalletId(), transaction.getAmount(),
+                            "EXPENSE", request.getCurrencyCode()
+                            );
                 }
 
                 if (type == TransactionType.INCOME) {
-                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "INCOME", request.getCurrencyCode());
+                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "INCOME", request.getCurrencyCode(), transaction.getWallet().getId());
                     walletService.reduceAmount(request.getWalletId(), transaction.getAmount(), "INCOME", request.getCurrencyCode());
                 }
                 YearMonth month = YearMonth.from(transaction.getTransactionDate());
@@ -198,24 +203,46 @@ public class TransactionServiceImpl implements TransactionService {
                 BigDecimal newAmount = BigDecimal.ZERO;
                 String type = null;
 
-                //so sua lon hon cu
-                if (transaction.getAmount().compareTo(request.getAmount()) < 0) {
-                    type = "update-subtract";
-                    newAmount = request.getAmount().subtract(transaction.getAmount());
-                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type , request.getCurrencyCode());
-                    walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+                if (transaction.getWallet().getId().equals(request.getWalletId())) {
+                    //so sua lon hon cu
+                    if (transaction.getAmount().compareTo(request.getAmount()) < 0) {
+                        type = "update-subtract";
+                        newAmount = request.getAmount().subtract(transaction.getAmount());
+                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type , request.getCurrencyCode(), transaction.getWallet().getId());
+                        walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
 
-                } else if (transaction.getAmount().compareTo(request.getAmount()) > 0) {
-                    type = "update-add";
-                    newAmount = transaction.getAmount().subtract(request.getAmount());
-                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode() );
-                    walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+                    } else if (transaction.getAmount().compareTo(request.getAmount()) > 0) {
+                        type = "update-add";
+                        newAmount = transaction.getAmount().subtract(request.getAmount());
+                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode(), transaction.getWallet().getId() );
+                        walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+                    }
+                    else{
+                        type = "no-update";
+                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode(), transaction.getWallet().getId() );
+                        walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+                    }
+                } else {
+
+                    if (transaction.getAmount().compareTo(request.getAmount()) < 0) {
+                        type = "update-subtract";
+                        newAmount = request.getAmount().subtract(transaction.getAmount());
+                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type , request.getCurrencyCode(), request.getWalletId());
+                        walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+
+                    } else if (transaction.getAmount().compareTo(request.getAmount()) > 0) {
+                        type = "update-add";
+                        newAmount = transaction.getAmount().subtract(request.getAmount());
+                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode(),request.getWalletId());
+                        walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+                    }
+                    else{
+                        type = "no-update";
+                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode(), request.getWalletId());
+                        walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
+                    }
                 }
-                else{
-                    type = "no-update";
-                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode() );
-                    walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
-                }
+
                 YearMonth month = YearMonth.from(transaction.getTransactionDate());
                 String cacheKey = buildOverviewKey(transaction.getUser().getUserId(), month);
                 String financialHealthKey = "financial_health:" + user.getUserId();
@@ -735,13 +762,14 @@ public class TransactionServiceImpl implements TransactionService {
      * @return transaction response
      */
     @Override
-    public Page<TransactionResponse> getTransactionByBudget(Integer budgetId, Pageable pageable) {
+    public Page<TransactionResponse> getTransactionByBudget(Integer budgetId, Pageable pageable, LocalDate startDate, LocalDate endDate) {
         User currentUser = UserUtils.getCurrentUser();
         if (currentUser == null) {
             throw new IllegalArgumentException("User must not be null");
         }
-        Budget budget = budgetRepository.findById(budgetId).orElseThrow(()
-                -> new IllegalArgumentException("Not found budget with id: " + budgetId));
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
         List<Integer> categoryIds = new ArrayList<>();
         List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository.findByBudget(budgetId);
         if (budgetCategoryLimits.isEmpty()) {
@@ -754,15 +782,12 @@ public class TransactionServiceImpl implements TransactionService {
             }
             categoryIds.addAll(categories.stream().map(Category::getCategoryId).collect(Collectors.toList()));
         }
-        LocalDateTime endDate = budget.getEndDate();
-        if (budget.getEndDate() == null) {
-            endDate = LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59);
-        }
+
         Page<Transaction> transactions = transactionRepository.getTransactionByBudget(
                 currentUser.getUserId(),
                 categoryIds,
-                budget.getStartDate(),
-                endDate,
+                startDateTime,
+                endDateTime,
                 pageable
         );
         return transactions.map(transactionMapper::toResponse);
