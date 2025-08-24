@@ -17,6 +17,9 @@ public interface BudgetWalletRepository extends JpaRepository<BudgetWallet, Inte
     @Query(value = "DELETE FROM budget_wallet WHERE wallet_id = :walletId", nativeQuery = true)
     void deleteBudgetWalletByWallet(@Param("walletId") Integer walletId);
 
+    @Query("SELECT bw FROM BudgetWallet bw JOIN FETCH bw.budget WHERE bw.wallet.id = :walletId")
+    List<BudgetWallet> findBudgetWalletsByWalletId(@Param("walletId") Integer walletId);
+
     @Modifying
     @Query(value = "SELECT  * FROM budget_wallet WHERE wallet_id = :walletId", nativeQuery = true)
     List<BudgetWallet> getBudgetWalletByWallet(@Param("walletId") Integer walletId);
