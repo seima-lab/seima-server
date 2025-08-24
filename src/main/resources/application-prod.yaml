@@ -107,7 +107,10 @@ spring:
             enable: true
           ssl:
             trust: smtp.gmail.com
-
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
 # OTP configuration
 otp:
   expiration-time: 300
