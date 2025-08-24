@@ -33,6 +33,7 @@ class CategoryServiceTest {
     private TransactionRepository transactionRepository;
     @Mock private BudgetService budgetService;
     @Mock private WalletService walletService;
+    @Mock private RedisService redisService;
     @Mock private BudgetCategoryLimitRepository budgetCategoryLimitRepository;
     @InjectMocks
     private CategoryServiceImpl categoryService;

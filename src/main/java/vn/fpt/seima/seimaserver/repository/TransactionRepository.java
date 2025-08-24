@@ -5,7 +5,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;import vn.fpt.seima.seimaserver.entity.Transaction;
+import org.springframework.stereotype.Repository;
+import vn.fpt.seima.seimaserver.dto.response.budget.FinancialHealthResponse;
+import vn.fpt.seima.seimaserver.entity.Transaction;
 import vn.fpt.seima.seimaserver.entity.TransactionType;
 import vn.fpt.seima.seimaserver.entity.User;
 
@@ -85,14 +87,27 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
             @Param("groupId") Integer groupId
             );
 
-    @Query("SELECT t FROM Transaction t " +
+    @Query("SELECT CASE WHEN COUNT(t) > 0 THEN true ELSE false END " +
+            "FROM Transaction t " +
             "WHERE t.user.userId = :userId " +
             "AND t.transactionDate BETWEEN :start AND :end " +
-            "AND t.transactionType IN ('EXPENSE', 'INCOME') and t.group is null")
-    List<Transaction> findExpensesByUserAndDateRange(
+            "AND t.transactionType IN ('EXPENSE', 'INCOME') " +
+            "AND t.group IS NULL")
+    boolean existsExpensesByUserAndDateRange(
             @Param("userId") Integer userId,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end);
+
+    @Query("SELECT new vn.fpt.seima.seimaserver.dto.response.budget.FinancialHealthResponse$IncomeExpenseSummary( " +
+            "COALESCE(SUM(CASE WHEN t.transactionType = 'INCOME' THEN t.amount ELSE 0 END), 0), " +
+            "COALESCE(SUM(CASE WHEN t.transactionType = 'EXPENSE' THEN t.amount ELSE 0 END), 0)) " +
+            "FROM Transaction t " +
+            "WHERE t.user.userId = :userId " +
+            "AND t.transactionDate BETWEEN :start AND :end " +
+            "AND t.group IS NULL")
+    FinancialHealthResponse.IncomeExpenseSummary findIncomeAndExpense(@Param("userId") Integer userId,
+                                                                      @Param("start") LocalDateTime start,
+                                                                      @Param("end") LocalDateTime end);
 
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.user.userId = :userId AND " +
             "t.transactionType = 'EXPENSE' AND t.category.categoryId in :categoryId AND " +
@@ -123,7 +138,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
                                              @Param("to") LocalDateTime to);
 
         @Query("select t from Transaction t where t.user.userId = :userId " +
-                "AND t.transactionDate BETWEEN :dateFrom AND :dateTo and t.group is null and t.wallet.id = :walletId")
+                "AND t.transactionDate BETWEEN :dateFrom AND :dateTo and t.group is null and t.wallet.id = :walletId and t.transactionType != 'INACTIVE'")
         List<Transaction> listTransactionByWallet(@Param("walletId")Integer walletId,
                                                   @Param("userId") Integer userId ,
                                                   @Param("dateFrom") LocalDateTime dateFrom,

@@ -119,8 +119,9 @@ public class TransactionServiceImpl implements TransactionService {
                 }
                 YearMonth month = YearMonth.from(transaction.getTransactionDate());
                 String cacheKey = buildOverviewKey(transaction.getUser().getUserId(), month);
+                String financialHealthKey = "financial_health:" + user.getUserId();
                 redisService.delete(cacheKey);
-            }
+                redisService.delete(financialHealthKey);            }
             Transaction savedTransaction = transactionRepository.save(transaction);
 
             // Send notification to all group members except current user if transaction is group-related
@@ -183,6 +184,16 @@ public class TransactionServiceImpl implements TransactionService {
                 }
                 Wallet wallet = walletRepository.findById(request.getWalletId())
                         .orElseThrow(() -> new IllegalArgumentException("Wallet not found"));
+                if (!request.getWalletId().equals(transaction.getWallet().getId())) {
+                    if (transaction.getTransactionType().equals(TransactionType.EXPENSE)) {
+                        walletService.reduceAmount(transaction.getWallet().getId(),transaction.getAmount(), "update-add", request.getCurrencyCode());
+                        walletService.reduceAmount(request.getWalletId(),request.getAmount(), "update-subtract", request.getCurrencyCode());
+                    }
+                    else {
+                        walletService.reduceAmount(transaction.getWallet().getId(),transaction.getAmount(), "update-subtract", request.getCurrencyCode());
+                        walletService.reduceAmount(request.getWalletId(),request.getAmount(), "update-add", request.getCurrencyCode());
+                    }
+                }
                 transaction.setWallet(wallet);
                 BigDecimal newAmount = BigDecimal.ZERO;
                 String type = null;
@@ -207,7 +218,9 @@ public class TransactionServiceImpl implements TransactionService {
                 }
                 YearMonth month = YearMonth.from(transaction.getTransactionDate());
                 String cacheKey = buildOverviewKey(transaction.getUser().getUserId(), month);
+                String financialHealthKey = "financial_health:" + user.getUserId();
                 redisService.delete(cacheKey);
+                redisService.delete(financialHealthKey);
             }
             transactionMapper.updateTransactionFromDto(request, transaction);
             Transaction updatedTransaction = transactionRepository.save(transaction);
@@ -236,39 +249,60 @@ public class TransactionServiceImpl implements TransactionService {
         Transaction transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Transaction not found with ID: " + id));
 
-        if(transaction.getGroup()!= null) {
-            Group  group = groupRepository.findById(transaction.getGroup().getGroupId())
+        if (transaction.getGroup() != null) {
+            Group group = groupRepository.findById(transaction.getGroup().getGroupId())
                     .orElseThrow(() -> new IllegalArgumentException("Group not found with id: " + transaction.getGroup().getGroupId()));
 
             if (!groupMemberRepository.existsByUserUserIdAndGroupGroupId(transaction.getUser().getUserId(), group.getGroupId())) {
                 throw new IllegalArgumentException("You are not authorized to create this group category.");
             }
             transaction.setGroup(group);
-        }
-        else{
-            YearMonth month = YearMonth.from(transaction.getTransactionDate());
-            String cacheKey = buildOverviewKey(transaction.getUser().getUserId(), month);
-            redisService.delete(cacheKey);
+        } else {
 
+            YearMonth month = YearMonth.from(transaction.getTransactionDate());
+
+            String cacheKey = buildOverviewKey(transaction.getUser().getUserId(), month);
+            String financialHealthKey = "financial_health:" + transaction.getUser().getUserId();
+            redisService.delete(cacheKey);
+            redisService.delete(financialHealthKey);
             Wallet wallet = transaction.getWallet();
             if (transaction.getTransactionType() == TransactionType.EXPENSE) {
-
                 wallet.setCurrentBalance(wallet.getCurrentBalance().add(transaction.getAmount()));
-
                 List<BudgetCategoryLimit> budgetCategoryLimits = budgetCategoryLimitRepository.findByTransaction(transaction.getCategory().getCategoryId());
 
                 if (!budgetCategoryLimits.isEmpty()) {
                     for (BudgetCategoryLimit budgetCategoryLimit : budgetCategoryLimits) {
-                        Budget budget = budgetRepository.findById(budgetCategoryLimit.getBudget().getBudgetId())
-                                .orElse(null);
+                        Budget budget = budgetRepository.findByUserIdBudget(transaction.getUser().getUserId(), budgetCategoryLimit.getBudget().getBudgetId());
+
                         if (budget == null) {
                             continue;
                         }
-                        List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetIdAndTime(budget.getBudgetId(), transaction.getTransactionDate());
 
+                        List<BudgetPeriod> budgetPeriods = budgetPeriodRepository.findByBudget_BudgetIdAndTime(budget.getBudgetId(), transaction.getTransactionDate());
                         for (BudgetPeriod budgetPeriod : budgetPeriods) {
-                            if (transaction.getTransactionDate().isBefore(budget.getEndDate()) && transaction.getTransactionDate().isAfter(budget.getStartDate()))
-                                budgetPeriod.setRemainingAmount(budgetPeriod.getRemainingAmount().add(transaction.getAmount()));
+                            log.info("Checking BudgetPeriod id={}, transactionDate={}, startDate={}, endDate={}",
+                                    budgetPeriod.getBudgetPeriodId(),
+                                    transaction.getTransactionDate(),
+                                    budgetPeriod.getStartDate(),
+                                    budgetPeriod.getEndDate());
+
+                            if (budgetPeriod.getStartDate() != null && budgetPeriod.getEndDate() != null) {
+                                if (transaction.getTransactionDate().isBefore(budgetPeriod.getEndDate())
+                                        && transaction.getTransactionDate().isAfter(budgetPeriod.getStartDate())) {
+
+                                    log.info("Transaction {} falls within BudgetPeriod {} -> Updating remainingAmount",
+                                            transaction.getTransactionId(), budgetPeriod.getBudgetPeriodId());
+
+                                    budgetPeriod.setRemainingAmount(
+                                            budgetPeriod.getRemainingAmount().add(transaction.getAmount()));
+                                }
+                            } else {
+                                log.warn("BudgetPeriod {} has null startDate or endDate (startDate={}, endDate={})",
+                                        budgetPeriod.getBudgetPeriodId(),
+                                        budgetPeriod.getStartDate(),
+                                        budgetPeriod.getEndDate());
+                            }
+
                             budgetPeriodRepository.save(budgetPeriod);
                         }
                     }
@@ -279,18 +313,18 @@ public class TransactionServiceImpl implements TransactionService {
             }
             walletRepository.save(wallet);
         }
-        
+
         // Send notification to all group members except current user if transaction is group-related
         if (transaction.getGroup() != null) {
             try {
                 sendTransactionDeleteNotificationToGroup(transaction, transaction.getUser());
             } catch (Exception e) {
-                log.error("Failed to send transaction delete notification for transaction {}: {}", 
+                log.error("Failed to send transaction delete notification for transaction {}: {}",
                         transaction.getTransactionId(), e.getMessage(), e);
                 // Don't throw exception to avoid affecting the main transaction flow
             }
         }
-        
+
         transaction.setTransactionType(TransactionType.INACTIVE);
         transactionRepository.save(transaction);
     }
@@ -720,11 +754,15 @@ public class TransactionServiceImpl implements TransactionService {
             }
             categoryIds.addAll(categories.stream().map(Category::getCategoryId).collect(Collectors.toList()));
         }
+        LocalDateTime endDate = budget.getEndDate();
+        if (budget.getEndDate() == null) {
+            endDate = LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59);
+        }
         Page<Transaction> transactions = transactionRepository.getTransactionByBudget(
                 currentUser.getUserId(),
                 categoryIds,
                 budget.getStartDate(),
-                budget.getEndDate(),
+                endDate,
                 pageable
         );
         return transactions.map(transactionMapper::toResponse);

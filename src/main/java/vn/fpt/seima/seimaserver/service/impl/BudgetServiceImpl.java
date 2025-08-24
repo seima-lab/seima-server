@@ -73,16 +73,15 @@ public class BudgetServiceImpl implements BudgetService {
         if (request == null) {
             throw new IllegalArgumentException("Request must not be null");
         }
-        if (budgetRepository.existsByBudgetName(request.getBudgetName())) {
+        User user = UserUtils.getCurrentUser();
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+        if (budgetRepository.existsByBudgetName(request.getBudgetName(), user.getUserId())) {
             throw new IllegalArgumentException("Budget name already exists");
         }
         if(request.getOverallAmountLimit().compareTo(BigDecimal.ZERO) <= 0){
             throw new IllegalArgumentException("Overall amount limit must be greater than zero");
-        }
-
-        User user = UserUtils.getCurrentUser();
-        if (user == null) {
-            throw new IllegalArgumentException("User must not be null");
         }
 
         if (request.getCategoryList().isEmpty()) {
@@ -111,6 +110,10 @@ public class BudgetServiceImpl implements BudgetService {
         Budget budget = budgetMapper.toEntity(request);
 
         budget.setUser(user);
+        budget.setStartDate(request.getStartDate().toLocalDate().atStartOfDay());
+        if (request.getEndDate() != null) {
+            budget.setEndDate(request.getEndDate().toLocalDate().atTime(23, 59, 59));
+        }
         Budget savedBudget = budgetRepository.save(budget);
 
         for (Category category : request.getCategoryList()) {
@@ -130,9 +133,10 @@ public class BudgetServiceImpl implements BudgetService {
                 user.getUserId(),
                 categoryIds,
                 request.getStartDate(),
-                request.getEndDate()
+                LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59)
         );
         List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(savedBudget);
+
         for (Transaction transaction : transactions) {
             for (BudgetPeriod period : periods) {
                 if (!transaction.getTransactionDate().isBefore(period.getStartDate()) &&
@@ -141,7 +145,9 @@ public class BudgetServiceImpl implements BudgetService {
                 }
             }
         }
-
+        if (savedBudget.getPeriodType() == PeriodType.DAILY){
+            periods.removeFirst();
+        }
         budgetPeriodRepository.saveAll(periods);
         return budgetMapper.toResponse(savedBudget);
     }
@@ -168,6 +174,7 @@ public class BudgetServiceImpl implements BudgetService {
             if (request.getWalletList().isEmpty()) {
                 throw new IllegalArgumentException("Wallet must not be empty");
             }
+
             List<Integer> categoryIds = new ArrayList<>();
             budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(existingBudget.getBudgetId());
             for (Category category : request.getCategoryList()) {
@@ -213,7 +220,7 @@ public class BudgetServiceImpl implements BudgetService {
 
                 updatedBudget = existingBudget;
             } else {
-                if (budgetRepository.existsByBudgetName(request.getBudgetName())
+                if (budgetRepository.existsByBudgetName(request.getBudgetName(), user.getUserId())
                         && !existingBudget.getBudgetName().equals(request.getBudgetName())) {
                     throw new IllegalArgumentException("Budget name already exists");
                 }
@@ -227,20 +234,23 @@ public class BudgetServiceImpl implements BudgetService {
                     }
                 }
 
-                if (request.getEndDate() == null) {
-                    request.setEndDate(LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59));
-                }
-
                 budgetPeriodRepository.deleteAll(budgetPeriodRepository.findByBudget_BudgetId(existingBudget.getBudgetId()));
 
                 budgetMapper.updateBudgetFromDto(request, existingBudget);
                 existingBudget.setUser(user);
+                existingBudget.setStartDate(request.getStartDate().toLocalDate().atStartOfDay());
+                if (request.getEndDate() != null) {
+                    existingBudget.setEndDate(request.getEndDate().toLocalDate().atTime(23, 59, 59));
+                }
+
                 updatedBudget = budgetRepository.save(existingBudget);
 
                 List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(updatedBudget);
-                List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
-                        user.getUserId(), categoryIds, request.getStartDate(), request.getEndDate());
 
+                List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
+                        user.getUserId(), categoryIds, request.getStartDate(), LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59));
+
+                log.info("size:" + transactions.size());
                 for (Transaction transaction : transactions) {
                     for (BudgetPeriod period : periods) {
                         if (!transaction.getTransactionDate().isBefore(period.getStartDate())
@@ -248,6 +258,9 @@ public class BudgetServiceImpl implements BudgetService {
                             period.setRemainingAmount(period.getRemainingAmount().subtract(transaction.getAmount()));
                         }
                     }
+                }
+                if (updatedBudget.getPeriodType() == PeriodType.DAILY){
+                    periods.removeFirst();
                 }
 
                 budgetPeriodRepository.saveAll(periods);
