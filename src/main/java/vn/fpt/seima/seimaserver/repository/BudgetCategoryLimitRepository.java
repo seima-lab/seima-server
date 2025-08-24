@@ -22,6 +22,12 @@ public interface BudgetCategoryLimitRepository extends JpaRepository<BudgetCateg
     @Query(value = "SELECT * FROM budget_category_limit WHERE  budget_id = :budgetId", nativeQuery = true)
     List<BudgetCategoryLimit> findByBudget(@Param("budgetId") Integer budgetId);
 
+    @Query("SELECT CASE WHEN COUNT(bc) > 0 THEN true ELSE false END " +
+            "FROM BudgetCategoryLimit bc " +
+            "WHERE bc.budget.budgetId = :budgetId AND bc.category.categoryId = :categoryId")
+    boolean existsByBudgetIdAndCategoryId(@Param("budgetId") Integer budgetId,
+                                          @Param("categoryId") Integer categoryId);
+
     void deleteByCategory_CategoryId(Integer categoryId);
 
 

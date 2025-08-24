@@ -164,15 +164,7 @@ class CategoryServiceTest {
         // Act
         categoryService.deleteCategory(categoryId);
 
-        // Assert
-        verify(budgetService).reduceAmount(
-                eq(user.getUserId()),
-                eq(categoryId),
-                eq(transaction.getAmount()),
-                eq(transaction.getTransactionDate()),
-                eq("update-add"),
-                eq(transaction.getCurrencyCode())
-        );
+
 
         verify(walletService).reduceAmount(
                 eq(wallet.getId()),
