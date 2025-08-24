@@ -40,7 +40,7 @@ public class GroupServiceImpl implements GroupService {
     private final GroupValidationService groupValidationService;
     
     // Constants for image validation
-    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     private static final List<String> SUPPORTED_FORMATS = Arrays.asList("jpg", "jpeg", "png", "gif", "webp");
 
     @Override
@@ -254,7 +254,7 @@ public class GroupServiceImpl implements GroupService {
         
         // Check file size
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new GroupException("Image file size must be less than 5MB");
+            throw new GroupException("Image file size must be less than 10MB");
         }
         
         // Check file format

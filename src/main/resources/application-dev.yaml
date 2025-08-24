@@ -110,7 +110,10 @@ spring:
             enable: true
           ssl:
             trust: smtp.gmail.com
-
+  servlet:
+    multipart:
+        max-file-size: 10MB
+        max-request-size: 10MB
 # Swagger configuration
 swagger:
   contact-name: ${app.contact-name}
@@ -170,3 +173,4 @@ google:
   cloud:
     credentials:
       location: manifest-sum-466914-k5-9ef54eb71147.json
+
