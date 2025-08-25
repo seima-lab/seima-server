@@ -23,12 +23,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/user")
+@RequestMapping("/api/diagnostic")
 public class TestController {
-
-    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
-
-
-
-
+    @GetMapping("/ip")
+    public ResponseEntity<Map<String, String>> getIp(HttpServletRequest request) {
+        Map<String, String> info = new HashMap<>();
+        info.put("IP_From_APIM", request.getRemoteAddr());
+        return ResponseEntity.ok(info);
+    }
 }
