@@ -22,6 +22,7 @@ import vn.fpt.seima.seimaserver.service.TransactionService;
 import vn.fpt.seima.seimaserver.util.UserUtils;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 
@@ -219,10 +220,14 @@ public class TransactionController {
     public ApiResponse<Page<TransactionResponse>> viewHistoryTransactionsByBudget(
             @PathVariable int id,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam("startDate") LocalDate startDate,
+            @RequestParam("endDate" ) LocalDate endDate
+
+    ) {
         try {
             Pageable pageable = PageRequest.of(page, size);
-            Page<TransactionResponse> transactions = transactionService.getTransactionByBudget(id, pageable);
+            Page<TransactionResponse> transactions = transactionService.getTransactionByBudget(id, pageable, startDate, endDate);
 
             return new ApiResponse<>(HttpStatus.OK.value(), "Transaction list retrieved successfully", transactions);
         } catch (Exception ex) {

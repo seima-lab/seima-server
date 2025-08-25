@@ -118,7 +118,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
                                              @Param("to") LocalDateTime to);
 
     @Query("SELECT t FROM Transaction t " +
-            "WHERE t.transactionType != 'INACTIVE' " +
+            "WHERE t.transactionType = 'EXPENSE'" +
             "AND t.transactionDate BETWEEN :startDate AND :endDate " +
             "and t.user.userId = :userId and " +
             "t.category.categoryId in (:categoryId) and " +
