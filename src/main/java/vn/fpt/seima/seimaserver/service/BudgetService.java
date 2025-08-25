@@ -22,7 +22,7 @@ public interface BudgetService {
 
     void deleteBudget(int id);
 
-    void reduceAmount(Integer userId, Integer categoryId, BigDecimal amount, LocalDateTime transactionDate, String type, String code);
+    void reduceAmount(Integer userId, Integer categoryId, BigDecimal amount, LocalDateTime transactionDate, String type, String code, Integer walletId);
 
     List<BudgetLastResponse> getLastBudget();
 

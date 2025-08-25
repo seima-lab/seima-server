@@ -19,4 +19,14 @@ public interface BudgetWalletRepository extends JpaRepository<BudgetWallet, Inte
 
     @Query("SELECT bw FROM BudgetWallet bw JOIN FETCH bw.budget WHERE bw.wallet.id = :walletId")
     List<BudgetWallet> findBudgetWalletsByWalletId(@Param("walletId") Integer walletId);
+
+    @Modifying
+    @Query(value = "SELECT  * FROM budget_wallet WHERE wallet_id = :walletId", nativeQuery = true)
+    List<BudgetWallet> getBudgetWalletByWallet(@Param("walletId") Integer walletId);
+
+    @Query("SELECT CASE WHEN COUNT(bw) > 0 THEN true ELSE false END " +
+            "FROM BudgetWallet bw " +
+            "WHERE bw.wallet.id = :walletId AND bw.budget.budgetId = :budgetId")
+    boolean existsBudgetWalletByWalletAndBudget(@Param("budgetId") Integer budgetId,
+                                                @Param("walletId") Integer walletId);
 }

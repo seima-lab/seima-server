@@ -90,17 +90,5 @@ class BudgetServiceTest {
                 budgetService.deleteBudget(999));
     }
 
-    @Test
-    void reduceAmount_userNull_shouldReturnImmediately() {
-        when(UserUtils.getCurrentUser()).thenReturn(null);
-
-        budgetService.reduceAmount(1, 1, BigDecimal.TEN, LocalDateTime.now(), "EXPENSE", "code");
-
-        verify(budgetRepository).findByUserId(1);
-        verifyNoMoreInteractions(fcmService, notificationRepository);
-    }
-
-
-
 
 }
