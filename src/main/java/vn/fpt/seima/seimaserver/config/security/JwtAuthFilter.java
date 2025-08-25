@@ -64,7 +64,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 path.equals("/api/v1/auth/set-new-password-after-verification") ||
                 path.equals("/invite/**") ||
                 path.equals("/api/v1/auth/hehe")||
-                path.equals("/api/v1/banks")
+                path.equals("/api/v1/banks")||
+                path.startsWith("api/diagnostic/ip")
         ) {
             System.out.println("✅ Bypass JWT Filter for: " + path);
             filterChain.doFilter(request, response);
