@@ -131,11 +131,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Intege
 
     @Query("SELECT t FROM Transaction t WHERE t.user.userId = :userId AND " +
             "t.transactionType = 'EXPENSE' AND t.category.categoryId in :categoryId AND " +
-            "t.transactionDate BETWEEN :from AND :to and t.group is null")
+            "t.transactionDate BETWEEN :from AND :to and t.group is null and t.wallet.id in :walletId")
     List<Transaction> listExpensesByCategoryAndMonth(@Param("userId") Integer userId,
-                                             @Param("categoryId") List<Integer> categoryId,
-                                             @Param("from") LocalDateTime from,
-                                             @Param("to") LocalDateTime to);
+                                                     @Param("categoryId") List<Integer> categoryId,
+                                                     @Param("from") LocalDateTime from,
+                                                     @Param("to") LocalDateTime to,
+                                                     @Param("walletId") List<Integer> walletId);
 
         @Query("select t from Transaction t where t.user.userId = :userId " +
                 "AND t.transactionDate BETWEEN :dateFrom AND :dateTo and t.group is null and t.wallet.id = :walletId and t.transactionType != 'INACTIVE'")
