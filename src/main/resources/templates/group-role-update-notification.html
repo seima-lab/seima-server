@@ -81,18 +81,10 @@
                     <td class="content-padding" style="padding: 20px 30px;">
                         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #eff6ff; border: 1px solid #93c5fd; border-radius: 6px;">
                             <tr>
-                                <td class="update-box-padding" style="padding: 20px;">
-                                    <p class="body-text" style="margin: 0 0 10px 0; color: #1e40af; font-weight: bold; font-size: 14px;">🔄 Member Role Update</p>
-                                    <p class="body-text" style="margin: 0 0 5px 0; color: #1e40af; font-size: 14px;">
-                                        <strong>Member:</strong> <span th:text="${updatedUserName}">User Name</span>
+                                <td class="update-box-padding" style="padding: 20px; text-align: center;">
+                                    <p class="body-text" style="margin: 0; color: #1e40af; font-size: 18px; font-weight: bold;">
+                                        <span th:text="${newRole}">ADMIN</span>
                                     </p>
-                                    <p class="body-text" style="margin: 0 0 5px 0; color: #1e40af; font-size: 14px;">
-                                        <strong>Previous Role:</strong> <span th:text="${previousRole}">MEMBER</span>
-                                    </p>
-                                    <p class="body-text" style="margin: 0 0 5px 0; color: #1e40af; font-size: 14px; font-weight: bold;">
-                                        <strong>New Role:</strong> <span th:text="${newRole}">ADMIN</span>
-                                    </p>
-                                    <p class="body-text" style="margin: 10px 0 0 0; color: #1d4ed8; font-size: 12px;" th:text="'Updated by: ' + ${updatedByUserName}">Updated by: Admin Name</p>
                                 </td>
                             </tr>
                         </table>
