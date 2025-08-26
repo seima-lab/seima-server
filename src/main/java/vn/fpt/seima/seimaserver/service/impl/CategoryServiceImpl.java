@@ -200,7 +200,7 @@ public class CategoryServiceImpl implements CategoryService {
                     transaction.getAmount(),
                     transaction.getTransactionDate(),
                     "update-add",
-                    transaction.getCurrencyCode(), transaction.getWallet().getId());
+                    transaction.getCurrencyCode(), transaction.getWallet().getId(), BigDecimal.ZERO);
             walletService.reduceAmount(transaction.getWallet().getId(),
                     transaction.getAmount(),
                     "update-add",
