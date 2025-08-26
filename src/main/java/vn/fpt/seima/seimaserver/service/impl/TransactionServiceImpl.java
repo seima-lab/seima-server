@@ -224,7 +224,7 @@ public class TransactionServiceImpl implements TransactionService {
                 } else {
 
                     if (transaction.getAmount().compareTo(request.getAmount()) < 0) {
-                        type = "update-subtract-budget";
+                        type = "update-subtract";
                         newAmount = request.getAmount().subtract(transaction.getAmount());
                         budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(),"update-subtract-budget" , request.getCurrencyCode(), request.getWalletId(), request.getAmount());
                         budgetService.reduceAmount(user.getUserId(), transaction.getCategory().getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(),"update-add" , request.getCurrencyCode(), transaction.getWallet().getId(), request.getAmount());
@@ -850,11 +850,12 @@ public class TransactionServiceImpl implements TransactionService {
 
             reportByWallet.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(reportItem);
         }
-
+        wallet.setCurrentBalance(wallet.getInitialBalance().add(totalIncome).subtract(totalExpense));
+        walletRepository.save(wallet);
         TransactionWalletResponse.Summary summary = TransactionWalletResponse.Summary.builder()
                 .totalIncome(totalIncome)
                 .totalExpense(totalExpense)
-                .currentBalance(wallet.getCurrentBalance())
+                .currentBalance(wallet.getInitialBalance().add(totalIncome).subtract(totalExpense))
                 .build();
 
         return TransactionWalletResponse.builder()
