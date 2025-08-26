@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -136,14 +137,16 @@ public class WalletServiceImpl implements WalletService {
         BigDecimal income = transactionRepository.sumIncomeWallet(id, currentUser.getUserId());
         BigDecimal expense = transactionRepository.sumExpenseWallet(id, currentUser.getUserId());
 
-        existingWallet.setCurrentBalance(existingWallet.getInitialBalance().add(income).subtract(expense));
-
         List<Transaction> transactions = transactionRepository.listTransactionByAllWallet(id, currentUser.getUserId());
-        for (Transaction transaction : transactions) {
-            YearMonth month = YearMonth.from(transaction.getTransactionDate());
+        Set<YearMonth> months = transactions.stream()
+                .map(t -> YearMonth.from(t.getTransactionDate()))
+                .collect(Collectors.toSet());
+
+        for (YearMonth month : months) {
             String cacheKey = buildOverviewKey(currentUser.getUserId(), month);
             redisService.delete(cacheKey);
         }
+
 
         String financialHealthKey = "financial_health:" + currentUser.getUserId();
         redisService.delete(financialHealthKey);
@@ -152,7 +155,9 @@ public class WalletServiceImpl implements WalletService {
             existingWallet.setCurrencyCode(request.getCurrencyCode());
         }
         walletMapper.updateEntity(existingWallet, request);
-
+        existingWallet.setCurrentBalance(existingWallet.getInitialBalance()
+                .add(income)
+                .subtract(expense));
         existingWallet = walletRepository.save(existingWallet);
         return walletMapper.toResponse(existingWallet);
     }
