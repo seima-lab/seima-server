@@ -57,7 +57,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/verify-forgot-password-otp",
                                 "/api/v1/auth/set-new-password-after-verification",
                                 "/api/v1/auth/hehe",
-                                "/api/v1/banks/**"// Example endpoint that does not require authentication
+                                "/api/v1/banks/**",// Example endpoint that does not require authentication
+                                "/api/diagnostic/ip"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
