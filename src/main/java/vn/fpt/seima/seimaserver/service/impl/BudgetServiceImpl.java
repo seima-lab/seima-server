@@ -288,7 +288,7 @@ public class BudgetServiceImpl implements BudgetService {
     @Override
     @Transactional
     public void reduceAmount(Integer userId, Integer categoryId, BigDecimal amount,
-                             LocalDateTime transactionDate, String type, String code, Integer walletId) {
+                             LocalDateTime transactionDate, String type, String code, Integer walletId,  BigDecimal updateAmount) {
         String title = null;
         String message = null;
         NotificationType notificationType = null;
@@ -300,11 +300,15 @@ public class BudgetServiceImpl implements BudgetService {
                 Collections.singletonList(user.getUserId())
         );
 
-
+        log.info("amount {}  | walletId: {} | type: {}", amount, walletId
+               , type);
         for (Budget budget : existingBudget) {
             boolean isLimits = budgetCategoryLimitRepository.existsByBudgetIdAndCategoryId(budget.getBudgetId(), categoryId);
             boolean isWallets = budgetWalletRepository.existsBudgetWalletByWalletAndBudget(budget.getBudgetId(), walletId);
-
+            log.info("isLimits {}  | isWallets: {}", isLimits, isWallets
+            );
+            log.info("budget {}  | categoryId: {} | walletId: {}", budget.getBudgetId(), categoryId, walletId
+            );
             if (isWallets && isLimits) {
                 List<BudgetPeriod> budgetPeriods =
                         budgetPeriodRepository.findByBudget_BudgetId(budget.getBudgetId());
@@ -335,6 +339,12 @@ public class BudgetServiceImpl implements BudgetService {
                             budgetPeriod.setRemainingAmount(newAmount);
                             break;
                         }
+                        case "update-subtract-budget": {
+                            BigDecimal newAmount = budgetPeriod.getRemainingAmount().subtract(updateAmount);
+                            budgetPeriod.setRemainingAmount(newAmount);
+                            break;
+                        }
+
                         default:
                             break;
                     }
