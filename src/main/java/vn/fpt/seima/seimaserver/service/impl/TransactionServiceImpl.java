@@ -112,14 +112,14 @@ public class TransactionServiceImpl implements TransactionService {
                     budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),
                             transaction.getAmount(), transaction.getTransactionDate(),
                             "EXPENSE", request.getCurrencyCode(),
-                            transaction.getWallet().getId());
+                            transaction.getWallet().getId(), BigDecimal.ZERO);
                     walletService.reduceAmount(request.getWalletId(), transaction.getAmount(),
                             "EXPENSE", request.getCurrencyCode()
                             );
                 }
 
                 if (type == TransactionType.INCOME) {
-                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "INCOME", request.getCurrencyCode(), transaction.getWallet().getId());
+                    budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(), "INCOME", request.getCurrencyCode(), transaction.getWallet().getId(), BigDecimal.ZERO);
                     walletService.reduceAmount(request.getWalletId(), transaction.getAmount(), "INCOME", request.getCurrencyCode());
                 }
                 YearMonth month = YearMonth.from(transaction.getTransactionDate());
@@ -169,7 +169,6 @@ public class TransactionServiceImpl implements TransactionService {
 
             Category category = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new IllegalArgumentException("Category not found"));
-            transaction.setCategory(category);
 
             if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("Amount must greater than zero");
@@ -199,27 +198,27 @@ public class TransactionServiceImpl implements TransactionService {
                         walletService.reduceAmount(request.getWalletId(),request.getAmount(), "update-add", request.getCurrencyCode());
                     }
                 }
-                transaction.setWallet(wallet);
                 BigDecimal newAmount = BigDecimal.ZERO;
                 String type = null;
-
+                log.info("transaction {}  | request: {}", transaction.getWallet().getId(), request.getWalletId()
+                );
                 if (transaction.getWallet().getId().equals(request.getWalletId())) {
                     //so sua lon hon cu
                     if (transaction.getAmount().compareTo(request.getAmount()) < 0) {
                         type = "update-subtract";
                         newAmount = request.getAmount().subtract(transaction.getAmount());
-                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type , request.getCurrencyCode(), transaction.getWallet().getId());
+                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type , request.getCurrencyCode(), transaction.getWallet().getId(), BigDecimal.ZERO);
                         walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
 
                     } else if (transaction.getAmount().compareTo(request.getAmount()) > 0) {
                         type = "update-add";
                         newAmount = transaction.getAmount().subtract(request.getAmount());
-                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode(), transaction.getWallet().getId() );
+                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode(), transaction.getWallet().getId(), BigDecimal.ZERO );
                         walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
                     }
                     else{
                         type = "no-update";
-                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode(), transaction.getWallet().getId() );
+                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode(), transaction.getWallet().getId(), BigDecimal.ZERO );
                         walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
                     }
                 } else {
@@ -227,18 +226,24 @@ public class TransactionServiceImpl implements TransactionService {
                     if (transaction.getAmount().compareTo(request.getAmount()) < 0) {
                         type = "update-subtract";
                         newAmount = request.getAmount().subtract(transaction.getAmount());
-                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type , request.getCurrencyCode(), request.getWalletId());
+                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(),"update-subtract-budget" , request.getCurrencyCode(), request.getWalletId(), request.getAmount());
+                        budgetService.reduceAmount(user.getUserId(), transaction.getCategory().getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(),"update-add" , request.getCurrencyCode(), transaction.getWallet().getId(), request.getAmount());
+
                         walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
 
                     } else if (transaction.getAmount().compareTo(request.getAmount()) > 0) {
                         type = "update-add";
                         newAmount = transaction.getAmount().subtract(request.getAmount());
-                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode(),request.getWalletId());
+                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(),"update-subtract-budget", request.getCurrencyCode(),request.getWalletId(), request.getAmount());
+                        budgetService.reduceAmount(user.getUserId(), transaction.getCategory().getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(),"update-add" , request.getCurrencyCode(), transaction.getWallet().getId(), request.getAmount());
+
                         walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
                     }
                     else{
                         type = "no-update";
-                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),newAmount, transaction.getTransactionDate(),type, request.getCurrencyCode(), request.getWalletId());
+                        budgetService.reduceAmount(user.getUserId(), request.getCategoryId(),transaction.getAmount(), transaction.getTransactionDate(),"update-subtract-budget", request.getCurrencyCode(), request.getWalletId(), request.getAmount());
+                        budgetService.reduceAmount(user.getUserId(), transaction.getCategory().getCategoryId(), transaction.getAmount(), transaction.getTransactionDate(),"update-add" , request.getCurrencyCode(), transaction.getWallet().getId(), request.getAmount());
+
                         walletService.reduceAmount(request.getWalletId(),newAmount, type, request.getCurrencyCode());
                     }
                 }
@@ -248,6 +253,8 @@ public class TransactionServiceImpl implements TransactionService {
                 String financialHealthKey = "financial_health:" + user.getUserId();
                 redisService.delete(cacheKey);
                 redisService.delete(financialHealthKey);
+                transaction.setCategory(category);
+                transaction.setWallet(wallet);
             }
             transactionMapper.updateTransactionFromDto(request, transaction);
             Transaction updatedTransaction = transactionRepository.save(transaction);
@@ -843,11 +850,12 @@ public class TransactionServiceImpl implements TransactionService {
 
             reportByWallet.computeIfAbsent(dateKey, k -> new ArrayList<>()).add(reportItem);
         }
-
+        wallet.setCurrentBalance(wallet.getInitialBalance().add(totalIncome).subtract(totalExpense));
+        walletRepository.save(wallet);
         TransactionWalletResponse.Summary summary = TransactionWalletResponse.Summary.builder()
                 .totalIncome(totalIncome)
                 .totalExpense(totalExpense)
-                .currentBalance(wallet.getCurrentBalance())
+                .currentBalance(wallet.getInitialBalance().add(totalIncome).subtract(totalExpense))
                 .build();
 
         return TransactionWalletResponse.builder()

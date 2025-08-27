@@ -104,6 +104,7 @@ public class BudgetServiceImpl implements BudgetService {
         }
 
         List<Integer> categoryIds = new ArrayList<>();
+        List<Integer> walletIds = new ArrayList<>();
         for (Category category : request.getCategoryList()) {
             categoryIds.add(category.getCategoryId());
         }
@@ -124,16 +125,23 @@ public class BudgetServiceImpl implements BudgetService {
             budgetCategoryLimitRepository.save(budgetCategoryLimit);
         }
         request.getWalletList().forEach(wallet -> {
+            walletIds.add(wallet.getId());
             BudgetWallet budgetWallet = new BudgetWallet();
             budgetWallet.setWallet(wallet);
             budgetWallet.setBudget(budget);
             budgetWalletRepository.save(budgetWallet);
         });
+        log.info("userId: {}", user.getUserId());
+        log.info("categoryIds: {}", categoryIds);
+        log.info("startDate: {}", request.getStartDate());
+        log.info("endDate: {}", LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59));
+        log.info("walletIds: {}", walletIds);
         List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
                 user.getUserId(),
                 categoryIds,
                 request.getStartDate(),
-                LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59)
+                LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59),
+                walletIds
         );
         List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(savedBudget);
 
@@ -141,10 +149,17 @@ public class BudgetServiceImpl implements BudgetService {
             for (BudgetPeriod period : periods) {
                 if (!transaction.getTransactionDate().isBefore(period.getStartDate()) &&
                         !transaction.getTransactionDate().isAfter(period.getEndDate())) {
+                    log.info("Before subtract: period {} - remaining={} - txn amount={}",
+                            period.getBudgetPeriodId(), period.getRemainingAmount(), transaction.getAmount());
+
                     period.setRemainingAmount(period.getRemainingAmount().subtract(transaction.getAmount()));
+
+                    log.info("After subtract: period {} - remaining={}",
+                            period.getBudgetPeriodId(), period.getRemainingAmount());
                 }
             }
         }
+
         if (savedBudget.getPeriodType() == PeriodType.DAILY) {
             periods.removeFirst();
         }
@@ -176,6 +191,8 @@ public class BudgetServiceImpl implements BudgetService {
             }
 
             List<Integer> categoryIds = new ArrayList<>();
+            List<Integer> walletIds = new ArrayList<>();
+
             budgetCategoryLimitRepository.deleteBudgetCategoryLimitByBudget(existingBudget.getBudgetId());
             for (Category category : request.getCategoryList()) {
                 BudgetCategoryLimit budgetCategoryLimit = new BudgetCategoryLimit();
@@ -186,6 +203,7 @@ public class BudgetServiceImpl implements BudgetService {
             }
             budgetWalletRepository.deleteBudgetWalletByBudget(existingBudget.getBudgetId());
             request.getWalletList().forEach(wallet -> {
+                walletIds.add(wallet.getId());
                 BudgetWallet budgetWallet = new BudgetWallet();
                 budgetWallet.setWallet(wallet);
                 budgetWallet.setBudget(existingBudget);
@@ -203,7 +221,7 @@ public class BudgetServiceImpl implements BudgetService {
                 }
 
                 List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
-                        user.getUserId(), categoryIds, existingBudget.getStartDate(), existingBudget.getEndDate());
+                        user.getUserId(), categoryIds, existingBudget.getStartDate(), existingBudget.getEndDate(), walletIds);
 
                 for (Transaction transaction : transactions) {
                     for (BudgetPeriod period : budgetPeriods) {
@@ -248,7 +266,7 @@ public class BudgetServiceImpl implements BudgetService {
                 List<BudgetPeriod> periods = budgetPeriodService.generateBudgetPeriods(updatedBudget);
 
                 List<Transaction> transactions = transactionRepository.listExpensesByCategoryAndMonth(
-                        user.getUserId(), categoryIds, request.getStartDate(), LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59));
+                        user.getUserId(), categoryIds, request.getStartDate(), LocalDateTime.of(LocalDate.now().getYear(), 12, 31, 23, 59, 59), walletIds);
 
                 log.info("size:" + transactions.size());
                 for (Transaction transaction : transactions) {
@@ -288,7 +306,7 @@ public class BudgetServiceImpl implements BudgetService {
     @Override
     @Transactional
     public void reduceAmount(Integer userId, Integer categoryId, BigDecimal amount,
-                             LocalDateTime transactionDate, String type, String code, Integer walletId) {
+                             LocalDateTime transactionDate, String type, String code, Integer walletId,  BigDecimal updateAmount) {
         String title = null;
         String message = null;
         NotificationType notificationType = null;
@@ -300,11 +318,15 @@ public class BudgetServiceImpl implements BudgetService {
                 Collections.singletonList(user.getUserId())
         );
 
-
+        log.info("amount {}  | walletId: {} | type: {}", amount, walletId
+               , type);
         for (Budget budget : existingBudget) {
             boolean isLimits = budgetCategoryLimitRepository.existsByBudgetIdAndCategoryId(budget.getBudgetId(), categoryId);
             boolean isWallets = budgetWalletRepository.existsBudgetWalletByWalletAndBudget(budget.getBudgetId(), walletId);
-
+            log.info("isLimits {}  | isWallets: {}", isLimits, isWallets
+            );
+            log.info("budget {}  | categoryId: {} | walletId: {}", budget.getBudgetId(), categoryId, walletId
+            );
             if (isWallets && isLimits) {
                 List<BudgetPeriod> budgetPeriods =
                         budgetPeriodRepository.findByBudget_BudgetId(budget.getBudgetId());
@@ -335,6 +357,12 @@ public class BudgetServiceImpl implements BudgetService {
                             budgetPeriod.setRemainingAmount(newAmount);
                             break;
                         }
+                        case "update-subtract-budget": {
+                            BigDecimal newAmount = budgetPeriod.getRemainingAmount().subtract(updateAmount);
+                            budgetPeriod.setRemainingAmount(newAmount);
+                            break;
+                        }
+
                         default:
                             break;
                     }
