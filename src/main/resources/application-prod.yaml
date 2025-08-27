@@ -57,7 +57,7 @@ app:
       subject: "Seima - Member Removed Notification"
     sender:
       name: "Seima Team"
-      email: "noreply@seima.app"
+      email: "seima.app.vn@gmail.com"
 
 
 # Server configuration
