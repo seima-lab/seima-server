@@ -26,14 +26,12 @@ public class EmailServiceImpl implements EmailService {
     @Autowired
     private JavaMailSender javaMailSender;
 
-    @Value("${spring.mail.username}")
-    private String fromEmail;
-
-    @Value("${app.email.sender.name:Seima Team}")
+    @Value("${app.email.sender.sender-name}")
     private String senderName;
 
-    @Value("${app.email.sender.email:noreply@seima.app}")
-    private String senderEmail;
+    @Value("${app.email.sender.from-address}")
+    private String fromEmail;
+
 
     // 1.Send mail simple Text
     @Override
@@ -119,7 +117,7 @@ public class EmailServiceImpl implements EmailService {
             logger.info("=== END EMAIL LOG ===");
             return;
         }
-        
+
         try {
             MimeMessage mimeMessage = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
@@ -127,15 +125,17 @@ public class EmailServiceImpl implements EmailService {
             String htmlContent = templateEngine.process(templateName, context);
 
             helper.setTo(to);
+            // SỬ DỤNG CÁC BIẾN MỚI, ĐÃ ĐƯỢC TÁCH BẠCH
             helper.setFrom(senderName + " <" + fromEmail + ">");
             helper.setSubject(subject);
-            helper.setText(htmlContent, true); // true = isHtml
+            helper.setText(htmlContent, true);
+
             javaMailSender.send(mimeMessage);
             logger.info("Template Email sent successfully to {}", to);
-        } catch (MessagingException e) {
-            logger.error("Error sending template email: {}", e.getMessage());
-            // Log the email for debugging
-            logger.info("Failed email - To: {}, Subject: {}, Template: {}", to, subject, templateName);
+        } catch (Exception e) { // Bắt Exception chung để an toàn hơn
+            // Log lỗi chi tiết hơn
+            logger.error("Error sending template email to {}: {}", to, e.getMessage());
+            logger.debug("Exception stacktrace: ", e); // Log stacktrace ở level DEBUG
         }
     }
 }
