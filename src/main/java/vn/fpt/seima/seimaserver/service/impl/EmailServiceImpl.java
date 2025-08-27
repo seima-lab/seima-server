@@ -26,10 +26,10 @@ public class EmailServiceImpl implements EmailService {
     @Autowired
     private JavaMailSender javaMailSender;
 
-    @Value("${app.email.sender.sender-name}")
+    @Value("${app.email.sender-name}")
     private String senderName;
 
-    @Value("${app.email.sender.from-address}")
+    @Value("${app.email.from-address}")
     private String fromEmail;
 
 

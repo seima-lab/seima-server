@@ -55,9 +55,8 @@ app:
     group-member-removed-notification:
       html-template: "group-member-removed-notification"
       subject: "Seima - Member Removed Notification"
-    sender:
-      from-address: seima.app.vn@gmail.com
-      sender-name: Seima Lab
+    from-address: seima.app.vn@gmail.com
+    sender-name: Seima Lab
 
 
 # Server configuration
