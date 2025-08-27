@@ -96,7 +96,7 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
             int budgetScore = 0;
 
             for (Budget budget : budgets) {
-                int count = budgetPeriodRepository.countNegativeRemaining(budget, BudgetPeriodStatus.ACTIVE);
+                int count = budgetPeriodRepository.countNegativeRemaining(budget, BudgetPeriodStatus.ACTIVE, LocalDateTime.now());
                 if (count > 0) {
                     budgetScore++;
                 }
@@ -175,7 +175,7 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
         LocalDateTime updateAt = LocalDateTime.now();
         BigDecimal balance = walletRepository.sumBalanceByUserId(currentUser.getUserId());
 
-        saveToRedisAndNotifyIfChanged(currentUser, finalScore,balance ,level, fcmTokens, updateAt);
+//        saveToRedisAndNotifyIfChanged(currentUser, finalScore,balance ,level, fcmTokens, updateAt);
         return  FinancialHealthResponse.builder()
                 .score(finalScore)
                 .level(level)
